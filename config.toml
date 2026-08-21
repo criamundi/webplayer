@@ -1,0 +1,5 @@
+[functions.stream-proxy]
+verify_jwt = false
+
+[functions.conn-diagnostic]
+verify_jwt = false
