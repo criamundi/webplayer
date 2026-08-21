@@ -79,21 +79,6 @@ Deno.serve(async (req: Request) => {
     const upstreamHeaders =
       new Headers();
 
-    const upstreamController =
-      new AbortController();
-
-    const abortUpstream = () => {
-      if (!upstreamController.signal.aborted) {
-        upstreamController.abort();
-      }
-    };
-
-    if (req.signal.aborted) {
-      abortUpstream();
-    } else {
-      req.signal.addEventListener("abort", abortUpstream, { once: true });
-    }
-
     // Importante para VOD
     const range =
       req.headers.get("range");
@@ -137,7 +122,7 @@ Deno.serve(async (req: Request) => {
            * Se a requisição for cancelada,
            * tenta cancelar o upstream também.
            */
-          signal: upstreamController.signal,
+          signal: req.signal,
         },
       );
 
@@ -230,8 +215,6 @@ Deno.serve(async (req: Request) => {
      * HEAD não retorna body.
      */
     if (req.method === "HEAD") {
-      abortUpstream();
-
       return new Response(
         null,
         {
@@ -247,57 +230,8 @@ Deno.serve(async (req: Request) => {
      * Não converte para Blob,
      * arrayBuffer ou texto.
      */
-    if (!upstream.body) {
-      abortUpstream();
-
-      return new Response(null, {
-        status: upstream.status,
-        headers: responseHeaders,
-      });
-    }
-
-    /*
-     * Ponte explícita: quando o player cancela a resposta, o reader
-     * e o fetch upstream também são encerrados imediatamente.
-     */
-    const reader = upstream.body.getReader();
-
-    const body = new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            req.signal.removeEventListener("abort", abortUpstream);
-            controller.close();
-            return;
-          }
-
-          controller.enqueue(value);
-        } catch (error) {
-          if (upstreamController.signal.aborted) {
-            controller.close();
-            return;
-          }
-
-          controller.error(error);
-        }
-      },
-
-      async cancel(reason) {
-        abortUpstream();
-        req.signal.removeEventListener("abort", abortUpstream);
-
-        try {
-          await reader.cancel(reason);
-        } catch {
-          // O upstream pode já ter sido encerrado.
-        }
-      },
-    });
-
     return new Response(
-      body,
+      upstream.body,
       {
         status: upstream.status,
         headers: responseHeaders,

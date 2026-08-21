@@ -318,9 +318,8 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-xs font-medium text-white/60">Conexões da linha (referência)</span>
+              <span className="mb-2 block text-xs font-medium text-white/60">Conexões máximas</span>
               <input type="number" min={1} max={10} value={maxConnections} onChange={(e) => setMaxConnections(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" />
-              <span className="mt-1.5 block text-[10px] leading-4 text-white/35">Este valor organiza o Web Player; o limite real deve ser configurado no painel do provedor.</span>
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-white/60">Validade (dias)</span>

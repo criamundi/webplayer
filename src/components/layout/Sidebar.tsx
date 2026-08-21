@@ -46,10 +46,7 @@ export function Sidebar({ view, setView, open, onClose, onSignOut }: SidebarProp
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-300 text-slate-950 shadow-lg shadow-lime-300/20">
             <Tv className="h-6 w-6" />
           </div>
-          <div className="lg:hidden">
-            <span className="block text-sm font-bold tracking-wide">NEXUS PLAY</span>
-            <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.18em] text-lime-300/70">Beta 0.1</span>
-          </div>
+          <span className="text-sm font-bold tracking-wide lg:hidden">NEXUS PLAY</span>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1.5 lg:items-center">

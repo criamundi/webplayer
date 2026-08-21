@@ -33,8 +33,7 @@ type PlayerStatus =
   | 'error';
 
 const START_TIMEOUT = 15000;
-/* Alguns servidores demoram para liberar active_cons após a troca. */
-const SWITCH_DELAY = 1200;
+const SWITCH_DELAY = 350;
 
 export function VideoPlayer({
   channel,
@@ -778,42 +777,15 @@ export function VideoPlayer({
         setStatus('playing');
       };
 
-    const onNativeError =
-      () => {
-        if (
-          generation !==
-          generationRef.current
-        ) {
-          return;
-        }
-
-        fail(
-          generation,
-          'Não foi possível reproduzir este canal.',
-        );
-
-        destroyPlayback();
-      };
-
     video.addEventListener(
       'playing',
       onPlaying,
-    );
-
-    video.addEventListener(
-      'error',
-      onNativeError,
     );
 
     return () => {
       video.removeEventListener(
         'playing',
         onPlaying,
-      );
-
-      video.removeEventListener(
-        'error',
-        onNativeError,
       );
 
       destroyPlayback();

@@ -39,7 +39,7 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-300 text-slate-950 shadow-lg shadow-lime-300/20"><Radio className="h-6 w-6" /></div>
             <div>
               <span className="block text-sm font-bold tracking-wide">PAINEL ADMIN</span>
-              <span className="block text-[10px] text-white/35">Nexus Play · Beta 0.1</span>
+              <span className="block text-[10px] text-white/35">Nexus Play IPTV</span>
             </div>
           </div>
 

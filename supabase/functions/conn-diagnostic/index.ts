@@ -75,15 +75,6 @@ interface ApiInfo {
   raw_server_info: Record<string, unknown> | null;
 }
 
-function nullableNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
 async function queryPlayerApi(line: LineInfo): Promise<{ result: ApiInfo; httpStatus: number; ok: boolean; error?: string }> {
   const apiUrl = new URL(`${line.host}/player_api.php`);
   apiUrl.searchParams.set("username", line.username);
@@ -142,10 +133,10 @@ async function queryPlayerApi(line: LineInfo): Promise<{ result: ApiInfo; httpSt
 
     return {
       result: {
-        auth: nullableNumber(userInfo["auth"]),
+        auth: typeof userInfo["auth"] === "number" ? userInfo["auth"] as number : null,
         status: typeof userInfo["status"] === "string" ? userInfo["status"] as string : (typeof userInfo["status"] === "number" ? String(userInfo["status"]) : null),
-        active_cons: nullableNumber(userInfo["active_cons"]),
-        max_connections: nullableNumber(userInfo["max_connections"]),
+        active_cons: typeof userInfo["active_cons"] === "number" ? userInfo["active_cons"] as number : null,
+        max_connections: typeof userInfo["max_connections"] === "number" ? userInfo["max_connections"] as number : null,
         exp_date: expDate,
         is_trial: typeof userInfo["is_trial"] === "string" ? userInfo["is_trial"] as string : (typeof userInfo["is_trial"] === "number" ? String(userInfo["is_trial"]) : null),
         server_info: serverInfo,
