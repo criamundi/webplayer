@@ -16,6 +16,8 @@ export interface ContentInfo {
   rating?: string;
   backdrop?: string;
   cover?: string;
+  titleLogo?: string;
+  trailerKey?: string;
 }
 
 export interface CatalogItem extends Channel {
@@ -116,16 +118,18 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
   const raw = await response.json() as Record<string, unknown>;
   const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
   const movieData = (raw.movie_data && typeof raw.movie_data === 'object' ? raw.movie_data : {}) as Record<string, unknown>;
+  const tmdb = (raw._tmdb && typeof raw._tmdb === 'object' ? raw._tmdb : {}) as Record<string, unknown>;
   const backdrop = normalizeBackdrop(
-    info.backdrop_path ?? info.backdrop ?? movieData.backdrop_path ?? movieData.backdrop ?? raw.backdrop_path ?? raw.backdrop,
+    tmdb.backdrop ?? info.backdrop_path ?? info.backdrop ?? movieData.backdrop_path ?? movieData.backdrop ?? raw.backdrop_path ?? raw.backdrop,
   ) ?? findBackdrop(raw);
   const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 
   return {
-    name: text(info.name ?? movieData.name), plot: text(info.plot ?? info.description), cast: text(info.cast),
-    director: text(info.director), genre: text(info.genre), releaseDate: text(info.release_date ?? info.releasedate),
-    duration: text(info.duration), rating: text(info.rating ?? info.rating_5based), backdrop,
-    cover: text(info.movie_image ?? info.cover_big ?? movieData.stream_icon),
+    name: text(tmdb.name ?? info.name ?? movieData.name), plot: text(tmdb.plot ?? info.plot ?? info.description), cast: text(tmdb.cast ?? info.cast),
+    director: text(tmdb.director ?? info.director), genre: text(tmdb.genre ?? info.genre), releaseDate: text(tmdb.releaseDate ?? info.release_date ?? info.releasedate),
+    duration: text(tmdb.duration ?? info.duration), rating: text(tmdb.rating ?? info.rating ?? info.rating_5based), backdrop,
+    cover: text(tmdb.poster ?? info.movie_image ?? info.cover_big ?? movieData.stream_icon),
+    titleLogo: text(tmdb.logo), trailerKey: text(tmdb.trailerKey ?? info.youtube_trailer),
   };
 }
 

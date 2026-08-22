@@ -49,6 +49,10 @@ export function SettingsView({ channelCount, favoriteCount, onSignOut }: Setting
           <LogOut className="h-4 w-4" /> Desconectar e trocar credenciais
         </button>
       </div>
+
+      <p className="text-[11px] leading-5 text-white/25">
+        Este produto utiliza a API do TMDB, mas não é endossado ou certificado pelo TMDB.
+      </p>
     </div>
   );
 }

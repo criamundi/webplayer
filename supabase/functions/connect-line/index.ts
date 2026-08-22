@@ -24,6 +24,8 @@ const serviceRoleKey =
     "SUPABASE_SERVICE_ROLE_KEY",
   ) ?? "";
 
+const tmdbReadToken = Deno.env.get("TMDB_READ_TOKEN") ?? "";
+
 const adminClient =
   createClient(
     supabaseUrl,
@@ -601,7 +603,78 @@ Deno.serve(
           });
           if (!infoResponse.ok) return json({ error: "Metadados indisponíveis." }, 502);
           const info = await infoResponse.json();
-          return json(info);
+
+          if (!tmdbReadToken) return json(info);
+
+          const providerInfo = info?.info && typeof info.info === "object" ? info.info : {};
+          const movieData = info?.movie_data && typeof info.movie_data === "object" ? info.movie_data : {};
+          let tmdbId = String(providerInfo.tmdb_id ?? providerInfo.tmdb ?? movieData.tmdb_id ?? movieData.tmdb ?? "").replace(/\D/g, "");
+          const providerName = String(providerInfo.name ?? movieData.name ?? "").replace(/\s*\[(?:E|LEG|DUB)\].*$/i, "").trim();
+          const providerYear = String(providerInfo.release_date ?? providerInfo.releasedate ?? "").match(/(?:19|20)\d{2}/)?.[0] ?? "";
+
+          const tmdbFetch = async (path: string, params: Record<string, string>) => {
+            const url = new URL(`https://api.themoviedb.org/3${path}`);
+            url.search = new URLSearchParams(params).toString();
+            return fetch(url, {
+              headers: { Authorization: `Bearer ${tmdbReadToken}`, Accept: "application/json" },
+              signal: infoController.signal,
+            });
+          };
+
+          if (!tmdbId && providerName) {
+            const searchResponse = await tmdbFetch("/search/movie", {
+              query: providerName,
+              language: "pt-BR",
+              include_adult: "false",
+              ...(providerYear ? { year: providerYear } : {}),
+            });
+            if (searchResponse.ok) {
+              const search = await searchResponse.json();
+              tmdbId = String(search?.results?.[0]?.id ?? "");
+            }
+          }
+
+          if (!tmdbId) return json(info);
+
+          const detailResponse = await tmdbFetch(`/movie/${tmdbId}`, {
+            language: "pt-BR",
+            append_to_response: "images,videos,credits",
+            include_image_language: "pt,en,null",
+            include_video_language: "pt-BR,pt,en-US,en,null",
+          });
+          if (!detailResponse.ok) return json(info);
+
+          const detail = await detailResponse.json();
+          const imageUrl = (path: unknown) => typeof path === "string" && path ? `https://image.tmdb.org/t/p/original${path}` : "";
+          const logos = Array.isArray(detail?.images?.logos) ? detail.images.logos : [];
+          const logoRank = (item: Record<string, unknown>) => item.iso_639_1 === "pt" ? 3 : item.iso_639_1 === "en" ? 2 : 1;
+          logos.sort((a: Record<string, unknown>, b: Record<string, unknown>) => logoRank(b) - logoRank(a) || Number(b.vote_average ?? 0) - Number(a.vote_average ?? 0));
+          const videos = Array.isArray(detail?.videos?.results) ? detail.videos.results : [];
+          const trailer = videos
+            .filter((item: Record<string, unknown>) => item.site === "YouTube" && (item.type === "Trailer" || item.type === "Teaser"))
+            .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.official === true) - Number(a.official === true) || (b.type === "Trailer" ? 1 : 0) - (a.type === "Trailer" ? 1 : 0))[0];
+          const crew = Array.isArray(detail?.credits?.crew) ? detail.credits.crew : [];
+          const cast = Array.isArray(detail?.credits?.cast) ? detail.credits.cast : [];
+          const directors = crew.filter((item: Record<string, unknown>) => item.job === "Director").map((item: Record<string, unknown>) => item.name).filter(Boolean).slice(0, 3).join(", ");
+
+          return json({
+            ...info,
+            _tmdb: {
+              id: tmdbId,
+              name: detail.title,
+              backdrop: imageUrl(detail.backdrop_path),
+              poster: imageUrl(detail.poster_path),
+              logo: imageUrl(logos[0]?.file_path),
+              trailerKey: trailer?.key ?? "",
+              plot: detail.overview,
+              releaseDate: detail.release_date,
+              duration: Number(detail.runtime) > 0 ? `${Math.floor(Number(detail.runtime) / 60)} h ${Number(detail.runtime) % 60} min` : "",
+              genre: Array.isArray(detail.genres) ? detail.genres.map((item: Record<string, unknown>) => item.name).filter(Boolean).join(", ") : "",
+              rating: Number(detail.vote_average) > 0 ? Number(detail.vote_average).toFixed(1) : "",
+              director: directors,
+              cast: cast.map((item: Record<string, unknown>) => item.name).filter(Boolean).slice(0, 6).join(", "),
+            },
+          });
         } catch {
           return json({ error: "Não foi possível carregar os metadados." }, 502);
         } finally {
