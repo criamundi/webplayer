@@ -256,8 +256,8 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info"
-          ? "content-info"
+        body.action === "content-info" || body.action === "home-catalog"
+          ? body.action
           : "playlist";
 
       const streamId =
@@ -501,6 +501,70 @@ Deno.serve(
           },
           502,
         );
+      }
+
+      /* Catálogo oficial: datas e avaliações reais do provedor. */
+      if (action === "home-catalog") {
+        const makeApiUrl = (apiAction: string) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php")
+            ? url.pathname.slice(0, url.pathname.lastIndexOf("/"))
+            : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({ username, password, action: apiAction }).toString();
+          return url;
+        };
+
+        const catalogController = new AbortController();
+        const catalogTimeout = setTimeout(() => catalogController.abort(), 15000);
+        try {
+          const [vodResponse, seriesResponse] = await Promise.all([
+            fetch(makeApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+            fetch(makeApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+          ]);
+          if (!vodResponse.ok || !seriesResponse.ok) return json({ error: "Catálogo indisponível." }, 502);
+          const vodRaw = await vodResponse.json();
+          const seriesRaw = await seriesResponse.json();
+          const vod = Array.isArray(vodRaw) ? vodRaw : [];
+          const series = Array.isArray(seriesRaw) ? seriesRaw : [];
+          const root = new URL(serverUrl.toString());
+          const rootPath = root.pathname.toLowerCase().endsWith(".php")
+            ? root.pathname.slice(0, root.pathname.lastIndexOf("/"))
+            : root.pathname.replace(/\/$/, "");
+          const movieUrl = (item: Record<string, unknown>) => {
+            const id = String(item.stream_id ?? "");
+            const extension = String(item.container_extension ?? "mp4").replace(/[^a-z0-9]/gi, "") || "mp4";
+            return `${root.origin}${rootPath}/movie/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${id}.${extension}`;
+          };
+          const rating = (item: Record<string, unknown>) => String(item.rating_5based ?? item.rating ?? "");
+          const backdrop = (value: unknown) => {
+            if (Array.isArray(value)) return value.find((entry) => typeof entry === "string") ?? "";
+            if (typeof value !== "string") return "";
+            try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed[0] ?? "" : value; } catch { return value; }
+          };
+          const movies = vod
+            .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.added ?? 0) - Number(a.added ?? 0))
+            .slice(0, 11)
+            .map((item: Record<string, unknown>) => ({
+              id: `movie:${item.stream_id}`, streamId: String(item.stream_id ?? ""), name: String(item.name ?? "Sem título"),
+              url: movieUrl(item), logo: String(item.stream_icon ?? ""), rating: rating(item), added: String(item.added ?? ""),
+              contentType: "movie", backdrop: backdrop(item.backdrop_path),
+            }));
+          const shows = series
+            .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.last_modified ?? b.added ?? 0) - Number(a.last_modified ?? a.added ?? 0))
+            .slice(0, 10)
+            .map((item: Record<string, unknown>) => ({
+              id: `series:${item.series_id}`, streamId: String(item.series_id ?? ""), name: String(item.name ?? "Sem título"),
+              url: "", logo: String(item.cover ?? item.stream_icon ?? ""), rating: rating(item),
+              added: String(item.last_modified ?? item.added ?? ""), contentType: "series",
+              backdrop: backdrop(item.backdrop_path), plot: String(item.plot ?? ""), genre: String(item.genre ?? ""),
+            }));
+          return json({ movies, series: shows });
+        } catch {
+          return json({ error: "Não foi possível carregar o catálogo." }, 502);
+        } finally {
+          clearTimeout(catalogTimeout);
+        }
       }
 
       /* Metadados completos do filme para o hero. */

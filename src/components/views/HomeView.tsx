@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Film, Heart, Play, Radio, Sparkles, Star, Tv } from 'lucide-react';
 import type { Channel } from '@/types';
-import { getChannels } from '@/lib/playlistStore';
-import { loadContentInfo, type ContentInfo } from '@/lib/provider';
+import { loadContentInfo, loadHomeCatalog, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 
 interface HomeViewProps {
@@ -11,7 +10,7 @@ interface HomeViewProps {
   onToggleFavorite: (id: string) => void;
   onNavigate: (view: View) => void;
 }
-interface PosterShelfProps { title: string; items: Channel[]; onViewAll: () => void; onSelect: (channel: Channel) => void; }
+interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
 function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -40,6 +39,7 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#111a20] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-emerald-400/40">
                 {channel.logo ? <img src={channel.logo} alt={channel.name} loading="lazy" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/0 to-black/10" />
+                {channel.rating && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
                 <span className="absolute inset-0 bg-emerald-300/0 transition duration-500 group-hover:bg-emerald-300/[0.04]" />
                 <div className="absolute inset-x-0 bottom-0 p-3 text-left"><p className="truncate text-sm font-semibold text-white">{channel.name}</p>{channel.group && <p className="mt-0.5 truncate text-[10px] text-white/45">{channel.group}</p>}</div>
               </div>
@@ -52,46 +52,30 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
   );
 }
 
-function seriesTitle(name: string) {
-  return name.replace(/\s+(?:S\d{1,3}E\d{1,4}|\d{1,3}x\d{1,4})(?:\s.*)?$/i, '').trim();
-}
-
-function uniqueRecentSeries(items: Channel[]) {
-  const seen = new Set<string>();
-  const result: Channel[] = [];
-  for (const item of items) {
-    const title = seriesTitle(item.name);
-    const key = title.toLocaleLowerCase('pt-BR');
-    if (!title || seen.has(key)) continue;
-    seen.add(key);
-    result.push({ ...item, name: title });
-    if (result.length === 10) break;
-  }
-  return result;
-}
-
 export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate }: HomeViewProps) {
-  const [heroItem, setHeroItem] = useState<Channel | null>(null);
+  const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
-  const [movies, setMovies] = useState<Channel[]>([]);
-  const [series, setSeries] = useState<Channel[]>([]);
+  const [movies, setMovies] = useState<CatalogItem[]>([]);
+  const [series, setSeries] = useState<CatalogItem[]>([]);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getChannels('movies', 11, 0), getChannels('series', 150, 0)]).then(([movieItems, seriesItems]) => {
+    void loadHomeCatalog().then((catalog) => {
       if (!active) return;
+      const movieItems = catalog?.movies ?? [];
       const featured = movieItems[0] ?? null;
       setHeroItem(featured);
       setMovies(featured ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
-      setSeries(uniqueRecentSeries(seriesItems));
+      setSeries((catalog?.series ?? []).slice(0, 10));
       if (featured) void loadContentInfo(featured).then((info) => { if (active) setHeroInfo(info); });
     }).catch((error) => console.warn('Não foi possível carregar a vitrine da Home:', error));
     return () => { active = false; };
   }, []);
 
-  const heroBackground = heroInfo?.backdrop || heroInfo?.cover || heroItem?.logo;
+  const heroBackground = heroInfo?.backdrop || heroItem?.backdrop || heroInfo?.cover || heroItem?.logo;
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
-  const metadata = [heroInfo?.rating, releaseYear, heroInfo?.duration, heroInfo?.genre].filter(Boolean);
+  const heroRating = heroInfo?.rating || heroItem?.rating;
+  const metadata = [heroRating, releaseYear, heroInfo?.duration, heroInfo?.genre].filter(Boolean);
 
   return (
     <div className="home-page -mx-5 -mt-[68px] sm:-mx-8 lg:-mx-10 lg:-mt-20">
@@ -101,7 +85,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         <div className="relative z-10 flex min-h-[100svh] max-w-2xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> Destaque</span>
           <h1 className="max-w-2xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">{heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'}</h1>
-          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.rating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroInfo.rating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroInfo?.duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{heroInfo.duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
+          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroInfo?.duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{heroInfo.duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-white/62">{heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'}</p>
           {heroInfo?.cast && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">Elenco:</span> {heroInfo.cast}</p>}
           {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button><button onClick={() => onToggleFavorite(heroItem.id)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
@@ -114,8 +98,8 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           ))}
         </div>
         <div className="space-y-12 pb-16 pt-10">
-          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={onSelectChannel} />
-          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={onSelectChannel} />
+          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} />
+          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={() => onNavigate('series')} />
         </div>
       </div>
     </div>

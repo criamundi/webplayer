@@ -18,6 +18,29 @@ export interface ContentInfo {
   cover?: string;
 }
 
+export interface CatalogItem extends Channel {
+  rating?: string;
+  added?: string;
+  backdrop?: string;
+  plot?: string;
+  genre?: string;
+  streamId?: string;
+  contentType: 'movie' | 'series';
+}
+
+export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> {
+  const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
+  if (!credentials?.provider || !credentials.username || !credentials.password) return null;
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+    body: JSON.stringify({ ...credentials, action: 'home-catalog' }),
+  });
+  if (!response.ok) return null;
+  const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
+  return { movies: Array.isArray(result.movies) ? result.movies : [], series: Array.isArray(result.series) ? result.series : [] };
+}
+
 function streamIdFromUrl(url: string): string | null {
   const match = url.match(/\/(\d+)(?:\.[a-z0-9]+)?(?:\?.*)?$/i);
   return match?.[1] ?? null;
@@ -38,7 +61,10 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
   const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
   const movieData = (raw.movie_data && typeof raw.movie_data === 'object' ? raw.movie_data : {}) as Record<string, unknown>;
   const backdropValue = info.backdrop_path ?? info.backdrop;
-  const backdrop = Array.isArray(backdropValue) ? backdropValue.find((value) => typeof value === 'string') : backdropValue;
+  let backdrop: unknown = Array.isArray(backdropValue) ? backdropValue.find((value) => typeof value === 'string') : backdropValue;
+  if (typeof backdrop === 'string' && backdrop.trim().startsWith('[')) {
+    try { const parsed = JSON.parse(backdrop); backdrop = Array.isArray(parsed) ? parsed[0] : backdrop; } catch { /* usa valor original */ }
+  }
   const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 
   return {
