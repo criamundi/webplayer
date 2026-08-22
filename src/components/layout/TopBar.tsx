@@ -5,15 +5,16 @@ interface TopBarProps {
   setQuery: (q: string) => void;
   onMenuOpen: () => void;
   onSignOut: () => void;
+  home?: boolean;
 }
 
-export function TopBar({ query, setQuery, onMenuOpen, onSignOut }: TopBarProps) {
+export function TopBar({ query, setQuery, onMenuOpen, onSignOut, home = false }: TopBarProps) {
   const now = new Date();
   const formattedDate = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
   const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <header className="flex items-center justify-between gap-5 py-5 lg:py-0">
+    <header className={`relative z-30 flex items-center justify-between gap-5 py-5 lg:py-0 ${home ? 'pointer-events-none' : ''}`}>
       <div className="flex items-center gap-3 lg:hidden">
         <button onClick={onMenuOpen} className="rounded-xl bg-white/5 p-2.5 text-white/70">
           <Menu className="h-5 w-5" />
@@ -26,7 +27,7 @@ export function TopBar({ query, setQuery, onMenuOpen, onSignOut }: TopBarProps) 
         </div>
       </div>
 
-      <div className="relative hidden max-w-sm flex-1 lg:block">
+      <div className={`relative hidden max-w-sm flex-1 lg:block ${home ? 'invisible' : ''}`}>
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
         <input
           value={query}
@@ -36,7 +37,7 @@ export function TopBar({ query, setQuery, onMenuOpen, onSignOut }: TopBarProps) 
         />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-3 ${home ? 'pointer-events-auto' : ''}`}>
         <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 sm:flex">
           <CalendarDays className="h-4 w-4 text-lime-300" />
           <div>

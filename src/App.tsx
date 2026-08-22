@@ -1851,25 +1851,14 @@ export default function App() {
             onSignOut={
               handleSignOut
             }
+            home={view === 'home'}
           />
 
           {view ===
             'home' && (
             <HomeView
-              channels={
-                channels
-              }
-              recents={
-                recents
-              }
-              favorites={
-                favorites
-              }
               onSelectChannel={
                 handleSelectChannel
-              }
-              onToggleFavorite={
-                handleToggleFavorite
               }
               onNavigate={
                 handleNavigate
