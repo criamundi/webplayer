@@ -1465,6 +1465,8 @@ export default function App() {
       (
         id:
           string,
+        channel?:
+          Channel,
       ) => {
         setFavorites(
           (
@@ -1483,10 +1485,12 @@ export default function App() {
               next.delete(
                 id,
               );
+              storage.removeFavoriteItem(id);
             } else {
               next.add(
                 id,
               );
+              if (channel) storage.saveFavoriteItem(channel);
             }
 
             storage.saveFavorites(
@@ -1510,13 +1514,16 @@ export default function App() {
 
   const handleLoadFavorites =
     useCallback(
-      () =>
-        getChannelsByIds(
-          Array.from(
-            favorites,
-          ),
+      async () => {
+        const ids = Array.from(favorites);
+        const stored = await getChannelsByIds(
+          ids,
           500,
-        ),
+        );
+        const storedById = new Map(stored.map((item) => [item.id, item]));
+        const catalogItems = storage.getFavoriteItems();
+        return ids.map((id) => storedById.get(id) ?? catalogItems[id]).filter(Boolean) as Channel[];
+      },
       [
         favorites,
       ],

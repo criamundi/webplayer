@@ -3,6 +3,7 @@ import type { Channel, Playlist } from '@/types';
 const PLAYLISTS_KEY = 'iptv:playlists';
 const CHANNELS_KEY = 'iptv:channels';
 const FAVORITES_KEY = 'iptv:favorites';
+const FAVORITE_ITEMS_KEY = 'iptv:favorite-items';
 const RECENTS_KEY = 'iptv:recents';
 const CREDENTIALS_KEY = 'iptv:credentials';
 const CACHE_KEY = 'iptv:cache';
@@ -34,6 +35,17 @@ export const storage = {
 
   getFavorites: (): string[] => read<string[]>(FAVORITES_KEY, []),
   saveFavorites: (ids: string[]) => write(FAVORITES_KEY, ids),
+  getFavoriteItems: (): Record<string, Channel> => read<Record<string, Channel>>(FAVORITE_ITEMS_KEY, {}),
+  saveFavoriteItem: (channel: Channel) => {
+    const items = read<Record<string, Channel>>(FAVORITE_ITEMS_KEY, {});
+    items[channel.id] = channel;
+    write(FAVORITE_ITEMS_KEY, items);
+  },
+  removeFavoriteItem: (id: string) => {
+    const items = read<Record<string, Channel>>(FAVORITE_ITEMS_KEY, {});
+    delete items[id];
+    write(FAVORITE_ITEMS_KEY, items);
+  },
 
   getRecents: (): string[] => read<string[]>(RECENTS_KEY, []),
   saveRecents: (ids: string[]) => write(RECENTS_KEY, ids),

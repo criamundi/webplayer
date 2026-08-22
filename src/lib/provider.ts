@@ -91,6 +91,9 @@ function normalizeBackdrop(value: unknown): string | undefined {
 }
 
 function findBackdrop(value: unknown, depth = 0): string | undefined {
+  if (typeof value === 'string' && (value.trim().startsWith('{') || value.trim().startsWith('['))) {
+    try { return findBackdrop(JSON.parse(value), depth + 1); } catch { return undefined; }
+  }
   if (!value || typeof value !== 'object' || depth > 5) return undefined;
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
     if (/backdrop|background|fanart/i.test(key)) {
