@@ -256,7 +256,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status"
           ? body.action
           : "playlist";
 
@@ -412,6 +412,14 @@ Deno.serve(
           },
           403,
         );
+      }
+
+      if (action === "account-status") {
+        const expiresAt = line.expires_at ? new Date(line.expires_at) : null;
+        const daysRemaining = expiresAt
+          ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000))
+          : null;
+        return json({ expiresAt: line.expires_at ?? null, daysRemaining });
       }
 
       /*

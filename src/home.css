@@ -1,7 +1,8 @@
 body { background: #091018; }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
-.sidebar-shell { position:fixed; inset:0 auto 0 0; z-index:50; display:flex; width:17rem; flex-direction:column; border-right:1px solid rgba(255,255,255,.08); background:rgba(7,13,17,.97); padding-top:1.25rem; backdrop-filter:blur(24px); transition:width .35s cubic-bezier(.22,1,.36,1),transform .3s ease; }
+.sidebar-shell { position:fixed; inset:0 auto 0 0; z-index:50; display:flex; width:17rem; flex-direction:column; background:linear-gradient(90deg,rgba(7,13,17,.98),rgba(7,13,17,.94)); padding-top:1.25rem; backdrop-filter:blur(24px); transition:width .35s cubic-bezier(.22,1,.36,1),transform .3s ease; }
+.sidebar-shell::after { content:""; position:absolute; inset:0 0 0 auto; width:1px; pointer-events:none; background:linear-gradient(180deg,transparent 0%,rgba(255,255,255,.12) 12%,rgba(255,255,255,.08) 70%,transparent 100%); }
 .sidebar-label { display:block; opacity:1; white-space:nowrap; }
 .sidebar-item { display:flex; width:100%; min-height:3rem; flex-shrink:0; align-items:center; gap:.9rem; overflow:hidden; border-radius:.85rem; padding:0 .9rem; color:rgba(255,255,255,.46); text-align:left; white-space:nowrap; transition:.2s ease; }
 .sidebar-item:hover { background:rgba(255,255,255,.07); color:#fff; }
@@ -15,6 +16,7 @@ body { background: #091018; }
 .poster-card { min-width:calc((100% - 4rem)/5); flex:0 0 calc((100% - 4rem)/5); scroll-snap-align:start; text-align:left; }
 .shelf-arrow { display:flex; width:2rem; height:2rem; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.1); border-radius:999px; color:rgba(255,255,255,.55); transition:.2s; }
 .shelf-arrow:hover { border-color:rgba(52,211,153,.4); color:#34d399; background:rgba(52,211,153,.08); }
+.subscription-card { display:flex; align-items:center; gap:.75rem; max-width:calc(100vw - 2.5rem); border:1px solid rgba(255,255,255,.1); border-radius:1rem; background:rgba(8,15,20,.68); padding:.65rem .75rem; box-shadow:0 16px 40px rgba(0,0,0,.25); backdrop-filter:blur(18px); }
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }

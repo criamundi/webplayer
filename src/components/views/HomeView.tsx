@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock3, Film, Heart, Play, Radio, Sparkles, Star, Tv } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Film, Heart, Play, Radio, Sparkles, Star, Tv } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadContentInfo, loadHomeCatalog, type CatalogItem, type ContentInfo } from '@/lib/provider';
+import { loadAccountStatus, loadContentInfo, loadHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 
 interface HomeViewProps {
@@ -55,11 +55,13 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
 export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate }: HomeViewProps) {
   const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
   const [movies, setMovies] = useState<CatalogItem[]>([]);
   const [series, setSeries] = useState<CatalogItem[]>([]);
 
   useEffect(() => {
     let active = true;
+    void loadAccountStatus().then((status) => { if (active) setAccountStatus(status); });
     void loadHomeCatalog().then((catalog) => {
       if (!active) return;
       const movieItems = catalog?.movies ?? [];
@@ -75,17 +77,20 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const heroBackground = heroInfo?.backdrop || heroItem?.backdrop;
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const heroRating = heroInfo?.rating || heroItem?.rating;
-  const metadata = [heroRating, releaseYear, heroInfo?.duration, heroInfo?.genre].filter(Boolean);
+  const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
+  const metadata = [heroRating, releaseYear, duration, heroInfo?.genre].filter(Boolean);
+  const renewalUrl = import.meta.env.VITE_RENEWAL_URL as string | undefined;
 
   return (
     <div className="home-page -mx-5 -mt-[68px] sm:-mx-8 lg:-mx-10 lg:-mt-20">
       <section className="home-hero">
         {heroBackground && <img src={heroBackground} alt="" className="home-hero-image" onLoad={(event) => { if (event.currentTarget.naturalWidth / event.currentTarget.naturalHeight < 1.3) event.currentTarget.style.display = 'none'; }} />}
         <div className="home-hero-shade" />
+        {accountStatus?.daysRemaining != null && <div className="subscription-card absolute right-5 top-24 z-20 sm:right-8 lg:right-12 lg:top-24"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 1 ? '1 dia restante' : `${accountStatus.daysRemaining} dias restantes`}</strong></span>{accountStatus.daysRemaining <= 7 && <button disabled={!renewalUrl} onClick={() => renewalUrl && window.open(renewalUrl, '_blank', 'noopener,noreferrer')} className="ml-2 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de renovação será configurado em breve' : undefined}>Renovar</button>}</div>}
         <div className="relative z-10 flex min-h-[100svh] max-w-2xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> Destaque</span>
           <h1 className="max-w-2xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">{heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'}</h1>
-          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroInfo?.duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{heroInfo.duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
+          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-white/62">{heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'}</p>
           {heroInfo?.cast && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">Elenco:</span> {heroInfo.cast}</p>}
           {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button><button onClick={() => onToggleFavorite(heroItem.id)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}

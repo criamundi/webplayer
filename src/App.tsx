@@ -1829,9 +1829,6 @@ export default function App() {
               false,
             )
           }
-          onSignOut={
-            handleSignOut
-          }
         />
 
         <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">

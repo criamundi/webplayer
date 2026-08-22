@@ -28,15 +28,30 @@ export interface CatalogItem extends Channel {
   contentType: 'movie' | 'series';
 }
 
-export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> {
+export interface AccountStatus {
+  expiresAt: string | null;
+  daysRemaining: number | null;
+}
+
+async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
   if (!credentials?.provider || !credentials.username || !credentials.password) return null;
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ ...credentials, action: 'home-catalog' }),
+    body: JSON.stringify({ ...credentials, action, ...extra }),
   });
-  if (!response.ok) return null;
+  return response.ok ? response : null;
+}
+
+export async function loadAccountStatus(): Promise<AccountStatus | null> {
+  const response = await authenticatedAction('account-status');
+  return response ? response.json() as Promise<AccountStatus> : null;
+}
+
+export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> {
+  const response = await authenticatedAction('home-catalog');
+  if (!response) return null;
   const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
   const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, backdrop: normalizeBackdrop(item.backdrop) }));
   return { movies: prepare(result.movies), series: prepare(result.series) };
@@ -75,23 +90,32 @@ function normalizeBackdrop(value: unknown): string | undefined {
     .replace(/\/t\/p\/(?:w\d+|original)\//, '/t/p/original/');
 }
 
-export async function loadContentInfo(channel: Channel): Promise<ContentInfo | null> {
-  const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
-  const streamId = streamIdFromUrl(channel.url);
-  if (!credentials?.provider || !credentials.username || !credentials.password || !streamId) return null;
+function findBackdrop(value: unknown, depth = 0): string | undefined {
+  if (!value || typeof value !== 'object' || depth > 5) return undefined;
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (/backdrop|background|fanart/i.test(key)) {
+      const result = normalizeBackdrop(entry);
+      if (result) return result;
+    }
+  }
+  for (const entry of Object.values(value as Record<string, unknown>)) {
+    const result = findBackdrop(entry, depth + 1);
+    if (result) return result;
+  }
+  return undefined;
+}
 
-  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ ...credentials, action: 'content-info', streamId }),
-  });
-  if (!response.ok) return null;
+export async function loadContentInfo(channel: Channel): Promise<ContentInfo | null> {
+  const streamId = streamIdFromUrl(channel.url);
+  if (!streamId) return null;
+  const response = await authenticatedAction('content-info', { streamId });
+  if (!response) return null;
   const raw = await response.json() as Record<string, unknown>;
   const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
   const movieData = (raw.movie_data && typeof raw.movie_data === 'object' ? raw.movie_data : {}) as Record<string, unknown>;
   const backdrop = normalizeBackdrop(
     info.backdrop_path ?? info.backdrop ?? movieData.backdrop_path ?? movieData.backdrop ?? raw.backdrop_path ?? raw.backdrop,
-  );
+  ) ?? findBackdrop(raw);
   const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 
   return {
