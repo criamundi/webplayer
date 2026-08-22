@@ -5,6 +5,50 @@ import {
 
 import type { Channel } from '@/types';
 
+export interface ContentInfo {
+  name?: string;
+  plot?: string;
+  cast?: string;
+  director?: string;
+  genre?: string;
+  releaseDate?: string;
+  duration?: string;
+  rating?: string;
+  backdrop?: string;
+  cover?: string;
+}
+
+function streamIdFromUrl(url: string): string | null {
+  const match = url.match(/\/(\d+)(?:\.[a-z0-9]+)?(?:\?.*)?$/i);
+  return match?.[1] ?? null;
+}
+
+export async function loadContentInfo(channel: Channel): Promise<ContentInfo | null> {
+  const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
+  const streamId = streamIdFromUrl(channel.url);
+  if (!credentials?.provider || !credentials.username || !credentials.password || !streamId) return null;
+
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+    body: JSON.stringify({ ...credentials, action: 'content-info', streamId }),
+  });
+  if (!response.ok) return null;
+  const raw = await response.json() as Record<string, unknown>;
+  const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
+  const movieData = (raw.movie_data && typeof raw.movie_data === 'object' ? raw.movie_data : {}) as Record<string, unknown>;
+  const backdropValue = info.backdrop_path ?? info.backdrop;
+  const backdrop = Array.isArray(backdropValue) ? backdropValue.find((value) => typeof value === 'string') : backdropValue;
+  const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+
+  return {
+    name: text(info.name ?? movieData.name), plot: text(info.plot ?? info.description), cast: text(info.cast),
+    director: text(info.director), genre: text(info.genre), releaseDate: text(info.release_date ?? info.releasedate),
+    duration: text(info.duration), rating: text(info.rating ?? info.rating_5based), backdrop: text(backdrop),
+    cover: text(info.movie_image ?? info.cover_big ?? movieData.stream_icon),
+  };
+}
+
 const CONNECT_TIMEOUT = 20000;
 
 /*

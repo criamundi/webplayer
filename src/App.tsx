@@ -1812,7 +1812,7 @@ export default function App() {
 
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
 
-      <div className="flex min-h-screen w-full">
+      <div className="mx-auto flex min-h-screen max-w-[1540px]">
 
         <Sidebar
           view={
@@ -1834,7 +1834,7 @@ export default function App() {
           }
         />
 
-        <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
+        <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:px-10 lg:py-8">
 
           <TopBar
             query={
@@ -1857,8 +1857,14 @@ export default function App() {
           {view ===
             'home' && (
             <HomeView
+              favorites={
+                favorites
+              }
               onSelectChannel={
                 handleSelectChannel
+              }
+              onToggleFavorite={
+                handleToggleFavorite
               }
               onNavigate={
                 handleNavigate

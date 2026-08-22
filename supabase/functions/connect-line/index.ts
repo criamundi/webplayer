@@ -255,6 +255,16 @@ Deno.serve(
           ? body.provider.trim()
           : "";
 
+      const action =
+        body.action === "content-info"
+          ? "content-info"
+          : "playlist";
+
+      const streamId =
+        typeof body.streamId === "string" && /^\d+$/.test(body.streamId)
+          ? body.streamId
+          : "";
+
       if (
         username.length <
           1 ||
@@ -491,6 +501,40 @@ Deno.serve(
           },
           502,
         );
+      }
+
+      /* Metadados completos do filme para o hero. */
+      if (action === "content-info") {
+        if (!streamId) return json({ error: "Conteúdo inválido." }, 400);
+
+        const infoUrl = new URL(serverUrl.toString());
+        const basePath = infoUrl.pathname.toLowerCase().endsWith(".php")
+          ? infoUrl.pathname.slice(0, infoUrl.pathname.lastIndexOf("/"))
+          : infoUrl.pathname.replace(/\/$/, "");
+        infoUrl.pathname = `${basePath}/player_api.php`;
+        infoUrl.search = new URLSearchParams({
+          username,
+          password,
+          action: "get_vod_info",
+          vod_id: streamId,
+        }).toString();
+
+        const infoController = new AbortController();
+        const infoTimeout = setTimeout(() => infoController.abort(), 12000);
+        try {
+          const infoResponse = await fetch(infoUrl, {
+            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+            redirect: "follow",
+            signal: infoController.signal,
+          });
+          if (!infoResponse.ok) return json({ error: "Metadados indisponíveis." }, 502);
+          const info = await infoResponse.json();
+          return json(info);
+        } catch {
+          return json({ error: "Não foi possível carregar os metadados." }, 502);
+        } finally {
+          clearTimeout(infoTimeout);
+        }
       }
 
       /*
