@@ -72,7 +72,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     return () => { active = false; };
   }, []);
 
-  const heroBackground = heroInfo?.backdrop || heroItem?.backdrop || heroInfo?.cover || heroItem?.logo;
+  const heroBackground = heroInfo?.backdrop || heroItem?.backdrop;
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const heroRating = heroInfo?.rating || heroItem?.rating;
   const metadata = [heroRating, releaseYear, heroInfo?.duration, heroInfo?.genre].filter(Boolean);
@@ -80,7 +80,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   return (
     <div className="home-page -mx-5 -mt-[68px] sm:-mx-8 lg:-mx-10 lg:-mt-20">
       <section className="home-hero">
-        {heroBackground && <img src={heroBackground} alt="" className="home-hero-image" />}
+        {heroBackground && <img src={heroBackground} alt="" className="home-hero-image" onLoad={(event) => { if (event.currentTarget.naturalWidth / event.currentTarget.naturalHeight < 1.3) event.currentTarget.style.display = 'none'; }} />}
         <div className="home-hero-shade" />
         <div className="relative z-10 flex min-h-[100svh] max-w-2xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> Destaque</span>

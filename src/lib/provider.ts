@@ -38,12 +38,41 @@ export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series
   });
   if (!response.ok) return null;
   const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
-  return { movies: Array.isArray(result.movies) ? result.movies : [], series: Array.isArray(result.series) ? result.series : [] };
+  const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, backdrop: normalizeBackdrop(item.backdrop) }));
+  return { movies: prepare(result.movies), series: prepare(result.series) };
 }
 
 function streamIdFromUrl(url: string): string | null {
   const match = url.match(/\/(\d+)(?:\.[a-z0-9]+)?(?:\?.*)?$/i);
   return match?.[1] ?? null;
+}
+
+function normalizeBackdrop(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const result = normalizeBackdrop(entry);
+      if (result) return result;
+    }
+    return undefined;
+  }
+  if (value && typeof value === 'object') {
+    for (const entry of Object.values(value as Record<string, unknown>)) {
+      const result = normalizeBackdrop(entry);
+      if (result) return result;
+    }
+    return undefined;
+  }
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try { return normalizeBackdrop(JSON.parse(trimmed)); } catch { return undefined; }
+  }
+  if (trimmed.startsWith('/')) return `https://image.tmdb.org/t/p/original${trimmed}`;
+  if (!/^https?:\/\//i.test(trimmed)) return undefined;
+  return trimmed
+    .replace(/^http:\/\/image\.tmdb\.org/i, 'https://image.tmdb.org')
+    .replace(/\/t\/p\/(?:w\d+|original)\//, '/t/p/original/');
 }
 
 export async function loadContentInfo(channel: Channel): Promise<ContentInfo | null> {
@@ -60,17 +89,15 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
   const raw = await response.json() as Record<string, unknown>;
   const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
   const movieData = (raw.movie_data && typeof raw.movie_data === 'object' ? raw.movie_data : {}) as Record<string, unknown>;
-  const backdropValue = info.backdrop_path ?? info.backdrop;
-  let backdrop: unknown = Array.isArray(backdropValue) ? backdropValue.find((value) => typeof value === 'string') : backdropValue;
-  if (typeof backdrop === 'string' && backdrop.trim().startsWith('[')) {
-    try { const parsed = JSON.parse(backdrop); backdrop = Array.isArray(parsed) ? parsed[0] : backdrop; } catch { /* usa valor original */ }
-  }
+  const backdrop = normalizeBackdrop(
+    info.backdrop_path ?? info.backdrop ?? movieData.backdrop_path ?? movieData.backdrop ?? raw.backdrop_path ?? raw.backdrop,
+  );
   const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 
   return {
     name: text(info.name ?? movieData.name), plot: text(info.plot ?? info.description), cast: text(info.cast),
     director: text(info.director), genre: text(info.genre), releaseDate: text(info.release_date ?? info.releasedate),
-    duration: text(info.duration), rating: text(info.rating ?? info.rating_5based), backdrop: text(backdrop),
+    duration: text(info.duration), rating: text(info.rating ?? info.rating_5based), backdrop,
     cover: text(info.movie_image ?? info.cover_big ?? movieData.stream_icon),
   };
 }
