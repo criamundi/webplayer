@@ -474,8 +474,8 @@ export function VideoPlayer({
 
           player.load();
 
-          player
-            .play()
+          void Promise
+            .resolve(player.play())
             .catch(() => {});
 
           player.on(
