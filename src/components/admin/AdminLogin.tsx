@@ -25,7 +25,7 @@ export function AdminLogin({ onSuccess, onCancel }: AdminLoginProps) {
       return;
     }
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).maybeSingle();
-    if (profile?.role !== 'admin') {
+    if (!profile || !['admin', 'super_admin', 'provider_admin'].includes(profile.role)) {
       await supabase.auth.signOut();
       setError('Esta conta não tem permissão de administrador.');
       setLoading(false);

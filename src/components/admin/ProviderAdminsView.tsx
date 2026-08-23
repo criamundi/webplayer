@@ -1,0 +1,18 @@
+import { FormEvent, useEffect, useState } from 'react';
+import { Loader2, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+interface Profile { id: string; email: string; provider_id: string | null; iptv_providers: { name: string } | null; }
+interface Provider { id: string; name: string; }
+
+export function ProviderAdminsView() {
+  const [admins, setAdmins] = useState<Profile[]>([]), [providers, setProviders] = useState<Provider[]>([]);
+  const [email, setEmail] = useState(''), [providerId, setProviderId] = useState(''), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [message, setMessage] = useState('');
+  const load = async () => { setLoading(true); const [{ data: profiles }, { data: providerRows }] = await Promise.all([supabase.from('profiles').select('id, email, provider_id, iptv_providers(name)').eq('role', 'provider_admin'), supabase.from('iptv_providers').select('id, name').order('name')]); setAdmins((profiles || []) as unknown as Profile[]); setProviders(providerRows || []); setProviderId((current) => current || providerRows?.[0]?.id || ''); setLoading(false); };
+  useEffect(() => { load(); }, []);
+  const submit = async (e: FormEvent) => { e.preventDefault(); setSaving(true); setMessage(''); const { data, error } = await supabase.rpc('assign_provider_admin', { target_email: email.trim(), target_provider: providerId }); setSaving(false); if (error) return setMessage('Não foi possível atribuir o administrador.'); if (!data) return setMessage('Crie primeiro esse usuário em Authentication → Users.'); setEmail(''); setMessage('Administrador atribuído com sucesso.'); load(); };
+  const remove = async (id: string) => { if (!confirm('Remover o acesso administrativo deste usuário?')) return; await supabase.rpc('remove_provider_admin', { target_id: id }); load(); };
+  return <div className="space-y-6"><div><h1 className="text-3xl font-semibold">Administradores</h1><p className="mt-2 text-sm text-white/45">Vincule cada administrador somente ao seu provedor.</p></div>
+    <form onSubmit={submit} className="grid gap-3 rounded-2xl border border-white/10 bg-white/[.04] p-5 md:grid-cols-[1fr_1fr_auto]"><input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail do usuário já criado" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm" /><select required value={providerId} onChange={(e) => setProviderId(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm">{providers.map((p) => <option className="bg-slate-900" value={p.id} key={p.id}>{p.name}</option>)}</select><button disabled={saving || !providerId} className="flex items-center justify-center gap-2 rounded-xl bg-lime-300 px-5 py-3 text-sm font-bold text-slate-950">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Vincular</button>{message && <p className="text-xs text-white/60 md:col-span-3">{message}</p>}</form>
+    {loading ? <Loader2 className="mx-auto animate-spin text-white/40" /> : <div className="space-y-2">{admins.map((a) => <div key={a.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-4"><ShieldCheck className="h-5 w-5 text-lime-300" /><div className="flex-1"><p className="text-sm font-semibold">{a.email}</p><p className="text-xs text-white/40">{a.iptv_providers?.name || 'Sem provedor'}</p></div><button onClick={() => remove(a.id)} className="rounded-lg p-2 text-red-300 hover:bg-red-400/10"><Trash2 className="h-4 w-4" /></button></div>)}</div>}</div>;
+}

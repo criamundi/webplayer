@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Activity, Globe, LayoutGrid, LogOut, Monitor, Palette, Radio, Server, X } from 'lucide-react';
+import { Globe, LayoutGrid, LogOut, Monitor, Palette, Radio, Server, ShieldCheck, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { DashboardView } from '@/components/admin/DashboardView';
 import { LinesView } from '@/components/admin/LinesView';
 import { ProvidersView } from '@/components/admin/ProvidersView';
 import { DnsView } from '@/components/admin/DnsView';
 import { BrandingView } from '@/components/admin/BrandingView';
+import { ProviderAdminsView } from '@/components/admin/ProviderAdminsView';
 
-type AdminTab = 'dashboard' | 'devices' | 'providers' | 'dns' | 'branding';
+type AdminTab = 'dashboard' | 'devices' | 'providers' | 'admins' | 'dns' | 'branding';
 
 const tabs: Array<{ id: AdminTab; label: string; icon: typeof LayoutGrid }> = [
   { id: 'dashboard', label: 'Visão geral', icon: LayoutGrid },
   { id: 'devices', label: 'Dispositivos', icon: Monitor },
   { id: 'providers', label: 'Provedores', icon: Server },
+  { id: 'admins', label: 'Administradores', icon: ShieldCheck },
   { id: 'dns', label: 'DNS', icon: Globe },
   { id: 'branding', label: 'Branding', icon: Palette },
 ];
@@ -24,8 +27,11 @@ interface AdminShellProps {
 export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
   const [tab, setTab] = useState<AdminTab>('devices');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [role, setRole] = useState('provider_admin');
 
   useEffect(() => { setSidebarOpen(false); }, [tab]);
+  useEffect(() => { (async () => { const { data: auth } = await supabase.auth.getUser(); if (!auth.user) return; const { data } = await supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(); if (data?.role) setRole(data.role); })(); }, []);
+  const visibleTabs = tabs.filter((item) => role === 'super_admin' || !['providers', 'admins'].includes(item.id));
 
   return (
     <div className="min-h-screen bg-[#091018] text-white">
@@ -44,7 +50,7 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
           </div>
 
           <nav className="flex flex-1 flex-col gap-1.5">
-            {tabs.map(({ id, label, icon: Icon }) => (
+            {visibleTabs.map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${tab === id ? 'bg-lime-300 text-slate-950 shadow-lg shadow-lime-300/10' : 'text-white/50 hover:bg-white/10 hover:text-white'}`}>
                 <Icon className="h-5 w-5" /><span className="text-sm font-medium">{label}</span>
               </button>
@@ -70,6 +76,7 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
           {tab === 'dashboard' && <DashboardView />}
           {tab === 'devices' && <LinesView />}
           {tab === 'providers' && <ProvidersView />}
+          {tab === 'admins' && <ProviderAdminsView />}
           {tab === 'dns' && <DnsView />}
           {tab === 'branding' && <BrandingView />}
         </main>

@@ -153,6 +153,36 @@ function validServerUrl(
   }
 }
 
+function playerApiUrl(server: URL, username: string, password: string) {
+  const url = new URL(server.toString());
+  const basePath = url.pathname.toLowerCase().endsWith(".php")
+    ? url.pathname.slice(0, url.pathname.lastIndexOf("/"))
+    : url.pathname.replace(/\/$/, "");
+  url.pathname = `${basePath}/player_api.php`;
+  url.search = new URLSearchParams({ username, password }).toString();
+  return url;
+}
+
+function upstreamState(raw: Record<string, unknown>) {
+  const user = raw?.user_info && typeof raw.user_info === "object"
+    ? raw.user_info as Record<string, unknown>
+    : {};
+  const authenticated = String(user.auth ?? "0") === "1";
+  const status = String(user.status ?? "").trim();
+  const expSeconds = Number(user.exp_date ?? 0);
+  const expiresAt = Number.isFinite(expSeconds) && expSeconds > 0
+    ? new Date(expSeconds * 1000).toISOString()
+    : null;
+  return {
+    authenticated,
+    status,
+    expiresAt,
+    activeConnections: Number(user.active_cons ?? 0) || 0,
+    maxConnections: Number(user.max_connections ?? 0) || null,
+    allowed: authenticated && status.toLowerCase() === "active" && (!expiresAt || new Date(expiresAt) > new Date()),
+  };
+}
+
 /*
 |--------------------------------------------------------------------------
 | EDGE FUNCTION
@@ -306,7 +336,7 @@ Deno.serve(
             "iptv_providers",
           )
           .select(
-            "id, name, active",
+            "id, name, active, auto_registration, default_dns_id, server_url",
           )
           .ilike(
             "name",
@@ -345,11 +375,7 @@ Deno.serve(
       |--------------------------------------------------------------------------
       */
 
-      const {
-        data: line,
-        error:
-          lineError,
-      } =
+      const { data: existingLine, error: lineError } =
         await adminClient
           .from(
             "iptv_lines",
@@ -360,8 +386,8 @@ Deno.serve(
             password,
             provider_id,
             dns_id,
-            max_connections,
-            expires_at,
+            local_enabled,
+            upstream_expires_at,
             status,
             iptv_dns(
               id,
@@ -375,110 +401,50 @@ Deno.serve(
             username,
           )
           .eq(
-            "password",
-            password,
-          )
-          .eq(
             "provider_id",
             providerRow.id,
           )
           .maybeSingle();
 
-      if (
-        lineError ||
-        !line
-      ) {
+      if (lineError) {
         return json(
           {
-            error:
-              "Credenciais não encontradas. Verifique usuário e senha.",
+            error: "Não foi possível consultar este acesso.",
           },
-          401,
+          500,
         );
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | STATUS
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        line.status !==
-        "active"
-      ) {
-        return json(
-          {
-            error:
-              "Seu acesso está desativado. Entre em contato com o suporte.",
-          },
-          403,
-        );
+      if (existingLine && existingLine.local_enabled === false) {
+        return json({ error: "Este dispositivo foi desativado pelo administrador." }, 403);
       }
 
-      if (action === "account-status") {
-        const expiresAt = line.expires_at ? new Date(line.expires_at) : null;
-        const daysRemaining = expiresAt
-          ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000))
-          : null;
-        return json({ expiresAt: line.expires_at ?? null, daysRemaining });
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | VENCIMENTO
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        line.expires_at &&
-        new Date(
-          line.expires_at,
-        ) <= new Date()
-      ) {
-        return json(
-          {
-            error:
-              "Seu acesso expirou. Renove com o suporte para continuar.",
-          },
-          403,
-        );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | DNS DEFINIDO NO ADMIN
-      |--------------------------------------------------------------------------
-      |
-      | IMPORTANTE:
-      |
-      | Não existe fallback para
-      | provider.server_url.
-      |
-      | A linha usa exclusivamente
-      | o DNS que foi vinculado no Admin.
-      |
-      */
-
-      const dns =
-        line.iptv_dns as {
+      let dns = existingLine?.iptv_dns as {
           id: string;
           name: string;
           host: string;
           active: boolean;
-        } | null;
+        } | null | undefined;
 
-      if (!dns) {
+      if (!dns && providerRow.default_dns_id) {
+        const { data: defaultDns } = await adminClient.from("iptv_dns")
+          .select("id, name, host, active")
+          .eq("id", providerRow.default_dns_id)
+          .maybeSingle();
+        dns = defaultDns ?? undefined;
+      }
+
+      const rawHost = dns?.host || providerRow.server_url || "";
+      if (!rawHost) {
         return json(
           {
-            error:
-              "Nenhum DNS está vinculado a esta linha.",
+            error: "O provedor ainda não possui um DNS padrão configurado.",
           },
           502,
         );
       }
 
-      if (!dns.active) {
+      if (dns && !dns.active) {
         return json(
           {
             error:
@@ -488,19 +454,9 @@ Deno.serve(
         );
       }
 
-      if (!dns.host) {
-        return json(
-          {
-            error:
-              "O DNS vinculado não possui um endereço configurado.",
-          },
-          502,
-        );
-      }
-
       const serverUrl =
         validServerUrl(
-          dns.host,
+          rawHost,
         );
 
       if (!serverUrl) {
@@ -511,6 +467,66 @@ Deno.serve(
           },
           502,
         );
+      }
+
+      /* A conta real do provedor é sempre a fonte de status e vencimento. */
+      let upstreamResponse: Response;
+      let upstreamPayload: Record<string, unknown>;
+      try {
+        upstreamResponse = await fetch(playerApiUrl(serverUrl, username, password), {
+          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+          redirect: "follow",
+          signal: controller.signal,
+        });
+        if (!upstreamResponse.ok) throw new Error("provider status");
+        upstreamPayload = await upstreamResponse.json();
+      } catch {
+        return json({ error: "Não foi possível validar a conta no provedor agora." }, 502);
+      }
+
+      const account = upstreamState(upstreamPayload);
+      if (!account.authenticated) {
+        return json({ error: "Usuário ou senha inválidos no provedor." }, 401);
+      }
+      if (!account.allowed) {
+        const expired = account.expiresAt && new Date(account.expiresAt) <= new Date();
+        return json({ error: expired ? "Esta conta está vencida no provedor." : `Esta conta está ${account.status || "inativa"} no provedor.` }, 403);
+      }
+
+      let line = existingLine;
+      const synchronized = {
+        password,
+        status: "active",
+        upstream_status: account.status,
+        upstream_expires_at: account.expiresAt,
+        expires_at: account.expiresAt,
+        upstream_active_connections: account.activeConnections,
+        upstream_max_connections: account.maxConnections,
+        last_synced_at: new Date().toISOString(),
+      };
+
+      if (!line) {
+        if (!providerRow.auto_registration) {
+          return json({ error: "A conta existe no provedor, mas o cadastro automático está desativado. Solicite a liberação ao administrador." }, 403);
+        }
+        const { data: created, error: createError } = await adminClient.from("iptv_lines").insert({
+          username,
+          provider_id: providerRow.id,
+          dns_id: dns?.id ?? providerRow.default_dns_id ?? null,
+          local_enabled: true,
+          registration_source: "automatic",
+          ...synchronized,
+        }).select("id, username, password, provider_id, dns_id, local_enabled, upstream_expires_at, status").single();
+        if (createError || !created) return json({ error: "A conta foi validada, mas não foi possível concluir o cadastro automático." }, 500);
+        line = created;
+      } else {
+        await adminClient.from("iptv_lines").update(synchronized).eq("id", line.id);
+      }
+
+      if (action === "account-status") {
+        const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
+        const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
+        return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status });
       }
 
       /* Catálogo oficial: datas e avaliações reais do provedor. */
@@ -737,7 +753,7 @@ Deno.serve(
             providerRow.name,
 
           dns:
-            dns.name,
+            dns?.name ?? "URL do provedor",
 
           hostname:
             playlistUrl.hostname,

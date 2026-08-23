@@ -60,6 +60,8 @@ interface Branding {
   logo_url: string | null;
   primary_color: string;
   secondary_color: string;
+  background_url?: string | null;
+  login_background_url?: string | null;
 }
 
 type Phase =
@@ -320,20 +322,26 @@ export default function App() {
     let mounted = true;
 
     void (async () => {
-      const { data } =
-        await supabase
-          .from('app_branding')
-          .select(
-            'app_name, logo_url, primary_color, secondary_color',
-          )
-          .maybeSingle();
+      const credentials = storage.getCredentials();
+      let data: Branding | null = null;
+      if (credentials?.provider) {
+        const { data: provider } = await supabase.from('iptv_providers').select('id').ilike('name', credentials.provider).maybeSingle();
+        if (provider) {
+          const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', provider.id).maybeSingle();
+          data = providerBranding as Branding | null;
+        }
+      }
+      if (!data) {
+        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color').maybeSingle();
+        data = globalBranding as Branding | null;
+      }
 
       if (
         mounted &&
         data
       ) {
         setBranding(
-          data as Branding,
+          data,
         );
       }
     })();
@@ -1396,7 +1404,15 @@ export default function App() {
    */
   const handleProviderSuccess =
     useCallback(
-      () => {
+      async () => {
+        const credentials = storage.getCredentials();
+        if (credentials?.provider) {
+          const { data: provider } = await supabase.from('iptv_providers').select('id').ilike('name', credentials.provider).maybeSingle();
+          if (provider) {
+            const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', provider.id).maybeSingle();
+            if (data) setBranding(data as Branding);
+          }
+        }
         setReloadKey(
           (
             value,
@@ -1815,7 +1831,7 @@ export default function App() {
 */
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#091018] text-white selection:bg-lime-300 selection:text-slate-950">
+    <div className="min-h-screen overflow-x-hidden bg-cover bg-center bg-fixed text-white selection:bg-lime-300 selection:text-slate-950" style={{ backgroundColor: branding.secondary_color, backgroundImage: branding.background_url ? `linear-gradient(rgba(9,16,24,.88), rgba(9,16,24,.96)), url(${branding.background_url})` : undefined }}>
 
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
 

@@ -8,17 +8,30 @@ interface DnsEntry {
   host: string;
   active: boolean;
   created_at: string;
+  provider_id: string | null;
 }
+interface Provider { id: string; name: string; }
 
 export function DnsView() {
   const [entries, setEntries] = useState<DnsEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DnsEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from('iptv_dns').select('id, name, host, active, created_at').order('created_at', { ascending: false });
+    const [{ data }, { data: auth }, { data: providerRows }] = await Promise.all([
+      supabase.from('iptv_dns').select('id, name, host, active, created_at, provider_id').order('created_at', { ascending: false }),
+      supabase.auth.getUser(),
+      supabase.from('iptv_providers').select('id, name').order('name'),
+    ]);
+    setProviders(providerRows || []);
+    if (auth.user) {
+      const { data: profile } = await supabase.from('profiles').select('provider_id').eq('id', auth.user.id).maybeSingle();
+      setCurrentProviderId(profile?.provider_id ?? null);
+    }
     setEntries(data || []);
     setLoading(false);
   };
@@ -78,19 +91,22 @@ export function DnsView() {
       )}
 
       {showForm && (
-        <DnsForm entry={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+        <DnsForm entry={editing} currentProviderId={currentProviderId} providers={providers} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
       )}
     </div>
   );
 }
 
-function DnsForm({ entry, onClose, onSaved }: {
+function DnsForm({ entry, currentProviderId, providers, onClose, onSaved }: {
   entry: DnsEntry | null;
+  currentProviderId: string | null;
+  providers: Provider[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(entry?.name ?? '');
   const [host, setHost] = useState(entry?.host ?? '');
+  const [providerId, setProviderId] = useState(entry?.provider_id ?? currentProviderId ?? providers[0]?.id ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -103,7 +119,7 @@ function DnsForm({ entry, onClose, onSaved }: {
       return;
     }
     setSaving(true);
-    const payload = { name: name.trim(), host: host.trim() };
+    const payload = { name: name.trim(), host: host.trim(), provider_id: providerId || null };
     const result = entry
       ? await supabase.from('iptv_dns').update(payload).eq('id', entry.id)
       : await supabase.from('iptv_dns').insert(payload);
@@ -124,6 +140,7 @@ function DnsForm({ entry, onClose, onSaved }: {
             <span className="mb-2 block text-xs font-medium text-white/60">Nome</span>
             <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="Servidor Principal" />
           </label>
+          <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Provedor</span><select required value={providerId} onChange={(e) => setProviderId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white">{providers.map((p) => <option className="bg-slate-900" key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-white/60">Host</span>
             <input required value={host} onChange={(e) => setHost(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="meuservidor.com:8080" />

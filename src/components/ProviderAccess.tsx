@@ -1,12 +1,15 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, LockKeyhole, Server, Tv, UserRound } from 'lucide-react';
 import { storage } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 
 interface Branding {
   app_name: string;
   logo_url: string | null;
   primary_color: string;
   secondary_color: string;
+  background_url?: string | null;
+  login_background_url?: string | null;
 }
 
 interface ProviderAccessProps {
@@ -30,7 +33,20 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const visualBranding = branding || defaultBranding;
+  const [providerBranding, setProviderBranding] = useState<Branding | null>(null);
+  const visualBranding = providerBranding || branding || defaultBranding;
+
+  useEffect(() => {
+    const name = provider.trim();
+    if (name.length < 2) { setProviderBranding(null); return; }
+    const timer = window.setTimeout(async () => {
+      const { data: providerRow } = await supabase.from('iptv_providers').select('id').ilike('name', name).maybeSingle();
+      if (!providerRow) return;
+      const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', providerRow.id).maybeSingle();
+      if (data) setProviderBranding(data as Branding);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [provider]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -61,7 +77,7 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
   );
 
   return (
-    <main className="relative min-h-screen overflow-hidden text-white" style={{ backgroundColor: visualBranding.secondary_color }}>
+    <main className="relative min-h-screen overflow-hidden bg-cover bg-center text-white" style={{ backgroundColor: visualBranding.secondary_color, backgroundImage: visualBranding.login_background_url ? `linear-gradient(90deg, rgba(9,16,24,.92), rgba(9,16,24,.55)), url(${visualBranding.login_background_url})` : undefined }}>
       <div className="absolute inset-0 opacity-50" style={{ background: `radial-gradient(circle at 14% 15%, ${visualBranding.primary_color}22, transparent 35%), radial-gradient(circle at 85% 80%, ${visualBranding.primary_color}12, transparent 30%)` }} />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-8 sm:px-8 lg:px-12">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1fr_440px] lg:gap-20">

@@ -9,8 +9,12 @@ interface Line {
   password: string;
   provider_id: string | null;
   dns_id: string | null;
-  max_connections: number;
-  expires_at: string;
+  expires_at: string | null;
+  upstream_expires_at: string | null;
+  upstream_status: string | null;
+  last_synced_at: string | null;
+  registration_source: 'manual' | 'automatic';
+  local_enabled: boolean;
   status: string;
   notes: string | null;
   created_at: string;
@@ -38,7 +42,7 @@ export function LinesView() {
   const load = async () => {
     setLoading(true);
     const [{ data: lineData }, { data: provData }, { data: dnsData }] = await Promise.all([
-      supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, max_connections, expires_at, status, notes, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
+      supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
       supabase.from('iptv_providers').select('id, name, server_url').order('name'),
       supabase.from('iptv_dns').select('id, name, host').order('name'),
     ]);
@@ -69,8 +73,7 @@ export function LinesView() {
   };
 
   const handleToggleStatus = async (line: Line) => {
-    const newStatus = line.status === 'active' ? 'disabled' : 'active';
-    await supabase.from('iptv_lines').update({ status: newStatus }).eq('id', line.id);
+    await supabase.from('iptv_lines').update({ local_enabled: !line.local_enabled }).eq('id', line.id);
     load();
   };
 
@@ -146,8 +149,9 @@ export function LinesView() {
       ) : (
         <div className="space-y-2.5">
           {filtered.map((line) => {
-            const expired = new Date(line.expires_at) <= new Date();
-            const isActive = line.status === 'active' && !expired;
+            const expiresAt = line.upstream_expires_at || line.expires_at;
+            const expired = expiresAt ? new Date(expiresAt) <= new Date() : false;
+            const isActive = line.local_enabled && line.status === 'active' && !expired;
             const m3uLink = getM3ULink(line);
             return (
               <div key={line.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -156,14 +160,14 @@ export function LinesView() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white/90">{line.username}</p>
                     <p className="truncate text-xs text-white/40">
-                      {line.iptv_providers?.name || 'Sem provedor'} · {line.max_connections} conexão(ões)
+                      {line.iptv_providers?.name || 'Sem provedor'} · {line.registration_source === 'automatic' ? 'Cadastro automático' : 'Cadastro manual'}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className={`text-xs font-semibold ${isActive ? 'text-emerald-300' : expired ? 'text-amber-300' : 'text-red-300'}`}>
-                      {line.status === 'disabled' ? 'Desativada' : expired ? 'Expirada' : line.status === 'banned' ? 'Bloqueada' : 'Ativa'}
+                      {!line.local_enabled ? 'Desativada no app' : expired ? 'Expirada no provedor' : line.status === 'banned' ? 'Bloqueada' : (line.upstream_status || 'Ativa')}
                     </p>
-                    <p className="flex items-center gap-1 text-[10px] text-white/30"><Calendar className="h-3 w-3" /> {new Date(line.expires_at).toLocaleDateString('pt-BR')}</p>
+                    {expiresAt && <p className="flex items-center gap-1 text-[10px] text-white/30"><Calendar className="h-3 w-3" /> {new Date(expiresAt).toLocaleDateString('pt-BR')}</p>}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => handleToggleStatus(line)} title={isActive ? 'Desativar' : 'Ativar'} className={`rounded-lg p-2 transition ${isActive ? 'text-amber-300 hover:bg-amber-400/10' : 'text-emerald-300 hover:bg-emerald-400/10'}`}>
@@ -242,8 +246,6 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
   const [password, setPassword] = useState(line?.password ?? '');
   const [providerId, setProviderId] = useState(line?.provider_id ?? '');
   const [dnsId, setDnsId] = useState(line?.dns_id ?? '');
-  const [maxConnections, setMaxConnections] = useState(line?.max_connections ?? 1);
-  const [days, setDays] = useState(line ? Math.max(1, Math.ceil((new Date(line.expires_at).getTime() - Date.now()) / 86400000)) : 30);
   const [notes, setNotes] = useState(line?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -264,14 +266,12 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
       return;
     }
     setSaving(true);
-    const expiresAt = new Date(Date.now() + days * 86400000).toISOString();
     const payload = {
       username: username.trim(),
       password,
       provider_id: providerId || null,
       dns_id: dnsId || null,
-      max_connections: maxConnections,
-      expires_at: expiresAt,
+      local_enabled: true,
       notes: notes.trim() || null,
     };
     const result = line
@@ -316,16 +316,7 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
               </select>
             </label>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-xs font-medium text-white/60">Conexões máximas</span>
-              <input type="number" min={1} max={10} value={maxConnections} onChange={(e) => setMaxConnections(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-medium text-white/60">Validade (dias)</span>
-              <input type="number" min={1} max={3650} value={days} onChange={(e) => setDays(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" />
-            </label>
-          </div>
+          <p className="rounded-xl border border-lime-300/15 bg-lime-300/[0.06] p-3 text-xs leading-5 text-white/50">Status e vencimento serão consultados automaticamente no provedor quando o cliente entrar. Não é necessário definir validade ou conexões aqui.</p>
           {previewLink && (
             <div className="rounded-xl border border-white/5 bg-black/20 p-3">
               <p className="mb-1.5 text-[10px] uppercase tracking-wide text-white/40">Link M3U (prévia)</p>
