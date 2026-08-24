@@ -80,10 +80,14 @@ Deno.serve(async (req) => {
     if (action === "update") {
       const providerId = String(body.providerId ?? "");
       const displayName = String(body.displayName ?? "").trim();
+      const email = String(body.email ?? "").trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return response({ error: "Informe um e-mail válido." }, 400);
       const { data: provider } = await admin.from("iptv_providers").select("id").eq("id", providerId).maybeSingle();
       if (!provider) return response({ error: "Provedor inválido." }, 400);
-      const { error } = await admin.from("profiles").update({ provider_id: providerId, display_name: displayName || null }).eq("id", targetId);
-      return error ? response({ error: "Não foi possível salvar." }, 400) : response({ ok: true });
+      const { error: authError } = await admin.auth.admin.updateUserById(targetId, { email, email_confirm: true, user_metadata: { display_name: displayName } });
+      if (authError) return response({ error: authError.message.toLowerCase().includes("already") ? "Este e-mail já está em uso." : "Não foi possível alterar o e-mail." }, 400);
+      const { error } = await admin.from("profiles").update({ email, provider_id: providerId, display_name: displayName || null }).eq("id", targetId);
+      return error ? response({ error: "O login foi alterado, mas não foi possível atualizar o perfil." }, 500) : response({ ok: true });
     }
     if (action === "delete") {
       const { error } = await admin.auth.admin.deleteUser(targetId);

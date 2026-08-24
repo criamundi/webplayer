@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.conn-diagnostic]
 verify_jwt = false
+
+[functions.manage-provider-admins]
+verify_jwt = false

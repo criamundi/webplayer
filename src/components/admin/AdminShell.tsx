@@ -31,7 +31,9 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
 
   useEffect(() => { setSidebarOpen(false); }, [tab]);
   useEffect(() => { (async () => { const { data: auth } = await supabase.auth.getUser(); if (!auth.user) return; const { data } = await supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(); if (data?.role) setRole(data.role); })(); }, []);
-  const visibleTabs = tabs.filter((item) => role === 'super_admin' || !['providers', 'admins'].includes(item.id));
+  const visibleTabs = tabs
+    .filter((item) => role === 'super_admin' || item.id !== 'admins')
+    .map((item) => item.id === 'providers' && role !== 'super_admin' ? { ...item, label: 'Meu provedor' } : item);
 
   return (
     <div className="min-h-screen bg-[#091018] text-white">

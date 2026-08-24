@@ -20,13 +20,16 @@ export function ProvidersView() {
   const [editing, setEditing] = useState<Provider | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [dnsList, setDnsList] = useState<DnsEntry[]>([]);
+  const [role, setRole] = useState('provider_admin');
 
   const load = async () => {
     setLoading(true);
-    const [{ data }, { data: dns }] = await Promise.all([
+    const [{ data }, { data: dns }, { data: auth }] = await Promise.all([
       supabase.from('iptv_providers').select('id, name, server_url, active, auto_registration, default_dns_id, renewal_url').order('created_at', { ascending: false }),
       supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
+      supabase.auth.getUser(),
     ]);
+    if (auth.user) { const { data: profile } = await supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(); if (profile?.role) setRole(profile.role); }
     setProviders(data || []);
     setDnsList(dns || []);
     setLoading(false);
@@ -49,12 +52,12 @@ export function ProvidersView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Provedores</h1>
-          <p className="mt-2 text-sm text-white/45">Cadastre os provedores que os clientes usam como credencial de acesso.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{role === 'super_admin' ? 'Provedores' : 'Meu provedor'}</h1>
+          <p className="mt-2 text-sm text-white/45">{role === 'super_admin' ? 'Cadastre o nome de cada provedor e atribua seu administrador.' : 'Configure a conexão, renovação e cadastro automático do seu provedor.'}</p>
         </div>
-        <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
+        {role === 'super_admin' && <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
           <Plus className="h-4 w-4" /> Novo provedor
-        </button>
+        </button>}
       </div>
 
       {loading ? (
@@ -77,26 +80,27 @@ export function ProvidersView() {
                 <p className="truncate text-xs text-white/40">{provider.server_url || 'Sem URL — usa DNS das linhas'}</p>
                 <p className={`mt-1 text-[10px] font-semibold ${provider.auto_registration ? 'text-lime-300' : 'text-white/30'}`}>Cadastro automático {provider.auto_registration ? 'ativado' : 'desativado'}</p>
               </div>
-              <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
+              {role === 'super_admin' && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
                 {provider.active ? 'Ativo' : 'Inativo'}
-              </button>
+              </button>}
               <button onClick={() => { setEditing(provider); setShowForm(true); }} className="rounded-lg p-2 text-white/50 transition hover:bg-white/10 hover:text-white"><Pencil className="h-4 w-4" /></button>
-              <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
+              {role === 'super_admin' && <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>}
             </div>
           ))}
         </div>
       )}
 
       {showForm && (
-        <ProviderForm provider={editing} dnsList={dnsList} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+        <ProviderForm provider={editing} dnsList={dnsList} superAdmin={role === 'super_admin'} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
       )}
     </div>
   );
 }
 
-function ProviderForm({ provider, dnsList, onClose, onSaved }: {
+function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
   provider: Provider | null;
   dnsList: DnsEntry[];
+  superAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -116,14 +120,11 @@ function ProviderForm({ provider, dnsList, onClose, onSaved }: {
       return;
     }
     setSaving(true);
-    const payload = { name: name.trim(), server_url: serverUrl.trim() || null, auto_registration: autoRegistration, default_dns_id: defaultDnsId || null, renewal_url: renewalUrl.trim() || null };
-    const result = provider
-      ? await supabase.from('iptv_providers').update(payload).eq('id', provider.id)
-      : await supabase.from('iptv_providers').insert(payload).select('id').single();
+    const result = superAdmin
+      ? (provider ? await supabase.from('iptv_providers').update({ name: name.trim() }).eq('id', provider.id) : await supabase.from('iptv_providers').insert({ name: name.trim() }).select('id').single())
+      : await supabase.rpc('update_own_provider_settings', { next_server_url: serverUrl.trim(), next_default_dns_id: defaultDnsId || null, next_renewal_url: renewalUrl.trim(), next_auto_registration: autoRegistration });
     setSaving(false);
     if (result.error) { setError('Erro ao salvar.'); return; }
-    const savedProviderId = provider?.id || result.data?.id;
-    if (savedProviderId && defaultDnsId) await supabase.from('iptv_dns').update({ provider_id: savedProviderId }).eq('id', defaultDnsId);
     onSaved();
   };
 
@@ -137,12 +138,14 @@ function ProviderForm({ provider, dnsList, onClose, onSaved }: {
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-white/60">Nome do provedor</span>
-            <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="Ex.: Provedor Premium" />
+            <input required disabled={!superAdmin} value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none disabled:opacity-60 focus:border-lime-300/50" placeholder="Ex.: Provedor Premium" />
           </label>
+          {!superAdmin && <>
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">URL do servidor (alternativa ao DNS)</span><input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="https://servidor.exemplo" /></label>
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">DNS padrão para novos cadastros</span><select value={defaultDnsId} onChange={(e) => setDefaultDnsId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none"><option value="" className="bg-slate-900">Usar URL do servidor</option>{dnsList.filter((d) => !!provider && (!d.provider_id || d.provider_id === provider.id)).map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name}</option>)}</select>{!provider && <small className="mt-2 block text-white/35">Salve o provedor e depois cadastre o DNS.</small>}</label>
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Página de renovação</span><input value={renewalUrl} onChange={(e) => setRenewalUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none" placeholder="https://provedor.com/renovar" /></label>
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><span><span className="block text-sm font-semibold">Cadastro automático</span><span className="mt-1 block text-xs leading-5 text-white/40">Se a conta estiver ativa no provedor, o primeiro acesso cria o dispositivo automaticamente.</span></span><input type="checkbox" checked={autoRegistration} onChange={(e) => setAutoRegistration(e.target.checked)} className="h-5 w-5 accent-lime-300" /></label>
+          </>}
           {error && <p className="rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-xs text-red-200">{error}</p>}
           <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200 disabled:opacity-50">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar
