@@ -93,15 +93,27 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
 
   useEffect(() => {
-    if (sportsChannel) return;
     let active = true;
-    void searchChannels('Agenda esportiva', 30).then((items) => {
+    const timers: number[] = [];
+    const refreshSportsChannel = async () => {
+      const saved = storage.getSportsChannel();
+      const wantedName = saved?.name || 'Agenda esportiva';
+      const items = await searchChannels(wantedName, 30);
       if (!active) return;
-      const channel = items.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === 'agenda esportiva') || items[0];
-      if (channel) { setSportsChannel(channel); storage.saveSportsChannel(channel); }
-    });
-    return () => { active = false; };
-  }, [sportsChannel]);
+      const normalized = wantedName.trim().toLocaleLowerCase('pt-BR');
+      const channel = items.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === normalized)
+        || items.find((item) => item.name.toLocaleLowerCase('pt-BR').includes('agenda esportiva'))
+        || items[0];
+      if (channel && channel.url !== saved?.url) {
+        setSportsChannel(channel);
+        storage.saveSportsChannel(channel);
+      } else if (channel && !sportsChannel) setSportsChannel(channel);
+    };
+    void refreshSportsChannel();
+    timers.push(window.setTimeout(() => void refreshSportsChannel(), 2500));
+    timers.push(window.setTimeout(() => void refreshSportsChannel(), 7000));
+    return () => { active = false; timers.forEach(window.clearTimeout); };
+  }, []);
 
   useEffect(() => {
     if (!choosingSportsChannel || sportsChannelQuery.trim().length < 2) { setSportsChannelResults([]); return; }
@@ -212,7 +224,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/30">
               <div className="aspect-video">{infoPanelOpen ? <VideoPlayer channel={sportsChannel} startMuted /> : null}</div>
             </div>
-            <div className="mt-3 rounded-2xl border border-emerald-400/18 bg-emerald-400/[0.055] p-3">
+            <div className="mt-3 rounded-2xl bg-white/[0.025] p-3">
               <div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2">{sportsChannel?.logo ? <img src={sportsChannel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg bg-black/20 object-contain p-1" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-300"><Tv className="h-4 w-4" /></span>}<span className="min-w-0"><strong className="block truncate text-xs text-white">{sportsChannel?.name || 'Procurando Agenda esportiva...'}</strong><span className="block truncate text-[10px] text-white/35">{sportsChannel?.group || 'Canal ao vivo'}</span></span></div>{canManageSportsChannel && <button onClick={() => setChoosingSportsChannel((value) => !value)} className="shrink-0 rounded-lg border border-emerald-400/20 px-3 py-2 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-400/10">{choosingSportsChannel ? 'Cancelar' : 'Trocar canal'}</button>}</div>
               {canManageSportsChannel && choosingSportsChannel && <div className="mt-3 border-t border-white/8 pt-3"><input autoFocus value={sportsChannelQuery} onChange={(event) => setSportsChannelQuery(event.target.value)} placeholder="Digite o nome do canal..." className="w-full rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-xs text-white outline-none placeholder:text-white/25 focus:border-emerald-400/40" />{sportsChannelResults.length > 0 && <div className="mt-2 max-h-48 space-y-1 overflow-y-auto scrollbar-none">{sportsChannelResults.map((channel) => <button key={channel.id} onClick={() => chooseSportsChannel(channel)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/7">{channel.logo ? <img src={channel.logo} alt="" className="h-7 w-7 rounded object-contain" /> : <Tv className="h-4 w-4 text-white/25" />}<span className="min-w-0 flex-1 truncate text-xs text-white/70">{channel.name}</span></button>)}</div>}{sportsChannelQuery.trim().length >= 2 && sportsChannelResults.length === 0 && <p className="pt-3 text-center text-[11px] text-white/30">Nenhum canal encontrado</p>}</div>}
             </div>

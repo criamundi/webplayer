@@ -2,8 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Check, ChevronDown, Image, Loader2, Save, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-interface Branding { provider_id?: string; app_name: string; logo_url: string | null; background_url: string | null; login_background_url: string | null; primary_color: string; secondary_color: string; player_layout: string; settings_layout: string; }
-const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Nexus Play', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', player_layout: 'default', settings_layout: 'default' });
+interface Branding { provider_id?: string; app_name: string; logo_url: string | null; background_url: string | null; login_background_url: string | null; primary_color: string; secondary_color: string; player_layout: string; settings_layout: string; main_font_scale: number; }
+const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Nexus Play', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', player_layout: 'default', settings_layout: 'default', main_font_scale: 1 });
 const validHex = (value: string) => /^#[0-9a-f]{6}$/i.test(value.trim());
 
 export function BrandingView() {
@@ -30,7 +30,7 @@ export function BrandingView() {
   useEffect(() => { if (!target) return; void (async () => {
     setLoading(true); setError('');
     const query = target === 'global'
-      ? supabase.from('app_branding').select('app_name, logo_url, background_url, login_background_url, primary_color, secondary_color, player_layout, settings_layout').eq('singleton', true).maybeSingle()
+      ? supabase.from('app_branding').select('app_name, logo_url, background_url, login_background_url, primary_color, secondary_color, player_layout, settings_layout, main_font_scale').eq('singleton', true).maybeSingle()
       : supabase.from('provider_branding').select('*').eq('provider_id', target).maybeSingle();
     const { data, error: loadError } = await query;
     if (loadError) setError('Não foi possível carregar o branding. Execute a migration mais recente.');
@@ -53,7 +53,7 @@ export function BrandingView() {
     event.preventDefault(); if (!branding || !target) return;
     if (!validHex(branding.primary_color)) { setError('Informe a cor principal no formato hexadecimal, por exemplo #BEF264.'); return; }
     setSaving(true); setError('');
-    const payload = { app_name: branding.app_name.trim() || 'Nexus Play', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), secondary_color: '#091018', player_layout: branding.player_layout, settings_layout: branding.settings_layout };
+    const payload = { app_name: branding.app_name.trim() || 'Nexus Play', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), secondary_color: '#091018', player_layout: branding.player_layout, settings_layout: branding.settings_layout, main_font_scale: Math.min(1.3, Math.max(.85, Number(branding.main_font_scale) || 1)) };
     const result = target === 'global'
       ? await supabase.from('app_branding').update(payload).eq('singleton', true)
       : await supabase.from('provider_branding').upsert({ provider_id: target, ...payload }, { onConflict: 'provider_id' });
@@ -70,7 +70,7 @@ export function BrandingView() {
   return <div className="space-y-6"><div><h1 className="text-3xl font-semibold">Branding</h1><p className="mt-2 text-sm text-white/45">{isSuper ? 'Identidade exclusiva do painel Super Admin e padrão inicial do app.' : 'Identidade exclusiva do seu provedor.'}</p></div>
     <form onSubmit={save} className="space-y-6"><section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><label><span className="mb-2 block text-xs text-white/60">Nome do app</span><input required value={branding.app_name} onChange={(e) => setBranding({ ...branding, app_name: e.target.value })} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-lime-300/50" /></label></section>
     <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><div className="mb-5 flex gap-3"><Image className="text-lime-300" /><b>Imagens</b></div><div className="grid gap-4 lg:grid-cols-2"><Picture field="logo_url" title="Logo" hint="PNG transparente recomendado" /><Picture field="login_background_url" title="Fundo do acesso" hint="Usado somente na tela de login" /></div></section>
-    <section className="grid gap-4 rounded-3xl border border-white/10 bg-white/[.04] p-6 sm:grid-cols-2 lg:grid-cols-3"><HexColor label="Cor principal" value={branding.primary_color} onChange={(value) => setBranding({ ...branding, primary_color: value })} /><ChoiceSelect label="Player" value={branding.player_layout} options={[['default', 'Padrão'], ['compact', 'Compacto'], ['cinema', 'Cinema']]} onChange={(value) => setBranding({ ...branding, player_layout: value })} /><ChoiceSelect label="Configurações" value={branding.settings_layout} options={[['default', 'Padrão'], ['grouped', 'Agrupado']]} onChange={(value) => setBranding({ ...branding, settings_layout: value })} /></section>
+    <section className="grid gap-4 rounded-3xl border border-white/10 bg-white/[.04] p-6 sm:grid-cols-2 lg:grid-cols-4"><HexColor label="Cor principal" value={branding.primary_color} onChange={(value) => setBranding({ ...branding, primary_color: value })} /><label><span className="mb-2 flex items-center justify-between text-xs text-white/60"><span>Tamanho das fontes</span><b className="text-white/80">{Math.round(branding.main_font_scale * 100)}%</b></span><input type="range" min="0.85" max="1.30" step="0.05" value={branding.main_font_scale} onChange={(event) => setBranding({ ...branding, main_font_scale: Number(event.target.value) })} className="mt-3 w-full accent-lime-300" /><span className="mt-2 block text-[10px] text-white/35">Títulos e informações principais do app</span></label><ChoiceSelect label="Player" value={branding.player_layout} options={[['default', 'Padrão'], ['compact', 'Compacto'], ['cinema', 'Cinema']]} onChange={(value) => setBranding({ ...branding, player_layout: value })} /><ChoiceSelect label="Configurações" value={branding.settings_layout} options={[['default', 'Padrão'], ['grouped', 'Agrupado']]} onChange={(value) => setBranding({ ...branding, settings_layout: value })} /></section>
     {error && <p className="rounded-xl border border-red-300/20 bg-red-400/10 p-3 text-xs text-red-200">{error}</p>}<div className="flex items-center gap-3"><button disabled={saving || !!uploading} className="flex items-center gap-2 rounded-xl bg-lime-300 px-6 py-3 text-sm font-bold text-slate-950 disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar branding</button>{saved && <span className="flex gap-2 text-sm text-emerald-300"><Check className="h-4 w-4" /> Salvo e aplicado</span>}</div></form></div>;
 }
 

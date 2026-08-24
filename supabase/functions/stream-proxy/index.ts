@@ -225,6 +225,40 @@ Deno.serve(async (req: Request) => {
     }
 
     /*
+     * Uma playlist HLS contém URLs internas para variantes, chaves e
+     * segmentos. Se elas forem devolvidas sem alteração, o navegador tenta
+     * acessar o servidor IPTV diretamente e a reprodução falha por
+     * mixed-content/CORS. Mantemos todas essas requisições dentro do proxy.
+     */
+    const isHlsManifest =
+      /(?:application|audio)\/(?:vnd\.apple\.mpegurl|x-mpegurl)/i.test(contentType || "") ||
+      /\.m3u8(?:$|\?)/i.test(target.toString());
+
+    if (isHlsManifest) {
+      const manifest = await upstream.text();
+      const proxyBase = `${requestUrl.origin}${requestUrl.pathname}`;
+      const proxyUrl = (value: string) => {
+        try {
+          return `${proxyBase}?url=${encodeURIComponent(new URL(value, target).toString())}`;
+        } catch {
+          return value;
+        }
+      };
+      const rewritten = manifest
+        .split(/\r?\n/)
+        .map((line) => {
+          if (!line) return line;
+          if (!line.startsWith("#")) return proxyUrl(line.trim());
+          return line.replace(/URI="([^"]+)"/g, (_match, uri: string) => `URI="${proxyUrl(uri)}"`);
+        })
+        .join("\n");
+
+      responseHeaders.set("Content-Type", "application/vnd.apple.mpegurl");
+      responseHeaders.delete("Content-Length");
+      return new Response(rewritten, { status: upstream.status, headers: responseHeaders });
+    }
+
+    /*
      * Streaming direto.
      *
      * Não converte para Blob,
