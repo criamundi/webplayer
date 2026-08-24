@@ -1837,7 +1837,7 @@ export default function App() {
 */
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-cover bg-center bg-fixed text-white selection:bg-lime-300 selection:text-slate-950" style={{ backgroundColor: branding.secondary_color, backgroundImage: branding.background_url ? `linear-gradient(rgba(9,16,24,.88), rgba(9,16,24,.96)), url(${branding.background_url})` : undefined }}>
+    <div className="min-h-screen overflow-x-hidden bg-[#091018] text-white selection:bg-lime-300 selection:text-slate-950">
 
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
 
@@ -1863,7 +1863,7 @@ export default function App() {
 
         <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
 
-          <TopBar
+          {view !== 'home' && <TopBar
             query={
               query
             }
@@ -1878,8 +1878,8 @@ export default function App() {
             onSignOut={
               handleSignOut
             }
-            home={view === 'home'}
-          />
+            home={false}
+          />}
 
           {view ===
             'home' && (

@@ -111,7 +111,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const trailerUrl = heroInfo?.trailerKey ? (/^https?:\/\//i.test(heroInfo.trailerKey) ? heroInfo.trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(heroInfo.trailerKey)}`) : undefined;
 
   return (
-    <div className="home-page -mx-5 -mt-[68px] sm:-mx-8 lg:-mx-10 lg:-mt-20">
+    <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
       <section className="home-hero">
         {heroImageLoading && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
         {heroBackground ? <img src={heroBackground} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image" /> : heroPosterFallback ? <img src={heroPosterFallback} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image home-hero-poster-fallback" /> : null}

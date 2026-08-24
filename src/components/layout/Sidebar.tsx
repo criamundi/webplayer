@@ -18,7 +18,7 @@ export function Sidebar({ view, setView, open, onClose, branding }: SidebarProps
     {open && <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" onClick={onClose} />}
     <aside className={`sidebar-shell ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
       <div className="mb-10 flex h-12 items-center overflow-hidden px-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl text-slate-950 shadow-lg" style={{ backgroundColor: branding?.primary_color || '#34d399' }}>{branding?.logo_url ? <img src={branding.logo_url} alt="" className="h-full w-full object-contain" /> : <Tv className="h-5 w-5" />}</span>
+        {branding?.logo_url ? <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden bg-transparent"><img src={branding.logo_url} alt="" className="block max-h-10 max-w-10 object-contain" style={{ background: 'transparent' }} /></span> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-400/15"><Tv className="h-5 w-5" /></span>}
         <span className="sidebar-label ml-3 max-w-36 truncate whitespace-nowrap text-sm font-bold tracking-wider">{(branding?.app_name || 'Nexus Play').toUpperCase()}</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1.5 px-3">
