@@ -7,7 +7,9 @@ body { background: #091018; }
 .sidebar-item { display:flex; width:100%; min-height:3rem; flex-shrink:0; align-items:center; gap:.9rem; overflow:hidden; border-radius:.85rem; padding:0 .9rem; color:rgba(255,255,255,.46); text-align:left; white-space:nowrap; transition:.2s ease; }
 .sidebar-item:hover { background:rgba(255,255,255,.07); color:#fff; }
 .sidebar-item-active { background:rgba(52,211,153,.12); color:#34d399; box-shadow:inset 3px 0 0 #34d399; }
-.home-hero { position:relative; min-height:100svh; overflow:hidden; background:radial-gradient(circle at 70% 30%,#1f3634 0,transparent 45%),#0b1217; }
+.home-hero { position:relative; min-height:100svh; overflow:hidden; background:#091018; }
+.hero-visual { position:relative; min-height:100svh; width:100%; overflow:hidden; background:radial-gradient(circle at 70% 30%,#1f3634 0,transparent 45%),#0b1217; transition:width .55s cubic-bezier(.22,1,.36,1); }
+.hero-visual-panel-open { width:calc(100% - 23.5rem); }
 .home-hero-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; filter:saturate(.72) contrast(1.05); }
 .home-hero-poster-fallback { transform:scale(1.08); filter:blur(18px) saturate(.65) brightness(.6); opacity:.72; }
 .home-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#091018 0%,rgba(9,16,24,.88) 24%,rgba(9,16,24,.18) 66%,rgba(9,16,24,.5) 100%),linear-gradient(0deg,#091018 0%,rgba(9,16,24,.99) 6%,rgba(9,16,24,.86) 14%,rgba(9,16,24,.24) 34%,transparent 58%,rgba(9,16,24,.42) 100%); }
@@ -22,6 +24,6 @@ body { background: #091018; }
 .hero-info-panel-open { opacity:1; transform:translateX(0); pointer-events:auto; }
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
-@media (max-width:1023px) { .hero-info-panel { top:5rem; bottom:8rem; } }
+@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:8rem; } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
 @media (min-width:768px) and (max-width:1279px) { .poster-card { min-width:calc((100% - 3rem)/4); flex-basis:calc((100% - 3rem)/4); } }
