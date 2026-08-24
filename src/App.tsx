@@ -224,6 +224,8 @@ export default function App() {
     setAdminAuthed,
   ] = useState(false);
 
+  const [canManageSportsChannel, setCanManageSportsChannel] = useState(false);
+
   const [
     loadError,
     setLoadError,
@@ -1349,6 +1351,19 @@ export default function App() {
     showAdmin,
   ]);
 
+  useEffect(() => {
+    let mounted = true;
+    const checkAdminPermission = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) { if (mounted) setCanManageSportsChannel(false); return; }
+      const { data: profile } = await supabase.from('profiles').select('role, admin_active').eq('id', data.session.user.id).maybeSingle();
+      if (mounted) setCanManageSportsChannel(profile?.admin_active !== false && ['admin', 'super_admin', 'provider_admin'].includes(profile?.role ?? ''));
+    };
+    void checkAdminPermission();
+    const { data: listener } = supabase.auth.onAuthStateChange(() => { void checkAdminPermission(); });
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
+  }, []);
+
   /*
 |--------------------------------------------------------------------------
 | PROVIDER
@@ -1899,6 +1914,9 @@ export default function App() {
               }
               recents={
                 recents
+              }
+              canManageSportsChannel={
+                canManageSportsChannel
               }
             />
           )}
