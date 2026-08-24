@@ -7,6 +7,7 @@ const FAVORITE_ITEMS_KEY = 'iptv:favorite-items';
 const RECENTS_KEY = 'iptv:recents';
 const RECENT_ITEMS_KEY = 'iptv:recent-items';
 const SPORTS_CHANNEL_KEY = 'iptv:sports-feature-channel';
+const WATCH_PROGRESS_KEY = 'iptv:watch-progress';
 const CREDENTIALS_KEY = 'iptv:credentials';
 const CACHE_KEY = 'iptv:cache';
 const CACHE_MAX_BYTES = 4_500_000;
@@ -55,6 +56,14 @@ export const storage = {
   saveRecentItems: (items: Channel[]) => write(RECENT_ITEMS_KEY, items),
   getSportsChannel: (): Channel | null => read<Channel | null>(SPORTS_CHANNEL_KEY, null),
   saveSportsChannel: (channel: Channel) => write(SPORTS_CHANNEL_KEY, channel),
+  getWatchProgress: (): Record<string, { current: number; duration: number; updatedAt: number }> => read(WATCH_PROGRESS_KEY, {}),
+  saveWatchProgress: (id: string, current: number, duration: number) => {
+    if (!id || !Number.isFinite(duration) || duration <= 0) return;
+    const progress = read<Record<string, { current: number; duration: number; updatedAt: number }>>(WATCH_PROGRESS_KEY, {});
+    progress[id] = { current, duration, updatedAt: Date.now() };
+    const entries = Object.entries(progress).sort((a, b) => b[1].updatedAt - a[1].updatedAt).slice(0, 200);
+    write(WATCH_PROGRESS_KEY, Object.fromEntries(entries));
+  },
 
   getCredentials: (): { provider: string; username: string; password: string } | null => read<{ provider: string; username: string; password: string } | null>(CREDENTIALS_KEY, null),
   saveCredentials: (creds: { provider: string; username: string; password: string }) => write(CREDENTIALS_KEY, creds),

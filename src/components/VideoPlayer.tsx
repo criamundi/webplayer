@@ -13,6 +13,8 @@ import {
   Loader2,
   Maximize,
   Minimize,
+  Pause,
+  Play,
   RefreshCw,
   Tv,
   Volume2,
@@ -21,6 +23,7 @@ import {
 
 import type { Channel } from '@/types';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { storage } from '@/lib/storage';
 
 interface VideoPlayerProps {
   channel: Channel | null;
@@ -64,6 +67,8 @@ export function VideoPlayer({
   const hideTimerRef =
     useRef<number | null>(null);
 
+  const lastProgressSecondRef = useRef(-1);
+
   const [status, setStatus] =
     useState<PlayerStatus>('idle');
 
@@ -75,6 +80,8 @@ export function VideoPlayer({
 
   const [volume, setVolume] =
     useState(1);
+
+  const [paused, setPaused] = useState(false);
 
   const [
     isFullscreen,
@@ -1021,6 +1028,21 @@ export function VideoPlayer({
         playsInline
         autoPlay
         preload="none"
+        onPlay={() => setPaused(false)}
+        onPause={() => setPaused(true)}
+        onLoadedMetadata={(event) => {
+          const saved = storage.getWatchProgress()[channel?.id || ''];
+          if (saved && Number.isFinite(event.currentTarget.duration) && saved.current < event.currentTarget.duration - 15) event.currentTarget.currentTime = saved.current;
+        }}
+        onTimeUpdate={(event) => {
+          if (!channel) return;
+          const video = event.currentTarget;
+          const second = Math.floor(video.currentTime);
+          if (Number.isFinite(video.duration) && video.duration > 0 && second % 5 === 0 && second !== lastProgressSecondRef.current) {
+            lastProgressSecondRef.current = second;
+            storage.saveWatchProgress(channel.id, video.currentTime, video.duration);
+          }
+        }}
         className="h-full w-full object-contain"
       />
 
@@ -1088,7 +1110,20 @@ export function VideoPlayer({
                 : 'pointer-events-none opacity-0'
             }`}
           >
-            <div className="flex items-center gap-3 text-white">
+            <div className="flex items-center gap-2 rounded-xl bg-black/45 p-1.5 text-white backdrop-blur-md">
+
+              <button
+                type="button"
+                onClick={() => {
+                  const video = videoRef.current;
+                  if (!video) return;
+                  if (video.paused) void video.play(); else video.pause();
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 transition hover:bg-white/20"
+                aria-label={paused ? 'Reproduzir' : 'Pausar'}
+              >
+                {paused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
+              </button>
 
               <button
                 type="button"
