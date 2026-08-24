@@ -24,6 +24,7 @@ import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface VideoPlayerProps {
   channel: Channel | null;
+  startMuted?: boolean;
 }
 
 type PlayerStatus =
@@ -37,6 +38,7 @@ const SWITCH_DELAY = 350;
 
 export function VideoPlayer({
   channel,
+  startMuted = false,
 }: VideoPlayerProps) {
   const videoRef =
     useRef<HTMLVideoElement>(null);
@@ -69,7 +71,7 @@ export function VideoPlayer({
     useState('');
 
   const [muted, setMuted] =
-    useState(false);
+    useState(startMuted);
 
   const [volume, setVolume] =
     useState(1);
