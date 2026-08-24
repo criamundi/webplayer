@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, LockKeyhole, Server, UserRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, LockKeyhole, Server, Tv, UserRound } from 'lucide-react';
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -39,10 +39,11 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
   useEffect(() => {
     const name = provider.trim();
     if (name.length < 2) { setProviderBranding(null); return; }
+    setProviderBranding(null);
     const timer = window.setTimeout(async () => {
       const { data: providerRows } = await supabase.rpc('find_public_provider', { provider_name: name });
       const providerRow = providerRows?.[0];
-      if (!providerRow) return;
+      if (!providerRow) { setProviderBranding(null); return; }
       const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', providerRow.id).maybeSingle();
       if (data) setProviderBranding(data as Branding);
     }, 450);
@@ -72,7 +73,7 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
   const buttonStyle = { backgroundColor: visualBranding.primary_color };
   const brandIdentity = visualBranding.logo_url
     ? <img src={visualBranding.logo_url} alt={visualBranding.app_name} className="max-h-24 max-w-[260px] object-contain object-left" />
-    : <h1 className="text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1>;
+    : <div className="flex items-center gap-3"><span className="flex h-14 w-14 items-center justify-center rounded-2xl text-slate-950 shadow-lg" style={buttonStyle}><Tv className="h-7 w-7" /></span><h1 className="text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1></div>;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-cover bg-center text-white" style={{ backgroundColor: visualBranding.secondary_color, backgroundImage: visualBranding.login_background_url ? `linear-gradient(90deg, rgba(9,16,24,.92), rgba(9,16,24,.55)), url(${visualBranding.login_background_url})` : undefined }}>
