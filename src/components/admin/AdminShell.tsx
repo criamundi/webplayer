@@ -65,10 +65,10 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
 
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <div className="mx-auto flex min-h-screen max-w-[1540px]">
+      <div className="flex min-h-screen w-full">
         <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/10 bg-[#0d1720]/95 px-5 py-6 backdrop-blur-xl transition-transform lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl text-slate-950 shadow-lg" style={{ backgroundColor: panelBranding.primary_color }}>{panelBranding.logo_url ? <img src={panelBranding.logo_url} alt="" className="h-full w-full object-contain" /> : <Radio className="h-6 w-6" />}</div>
+            {panelBranding.logo_url ? <div className="flex h-11 w-11 items-center justify-center overflow-hidden bg-transparent"><img src={panelBranding.logo_url} alt="" className="block max-h-11 max-w-11 object-contain" style={{ background: 'transparent' }} /></div> : <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-slate-950 shadow-lg" style={{ backgroundColor: panelBranding.primary_color }}><Radio className="h-6 w-6" /></div>}
             <div>
               <span className="block text-sm font-bold tracking-wide">PAINEL ADMIN</span>
               <span className="block text-[10px] text-white/35">{panelBranding.app_name}</span>
