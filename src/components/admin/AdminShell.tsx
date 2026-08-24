@@ -27,13 +27,37 @@ interface AdminShellProps {
 export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
   const [tab, setTab] = useState<AdminTab>('devices');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [role, setRole] = useState('provider_admin');
+  const [role, setRole] = useState<string | null>(null);
+  const [panelBranding, setPanelBranding] = useState({ app_name: 'Nexus Play', logo_url: null as string | null, primary_color: '#bef264' });
 
   useEffect(() => { setSidebarOpen(false); }, [tab]);
-  useEffect(() => { (async () => { const { data: auth } = await supabase.auth.getUser(); if (!auth.user) return; const { data } = await supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(); if (data?.role) setRole(data.role); })(); }, []);
+  useEffect(() => {
+    let mounted = true;
+    const loadIdentity = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const [{ data: profile }, { data: superAccess }] = await Promise.all([
+        supabase.from('profiles').select('role, provider_id').eq('id', auth.user.id).maybeSingle(),
+        supabase.rpc('is_super_admin'),
+      ]);
+      if (!profile || !mounted) return;
+      const isSuper = Boolean(superAccess) || profile.role === 'super_admin' || profile.role === 'admin';
+      setRole(isSuper ? 'super_admin' : profile.role);
+      const query = isSuper
+        ? supabase.from('app_branding').select('app_name, logo_url, primary_color').maybeSingle()
+        : supabase.from('provider_branding').select('app_name, logo_url, primary_color').eq('provider_id', profile.provider_id).maybeSingle();
+      const { data: identity } = await query;
+      if (identity && mounted) setPanelBranding(identity);
+    };
+    void loadIdentity();
+    const refresh = () => void loadIdentity();
+    window.addEventListener('branding-updated', refresh);
+    return () => { mounted = false; window.removeEventListener('branding-updated', refresh); };
+  }, []);
+  const isSuper = role === 'super_admin' || role === 'admin';
   const visibleTabs = tabs
-    .filter((item) => role === 'super_admin' || item.id !== 'admins')
-    .map((item) => item.id === 'providers' && role !== 'super_admin' ? { ...item, label: 'Meu provedor' } : item);
+    .filter((item) => isSuper || item.id !== 'admins')
+    .map((item) => item.id === 'providers' && !isSuper ? { ...item, label: 'Meu provedor' } : item);
 
   return (
     <div className="min-h-screen bg-[#091018] text-white">
@@ -44,10 +68,10 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
       <div className="mx-auto flex min-h-screen max-w-[1540px]">
         <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/10 bg-[#0d1720]/95 px-5 py-6 backdrop-blur-xl transition-transform lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-300 text-slate-950 shadow-lg shadow-lime-300/20"><Radio className="h-6 w-6" /></div>
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl text-slate-950 shadow-lg" style={{ backgroundColor: panelBranding.primary_color }}>{panelBranding.logo_url ? <img src={panelBranding.logo_url} alt="" className="h-full w-full object-contain" /> : <Radio className="h-6 w-6" />}</div>
             <div>
               <span className="block text-sm font-bold tracking-wide">PAINEL ADMIN</span>
-              <span className="block text-[10px] text-white/35">Nexus Play IPTV</span>
+              <span className="block text-[10px] text-white/35">{panelBranding.app_name}</span>
             </div>
           </div>
 

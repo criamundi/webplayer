@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Monitor, Pencil, Plus, Power, Search, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Pencil, Plus, Power, Search, Trash2, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { buildM3ULink, copyToClipboard } from '@/lib/m3u-link';
 

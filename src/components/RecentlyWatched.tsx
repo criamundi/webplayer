@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Play, Clock } from 'lucide-react';
 import type { Channel } from '@/types';
 
@@ -45,16 +44,4 @@ export function RecentlyWatched({ channels, onSelect }: RecentlyWatchedProps) {
       </div>
     </div>
   );
-}
-
-export type { Channel };
-export function useRecentlyWatched() {
-  const [recents, setRecents] = useState<Channel[]>([]);
-  const addRecent = (ch: Channel) => {
-    setRecents((prev) => {
-      const filtered = prev.filter((c) => c.id !== ch.id);
-      return [ch, ...filtered].slice(0, 10);
-    });
-  };
-  return { recents, addRecent };
 }

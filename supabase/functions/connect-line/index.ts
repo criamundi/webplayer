@@ -307,7 +307,9 @@ Deno.serve(
         password.length >
           200 ||
         providerName.length <
-          1
+          1 ||
+        providerName.includes("%") ||
+        providerName.includes("_")
       ) {
         return json(
           {
@@ -336,7 +338,7 @@ Deno.serve(
             "iptv_providers",
           )
           .select(
-            "id, name, active, auto_registration, default_dns_id, server_url",
+            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url",
           )
           .ilike(
             "name",
@@ -526,7 +528,7 @@ Deno.serve(
       if (action === "account-status") {
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
-        return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status });
+        return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
       }
 
       /* Catálogo oficial: datas e avaliações reais do provedor. */

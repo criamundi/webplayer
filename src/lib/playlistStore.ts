@@ -582,7 +582,7 @@ export async function saveChannelBatch(
            */
           try {
             tx.abort();
-          } catch {}
+          } catch { /* transaction may already be closed */ }
         };
 
       tx.oncomplete =
@@ -755,17 +755,10 @@ function stripStored(
   channel:
     StoredChannel,
 ): Channel {
-  const {
-    category:
-      _category,
-
-    nameLower:
-      _nameLower,
-
-    ...plain
-  } = channel;
-
-  return plain;
+  const plain = { ...channel } as Partial<StoredChannel>;
+  delete plain.category;
+  delete plain.nameLower;
+  return plain as Channel;
 }
 
 /*

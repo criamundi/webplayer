@@ -27,7 +27,7 @@ import {
   savePlaylistMeta,
 } from '@/lib/playlistStore';
 
-import { useRecentlyWatched } from '@/components/RecentlyWatched';
+import { useRecentlyWatched } from '@/lib/useRecentlyWatched';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ProviderAccess } from '@/components/ProviderAccess';
 
@@ -321,18 +321,19 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
 
-    void (async () => {
+    const loadBranding = async () => {
       const credentials = storage.getCredentials();
       let data: Branding | null = null;
       if (credentials?.provider) {
-        const { data: provider } = await supabase.from('iptv_providers').select('id').ilike('name', credentials.provider).maybeSingle();
+        const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
+        const provider = providers?.[0];
         if (provider) {
           const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', provider.id).maybeSingle();
           data = providerBranding as Branding | null;
         }
       }
       if (!data) {
-        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color').maybeSingle();
+        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').maybeSingle();
         data = globalBranding as Branding | null;
       }
 
@@ -344,10 +345,14 @@ export default function App() {
           data,
         );
       }
-    })();
+    };
+    void loadBranding();
+    const refreshBranding = () => void loadBranding();
+    window.addEventListener('branding-updated', refreshBranding);
 
     return () => {
       mounted = false;
+      window.removeEventListener('branding-updated', refreshBranding);
     };
   }, []);
 
@@ -1316,7 +1321,7 @@ export default function App() {
             'profiles',
           )
           .select(
-            'role',
+            'role, admin_active',
           )
           .eq(
             'id',
@@ -1326,8 +1331,8 @@ export default function App() {
 
       if (
         mounted &&
-        profile?.role ===
-          'admin'
+        profile?.admin_active !== false &&
+        ['admin', 'super_admin', 'provider_admin'].includes(profile?.role ?? '')
       ) {
         setAdminAuthed(
           true,
@@ -1407,7 +1412,8 @@ export default function App() {
       async () => {
         const credentials = storage.getCredentials();
         if (credentials?.provider) {
-          const { data: provider } = await supabase.from('iptv_providers').select('id').ilike('name', credentials.provider).maybeSingle();
+          const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
+          const provider = providers?.[0];
           if (provider) {
             const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', provider.id).maybeSingle();
             if (data) setBranding(data as Branding);
@@ -1838,6 +1844,7 @@ export default function App() {
       <div className="flex min-h-screen w-full">
 
         <Sidebar
+          branding={branding}
           view={
             view
           }

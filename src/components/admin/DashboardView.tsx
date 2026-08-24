@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Globe, Monitor, Server, UserX, Zap } from 'lucide-react';
+import { Globe, Monitor, Server, UserX, Zap } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface Stats {

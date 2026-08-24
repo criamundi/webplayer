@@ -68,12 +68,15 @@ function validRating(value?: string) {
 }
 
 export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate }: HomeViewProps) {
+  const favoritesRef = useRef(favorites);
   const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
   const [movies, setMovies] = useState<CatalogItem[]>([]);
   const [series, setSeries] = useState<CatalogItem[]>([]);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
+
+  useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
 
   useEffect(() => {
     let active = true;
@@ -82,7 +85,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       if (!active) return;
       const movieItems = catalog?.movies ?? [];
       const seriesItems = catalog?.series ?? [];
-      [...movieItems, ...seriesItems].forEach((item) => { if (favorites.has(item.id)) storage.saveFavoriteItem(item); });
+      [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
       const featured = movieItems[0] ?? null;
       setHeroItem(featured);
       if (!featured) setHeroImageLoading(false);
@@ -104,7 +107,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
   const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
   const metadata = [heroRating, releaseYear, duration, heroInfo?.genre].filter(Boolean);
-  const renewalUrl = import.meta.env.VITE_RENEWAL_URL as string | undefined;
+  const renewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
   const trailerUrl = heroInfo?.trailerKey ? (/^https?:\/\//i.test(heroInfo.trailerKey) ? heroInfo.trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(heroInfo.trailerKey)}`) : undefined;
 
   return (

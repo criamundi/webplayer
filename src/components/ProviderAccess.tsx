@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Eye, EyeOff, KeyRound, LockKeyhole, Server, Tv, UserRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, LockKeyhole, Server, UserRound } from 'lucide-react';
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -40,7 +40,8 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
     const name = provider.trim();
     if (name.length < 2) { setProviderBranding(null); return; }
     const timer = window.setTimeout(async () => {
-      const { data: providerRow } = await supabase.from('iptv_providers').select('id').ilike('name', name).maybeSingle();
+      const { data: providerRows } = await supabase.rpc('find_public_provider', { provider_name: name });
+      const providerRow = providerRows?.[0];
       if (!providerRow) return;
       const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url').eq('provider_id', providerRow.id).maybeSingle();
       if (data) setProviderBranding(data as Branding);
@@ -68,13 +69,10 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
     onSuccess();
   };
 
-  const accentStyle = { color: visualBranding.primary_color };
   const buttonStyle = { backgroundColor: visualBranding.primary_color };
-  const logo = visualBranding.logo_url ? (
-    <img src={visualBranding.logo_url} alt={visualBranding.app_name} className="h-16 w-16 rounded-2xl object-contain" />
-  ) : (
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-slate-950 shadow-lg" style={buttonStyle}><Tv className="h-8 w-8" /></div>
-  );
+  const brandIdentity = visualBranding.logo_url
+    ? <img src={visualBranding.logo_url} alt={visualBranding.app_name} className="max-h-24 max-w-[260px] object-contain object-left" />
+    : <h1 className="text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1>;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-cover bg-center text-white" style={{ backgroundColor: visualBranding.secondary_color, backgroundImage: visualBranding.login_background_url ? `linear-gradient(90deg, rgba(9,16,24,.92), rgba(9,16,24,.55)), url(${visualBranding.login_background_url})` : undefined }}>
@@ -82,16 +80,15 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-8 sm:px-8 lg:px-12">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1fr_440px] lg:gap-20">
           <section className="hidden max-w-xl lg:block">
-            <div className="mb-10 flex items-center gap-4">{logo}<div><p className="text-sm font-semibold uppercase tracking-[0.24em]" style={accentStyle}>Acesso seguro</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1></div></div>
-            <p className="text-sm font-medium uppercase tracking-[0.22em]" style={accentStyle}>Bem-vindo</p>
+            <div className="mb-10">{brandIdentity}</div>
+            <p className="text-sm font-medium uppercase tracking-[0.22em]" style={{ color: visualBranding.primary_color }}>Bem-vindo</p>
             <h2 className="mt-4 max-w-lg text-4xl font-semibold leading-[1.1] tracking-tight xl:text-5xl">Entre para assistir ao seu conteúdo.</h2>
             <p className="mt-6 max-w-md text-base leading-7 text-white/55">Use as credenciais fornecidas pelo seu provedor para acessar canais, filmes e séries em um só lugar.</p>
           </section>
 
           <section className="w-full rounded-[28px] border border-white/10 bg-white/[0.055] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
             <div className="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
-              <div className="mb-5 lg:hidden">{logo}</div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={accentStyle}>{visualBranding.app_name}</p>
+              <div className="mb-5 lg:hidden">{brandIdentity}</div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight">Acessar lista</h1>
               <p className="mt-2 text-sm text-white/45">Entre com os dados enviados pelo seu provedor.</p>
             </div>

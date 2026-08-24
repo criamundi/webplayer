@@ -131,15 +131,15 @@ export function VideoPlayer({
 
         try {
           hls.stopLoad();
-        } catch {}
+        } catch { /* player may already be stopped */ }
 
         try {
           hls.detachMedia();
-        } catch {}
+        } catch { /* media may already be detached */ }
 
         try {
           hls.destroy();
-        } catch {}
+        } catch { /* instance may already be destroyed */ }
       }
 
       /*
@@ -154,19 +154,19 @@ export function VideoPlayer({
 
         try {
           player.pause();
-        } catch {}
+        } catch { /* player may already be paused */ }
 
         try {
           player.unload();
-        } catch {}
+        } catch { /* player may already be unloaded */ }
 
         try {
           player.detachMediaElement();
-        } catch {}
+        } catch { /* media may already be detached */ }
 
         try {
           player.destroy();
-        } catch {}
+        } catch { /* instance may already be destroyed */ }
       }
 
       /*
@@ -178,17 +178,17 @@ export function VideoPlayer({
       if (video) {
         try {
           video.pause();
-        } catch {}
+        } catch { /* video may already be paused */ }
 
         try {
           video.removeAttribute(
             'src',
           );
-        } catch {}
+        } catch { /* source may already be empty */ }
 
         try {
           video.load();
-        } catch {}
+        } catch { /* browser may reject load during teardown */ }
       }
     }, []);
 
@@ -374,15 +374,15 @@ export function VideoPlayer({
 
             try {
               hls.stopLoad();
-            } catch {}
+            } catch { /* player may already be stopped */ }
 
             try {
               hls.detachMedia();
-            } catch {}
+            } catch { /* media may already be detached */ }
 
             try {
               hls.destroy();
-            } catch {}
+            } catch { /* instance may already be destroyed */ }
 
             if (
               hlsRef.current ===
@@ -509,19 +509,19 @@ export function VideoPlayer({
 
               try {
                 player.pause();
-              } catch {}
+              } catch { /* player may already be paused */ }
 
               try {
                 player.unload();
-              } catch {}
+              } catch { /* player may already be unloaded */ }
 
               try {
                 player.detachMediaElement();
-              } catch {}
+              } catch { /* media may already be detached */ }
 
               try {
                 player.destroy();
-              } catch {}
+              } catch { /* instance may already be destroyed */ }
 
               if (
                 mpegtsRef.current ===
@@ -565,7 +565,7 @@ export function VideoPlayer({
             decodeURIComponent(
               url,
             );
-        } catch {}
+        } catch { /* keep the original URL when it is not encoded */ }
 
         /*
          * HLS

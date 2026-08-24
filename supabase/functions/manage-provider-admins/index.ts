@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData.user) return response({ error: "Sessão inválida." }, 401);
     const { data: requester } = await admin.from("profiles").select("role, admin_active").eq("id", userData.user.id).maybeSingle();
-    if (requester?.role !== "super_admin" || requester.admin_active === false) return response({ error: "Somente o Super Admin pode realizar esta operação." }, 403);
+    if (!requester || !["super_admin", "admin"].includes(requester.role) || requester.admin_active === false) return response({ error: "Somente o Super Admin pode realizar esta operação." }, 403);
 
     const body = await req.json();
     const action = String(body.action ?? "");

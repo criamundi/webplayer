@@ -20,7 +20,7 @@ export function ProvidersView() {
   const [editing, setEditing] = useState<Provider | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [dnsList, setDnsList] = useState<DnsEntry[]>([]);
-  const [role, setRole] = useState('provider_admin');
+  const [role, setRole] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -29,13 +29,20 @@ export function ProvidersView() {
       supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
       supabase.auth.getUser(),
     ]);
-    if (auth.user) { const { data: profile } = await supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(); if (profile?.role) setRole(profile.role); }
+    if (auth.user) {
+      const [{ data: profile }, { data: superAccess }] = await Promise.all([
+        supabase.from('profiles').select('role').eq('id', auth.user.id).maybeSingle(),
+        supabase.rpc('is_super_admin'),
+      ]);
+      setRole(superAccess ? 'super_admin' : profile?.role || 'provider_admin');
+    }
     setProviders(data || []);
     setDnsList(dns || []);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+  const isSuper = role === 'super_admin' || role === 'admin';
 
   const handleToggle = async (provider: Provider) => {
     await supabase.from('iptv_providers').update({ active: !provider.active }).eq('id', provider.id);
@@ -52,10 +59,10 @@ export function ProvidersView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{role === 'super_admin' ? 'Provedores' : 'Meu provedor'}</h1>
-          <p className="mt-2 text-sm text-white/45">{role === 'super_admin' ? 'Cadastre o nome de cada provedor e atribua seu administrador.' : 'Configure a conexão, renovação e cadastro automático do seu provedor.'}</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{isSuper ? 'Provedores' : 'Meu provedor'}</h1>
+          <p className="mt-2 text-sm text-white/45">{isSuper ? 'Cadastre o nome de cada provedor e atribua seu administrador.' : 'Configure a conexão, renovação e cadastro automático do seu provedor.'}</p>
         </div>
-        {role === 'super_admin' && <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
+        {isSuper && <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
           <Plus className="h-4 w-4" /> Novo provedor
         </button>}
       </div>
@@ -80,18 +87,18 @@ export function ProvidersView() {
                 <p className="truncate text-xs text-white/40">{provider.server_url || 'Sem URL — usa DNS das linhas'}</p>
                 <p className={`mt-1 text-[10px] font-semibold ${provider.auto_registration ? 'text-lime-300' : 'text-white/30'}`}>Cadastro automático {provider.auto_registration ? 'ativado' : 'desativado'}</p>
               </div>
-              {role === 'super_admin' && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
+              {isSuper && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
                 {provider.active ? 'Ativo' : 'Inativo'}
               </button>}
               <button onClick={() => { setEditing(provider); setShowForm(true); }} className="rounded-lg p-2 text-white/50 transition hover:bg-white/10 hover:text-white"><Pencil className="h-4 w-4" /></button>
-              {role === 'super_admin' && <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>}
+              {isSuper && <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>}
             </div>
           ))}
         </div>
       )}
 
       {showForm && (
-        <ProviderForm provider={editing} dnsList={dnsList} superAdmin={role === 'super_admin'} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+        <ProviderForm provider={editing} dnsList={dnsList} superAdmin={isSuper} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
       )}
     </div>
   );
@@ -118,6 +125,10 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
     if (name.trim().length < 2) {
       setError('Informe um nome válido para o provedor.');
       return;
+    }
+    if (superAdmin) {
+      const { data: duplicate } = await supabase.from('iptv_providers').select('id').ilike('name', name.trim()).limit(1).maybeSingle();
+      if (duplicate && duplicate.id !== provider?.id) { setError('Já existe um provedor com esse nome.'); return; }
     }
     setSaving(true);
     const result = superAdmin

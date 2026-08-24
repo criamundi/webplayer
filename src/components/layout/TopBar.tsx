@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, LogOut, Menu, Search, Tv, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, Menu, Search, Tv, UserRound } from 'lucide-react';
 
 interface TopBarProps {
   query: string;

@@ -1,3 +1,9 @@
+[functions.connect-line]
+verify_jwt = false
+
+[functions.fetch-playlist]
+verify_jwt = false
+
 [functions.stream-proxy]
 verify_jwt = false
 

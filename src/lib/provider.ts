@@ -33,6 +33,7 @@ export interface CatalogItem extends Channel {
 export interface AccountStatus {
   expiresAt: string | null;
   daysRemaining: number | null;
+  renewalUrl?: string | null;
 }
 
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
