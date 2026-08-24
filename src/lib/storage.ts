@@ -6,6 +6,7 @@ const FAVORITES_KEY = 'iptv:favorites';
 const FAVORITE_ITEMS_KEY = 'iptv:favorite-items';
 const RECENTS_KEY = 'iptv:recents';
 const RECENT_ITEMS_KEY = 'iptv:recent-items';
+const SPORTS_CHANNEL_KEY = 'iptv:sports-feature-channel';
 const CREDENTIALS_KEY = 'iptv:credentials';
 const CACHE_KEY = 'iptv:cache';
 const CACHE_MAX_BYTES = 4_500_000;
@@ -52,6 +53,8 @@ export const storage = {
   saveRecents: (ids: string[]) => write(RECENTS_KEY, ids),
   getRecentItems: (): Channel[] => read<Channel[]>(RECENT_ITEMS_KEY, []),
   saveRecentItems: (items: Channel[]) => write(RECENT_ITEMS_KEY, items),
+  getSportsChannel: (): Channel | null => read<Channel | null>(SPORTS_CHANNEL_KEY, null),
+  saveSportsChannel: (channel: Channel) => write(SPORTS_CHANNEL_KEY, channel),
 
   getCredentials: (): { provider: string; username: string; password: string } | null => read<{ provider: string; username: string; password: string } | null>(CREDENTIALS_KEY, null),
   saveCredentials: (creds: { provider: string; username: string; password: string }) => write(CREDENTIALS_KEY, creds),

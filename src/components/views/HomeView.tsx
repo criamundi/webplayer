@@ -82,6 +82,10 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchChannels, setMatchChannels] = useState<Record<string, Channel>>({});
+  const [sportsChannel, setSportsChannel] = useState<Channel | null>(() => storage.getSportsChannel());
+  const [choosingSportsChannel, setChoosingSportsChannel] = useState(false);
+  const [sportsChannelQuery, setSportsChannelQuery] = useState('');
+  const [sportsChannelResults, setSportsChannelResults] = useState<Channel[]>([]);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
@@ -108,6 +112,36 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     if (matches.length) void connectBroadcasts();
     return () => { active = false; };
   }, [matches]);
+
+  useEffect(() => {
+    if (sportsChannel) return;
+    let active = true;
+    void searchChannels('Agenda esportiva', 30).then((items) => {
+      if (!active) return;
+      const channel = items.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === 'agenda esportiva') || items[0];
+      if (channel) { setSportsChannel(channel); storage.saveSportsChannel(channel); }
+    });
+    return () => { active = false; };
+  }, [sportsChannel]);
+
+  useEffect(() => {
+    if (!choosingSportsChannel || sportsChannelQuery.trim().length < 2) { setSportsChannelResults([]); return; }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void searchChannels(sportsChannelQuery, 24).then((items) => {
+        if (active) setSportsChannelResults(items.filter((item) => !/\/movie\/|\/series\//i.test(item.url)).slice(0, 8));
+      });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [choosingSportsChannel, sportsChannelQuery]);
+
+  const chooseSportsChannel = (channel: Channel) => {
+    setSportsChannel(channel);
+    storage.saveSportsChannel(channel);
+    setChoosingSportsChannel(false);
+    setSportsChannelQuery('');
+    setSportsChannelResults([]);
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -168,6 +202,11 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
           <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-emerald-400" /><span className="text-sm font-semibold text-white">Jogos de hoje</span></div><div className="flex items-center gap-3"><div className="text-right"><strong className="block text-base font-semibold tabular-nums text-white">{currentTime}</strong><span className="block text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span></div><button onClick={() => setInfoPanelOpen(false)} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div></div>
           <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-none">
+            <div className="mb-4 rounded-2xl border border-emerald-400/18 bg-emerald-400/[0.055] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3"><span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300/70">Canal em destaque</span><button onClick={() => setChoosingSportsChannel((value) => !value)} className="text-[11px] font-medium text-emerald-300 transition hover:text-emerald-200">{choosingSportsChannel ? 'Cancelar' : 'Trocar canal'}</button></div>
+              {sportsChannel ? <div className="flex items-center gap-3">{sportsChannel.logo ? <img src={sportsChannel.logo} alt="" className="h-11 w-11 rounded-xl bg-black/20 object-contain p-1" /> : <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300"><Tv className="h-5 w-5" /></span>}<span className="min-w-0 flex-1"><strong className="block truncate text-sm text-white">{sportsChannel.name}</strong><span className="block truncate text-[11px] text-white/35">{sportsChannel.group || 'Canal ao vivo'}</span></span><button onClick={() => onSelectChannel(sportsChannel)} className="flex items-center gap-1.5 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-3.5 w-3.5 fill-current" /> Assistir</button></div> : <div className="flex items-center gap-2 py-2 text-xs text-white/35"><LoaderCircle className="h-4 w-4 animate-spin text-emerald-400" />Procurando “Agenda esportiva” na lista</div>}
+              {choosingSportsChannel && <div className="mt-3 border-t border-white/8 pt-3"><input autoFocus value={sportsChannelQuery} onChange={(event) => setSportsChannelQuery(event.target.value)} placeholder="Digite o nome do canal..." className="w-full rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-xs text-white outline-none placeholder:text-white/25 focus:border-emerald-400/40" />{sportsChannelResults.length > 0 && <div className="mt-2 max-h-48 space-y-1 overflow-y-auto scrollbar-none">{sportsChannelResults.map((channel) => <button key={channel.id} onClick={() => chooseSportsChannel(channel)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/7">{channel.logo ? <img src={channel.logo} alt="" className="h-7 w-7 rounded object-contain" /> : <Tv className="h-4 w-4 text-white/25" />}<span className="min-w-0 flex-1 truncate text-xs text-white/70">{channel.name}</span></button>)}</div>}{sportsChannelQuery.trim().length >= 2 && sportsChannelResults.length === 0 && <p className="pt-3 text-center text-[11px] text-white/30">Nenhum canal encontrado</p>}</div>}
+            </div>
             {matchesLoading ? <div className="flex items-center gap-2 py-6 text-xs text-white/35"><LoaderCircle className="h-4 w-4 animate-spin text-emerald-400" />Carregando jogos</div> : matches.length ? <div className="space-y-2">{matches.map((match) => { const linkedChannel = matchChannels[match.id]; return <div key={match.id} className="rounded-xl border border-white/8 bg-white/[0.035] p-3"><div className="mb-2 flex items-center justify-between gap-3"><span className="truncate text-[10px] uppercase tracking-wider text-white/35">{match.competition || 'Futebol brasileiro'}</span><strong className="text-xs text-emerald-300">{match.time}</strong></div><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="min-w-0 text-center">{match.homeLogo && <img src={match.homeLogo} alt="" className="mx-auto mb-1 h-7 w-7 object-contain" />}<span className="block truncate text-xs font-medium text-white/85">{match.home}</span></span><span className="text-[10px] text-white/25">×</span><span className="min-w-0 text-center">{match.awayLogo && <img src={match.awayLogo} alt="" className="mx-auto mb-1 h-7 w-7 object-contain" />}<span className="block truncate text-xs font-medium text-white/85">{match.away}</span></span></div>{match.venue && <p className="mt-2 flex items-center gap-1 truncate text-[10px] text-white/35"><MapPin className="h-3 w-3 shrink-0" />{match.venue}</p>}{linkedChannel ? <button onClick={() => onSelectChannel(linkedChannel)} className="mt-2 flex w-full items-center gap-2 rounded-lg bg-emerald-400/10 px-2.5 py-2 text-left transition hover:bg-emerald-400/18">{linkedChannel.logo ? <img src={linkedChannel.logo} alt="" className="h-6 w-6 rounded object-contain" /> : <Tv className="h-4 w-4 text-emerald-300" />}<span className="min-w-0 flex-1 truncate text-[11px] font-medium text-emerald-200">Assistir em {linkedChannel.name}</span><ExternalLink className="h-3 w-3 text-emerald-300" /></button> : <p className="mt-2 truncate text-[11px] text-white/42">{match.channels.length ? match.channels.join(' • ') : 'Transmissão não informada'}</p>}</div>; })}</div> : <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center"><Trophy className="mx-auto mb-3 h-7 w-7 text-white/12" /><p className="text-xs font-medium text-white/50">Nenhum jogo brasileiro hoje</p><p className="mt-1 text-[11px] leading-4 text-white/28">A agenda é atualizada automaticamente.</p></div>}
           </div>
           <div className="space-y-3 border-t border-white/8 p-5">
