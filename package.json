@@ -1,7 +1,7 @@
 {
   "name": "vite-react-typescript-starter",
   "private": true,
-  "version": "0.2.15-beta.0",
+  "version": "0.2.16-beta.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,6 @@
     "hls.js": "^1.7.0",
     "lucide-react": "^0.446.0",
     "mpegts.js": "^1.8.2",
-    "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
