@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Film, Heart, LoaderCircle, Play, Radio, Sparkles, Star, Tv } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, Sparkles, Star, Trophy, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 import { storage } from '@/lib/storage';
+import { loadTodayMatches, type TodayMatch } from '@/lib/sports';
 
 interface HomeViewProps {
   favorites: Set<string>;
   onSelectChannel: (ch: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
   onNavigate: (view: View) => void;
+  recents: Channel[];
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
@@ -67,7 +69,7 @@ function validRating(value?: string) {
   return Number(value.replace(',', '.')) > 0;
 }
 
-export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate }: HomeViewProps) {
+export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, recents }: HomeViewProps) {
   const favoritesRef = useRef(favorites);
   const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
@@ -75,8 +77,17 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [movies, setMovies] = useState<CatalogItem[]>([]);
   const [series, setSeries] = useState<CatalogItem[]>([]);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
+  const [infoPanelOpen, setInfoPanelOpen] = useState(true);
+  const [matches, setMatches] = useState<TodayMatch[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(true);
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
+
+  useEffect(() => {
+    let active = true;
+    void loadTodayMatches().then((items) => { if (active) setMatches(items); }).catch(() => { if (active) setMatches([]); }).finally(() => { if (active) setMatchesLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -116,8 +127,8 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         {heroImageLoading && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
         {heroBackground ? <img src={heroBackground} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image" /> : heroPosterFallback ? <img src={heroPosterFallback} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image home-hero-poster-fallback" /> : null}
         <div className="home-hero-shade" />
-        {accountStatus?.daysRemaining != null && <div className="subscription-card absolute right-5 top-24 z-20 sm:right-8 lg:right-12 lg:top-24"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 1 ? '1 dia restante' : `${accountStatus.daysRemaining} dias restantes`}</strong></span>{accountStatus.daysRemaining <= 7 && <button disabled={!renewalUrl} onClick={() => renewalUrl && window.open(renewalUrl, '_blank', 'noopener,noreferrer')} className="ml-2 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de renovação será configurado em breve' : undefined}>Renovar</button>}</div>}
-        <div className="relative z-10 flex min-h-[100svh] max-w-2xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
+        {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
+        <div className={`relative z-10 flex min-h-[100svh] flex-col justify-end px-5 pb-40 pt-32 transition-[padding,max-width] duration-500 sm:px-8 lg:px-12 lg:pb-48 ${infoPanelOpen ? 'lg:max-w-[calc(100%-23rem)] lg:pr-8' : 'max-w-3xl'}`}>
           <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> Destaque</span>
           {heroInfo?.titleLogo ? <><img src={heroInfo.titleLogo} alt={heroInfo.name || heroItem?.name || ''} className="mb-2 max-h-40 w-auto max-w-[min(80vw,420px)] object-contain object-left" /><h1 className="sr-only">{heroInfo.name || heroItem?.name}</h1></> : <h1 className="max-w-2xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">{heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'}</h1>}
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
@@ -125,6 +136,16 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? 'Direção:' : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
           {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerUrl && <button onClick={() => window.open(trailerUrl, '_blank', 'noopener,noreferrer')} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
         </div>
+        <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
+          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-emerald-400" /><span className="text-sm font-semibold text-white">Jogos de hoje</span></div><button onClick={() => setInfoPanelOpen(false)} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-none">
+            {matchesLoading ? <div className="flex items-center gap-2 py-6 text-xs text-white/35"><LoaderCircle className="h-4 w-4 animate-spin text-emerald-400" />Carregando jogos</div> : matches.length ? <div className="space-y-2">{matches.map((match) => <div key={match.id} className="rounded-xl border border-white/8 bg-white/[0.035] p-3"><div className="mb-2 flex items-center justify-between gap-3"><span className="truncate text-[10px] uppercase tracking-wider text-white/35">{match.competition || 'Futebol brasileiro'}</span><strong className="text-xs text-emerald-300">{match.time}</strong></div><p className="text-sm font-medium text-white/85">{match.home} <span className="px-1 text-white/25">×</span> {match.away}</p>{match.channels.length > 0 && <p className="mt-2 truncate text-[11px] text-white/42">{match.channels.join(' • ')}</p>}</div>)}</div> : <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center"><Trophy className="mx-auto mb-3 h-7 w-7 text-white/12" /><p className="text-xs font-medium text-white/50">Agenda esportiva em configuração</p><p className="mt-1 text-[11px] leading-4 text-white/28">Os jogos brasileiros aparecerão aqui com horário e transmissão.</p></div>}
+          </div>
+          <div className="space-y-3 border-t border-white/8 p-5">
+            {accountStatus?.daysRemaining != null && <div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 1 ? '1 dia restante' : `${accountStatus.daysRemaining} dias restantes`}</strong></span>{accountStatus.daysRemaining <= 7 && <button disabled={!renewalUrl} onClick={() => renewalUrl && window.open(renewalUrl, '_blank', 'noopener,noreferrer')} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-45">Renovar</button>}</div>}
+            <button onClick={() => onNavigate('continue')} className="flex w-full items-center gap-3 rounded-xl bg-emerald-400 px-4 py-3 text-left text-slate-950 transition hover:bg-emerald-300"><History className="h-5 w-5" /><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold">Continuar assistindo</strong><span className="block truncate text-[11px] text-slate-900/60">{recents.length ? `${recents.length} itens no seu histórico` : 'Seus últimos conteúdos'}</span></span><ChevronRight className="h-4 w-4" /></button>
+          </div>
+        </aside>
       </section>
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-32 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

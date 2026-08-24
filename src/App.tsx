@@ -48,6 +48,7 @@ import { SeriesView } from '@/components/views/SeriesView';
 import { FavoritesView } from '@/components/views/FavoritesView';
 import { SearchView } from '@/components/views/SearchView';
 import { SettingsView } from '@/components/views/SettingsView';
+import { ContinueWatchingView } from '@/components/views/ContinueWatchingView';
 
 /*
 |--------------------------------------------------------------------------
@@ -1896,6 +1897,9 @@ export default function App() {
               onNavigate={
                 handleNavigate
               }
+              recents={
+                recents
+              }
             />
           )}
 
@@ -1980,6 +1984,16 @@ export default function App() {
               loadFavorites={
                 handleLoadFavorites
               }
+            />
+          )}
+
+          {view ===
+            'continue' && (
+            <ContinueWatchingView
+              recents={recents}
+              favorites={favorites}
+              onSelectChannel={handleSelectChannel}
+              onToggleFavorite={handleToggleFavorite}
             />
           )}
 
