@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, Sparkles, Star, Tv, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Sparkles, Star, Tv, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
@@ -85,6 +86,10 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [sportsChannelQuery, setSportsChannelQuery] = useState('');
   const [sportsChannelResults, setSportsChannelResults] = useState<Channel[]>([]);
   const [now, setNow] = useState(() => new Date());
+  const [renewalOpen, setRenewalOpen] = useState(false);
+  const [renewalChecking, setRenewalChecking] = useState(false);
+  const [renewalCompleted, setRenewalCompleted] = useState(false);
+  const renewalBaselineRef = useRef<{ expiresAt: number; days: number } | null>(null);
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
 
@@ -117,6 +122,33 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     setSportsChannelQuery('');
     setSportsChannelResults([]);
   };
+
+  const openRenewal = () => {
+    if (!renewalUrl) return;
+    renewalBaselineRef.current = { expiresAt: accountStatus?.expiresAt ? new Date(accountStatus.expiresAt).getTime() : 0, days: accountStatus?.daysRemaining ?? 0 };
+    setRenewalCompleted(false);
+    setRenewalOpen(true);
+  };
+
+  const verifyRenewal = useCallback(async () => {
+    setRenewalChecking(true);
+    try {
+      const next = await loadAccountStatus();
+      if (!next) return;
+      setAccountStatus(next);
+      const baseline = renewalBaselineRef.current;
+      const nextExpiry = next.expiresAt ? new Date(next.expiresAt).getTime() : 0;
+      if (baseline && (nextExpiry > baseline.expiresAt || (next.daysRemaining ?? 0) > baseline.days)) setRenewalCompleted(true);
+    } finally {
+      setRenewalChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!renewalOpen || renewalCompleted) return;
+    const timer = window.setInterval(() => { void verifyRenewal(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [renewalCompleted, renewalOpen, verifyRenewal]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -152,7 +184,8 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
   const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
   const metadata = [heroRating, releaseYear, duration, heroInfo?.genre].filter(Boolean);
-  const renewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
+  const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
+  const renewalUrl = (() => { try { const url = new URL(rawRenewalUrl || ''); return /^https?:$/.test(url.protocol) ? url.toString() : undefined; } catch { return undefined; } })();
   const trailerUrl = heroInfo?.trailerKey ? (/^https?:\/\//i.test(heroInfo.trailerKey) ? heroInfo.trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(heroInfo.trailerKey)}`) : undefined;
   const currentTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(now);
   const currentDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).format(now).replace('.', '');
@@ -186,11 +219,12 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
             </div>
           </div>
           <div className="space-y-3 border-t border-white/8 p-5">
-            {accountStatus?.daysRemaining != null && <div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 1 ? '1 dia restante' : `${accountStatus.daysRemaining} dias restantes`}</strong></span>{accountStatus.daysRemaining <= 7 && <button disabled={!renewalUrl} onClick={() => renewalUrl && window.open(renewalUrl, '_blank', 'noopener,noreferrer')} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-45">Renovar</button>}</div>}
+            {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 0 ? 'Sua assinatura vence hoje' : accountStatus.daysRemaining === 1 ? 'Sua assinatura vence em 1 dia' : `Sua assinatura vence em ${accountStatus.daysRemaining} dias`}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div>}
             <button onClick={() => onNavigate('continue')} className="flex w-full items-center gap-3 rounded-xl bg-emerald-400 px-4 py-3 text-left text-slate-950 transition hover:bg-emerald-300"><History className="h-5 w-5" /><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold">Continuar assistindo</strong><span className="block truncate text-[11px] text-slate-900/60">{recents.length ? `${recents.length} itens no seu histórico` : 'Seus últimos conteúdos'}</span></span><ChevronRight className="h-4 w-4" /></button>
           </div>
         </aside>
       </section>
+      {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><QRCodeSVG value={renewalUrl} size={190} level="M" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-32 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[{ id: 'live' as View, label: 'Canais ao Vivo', icon: Radio }, { id: 'movies' as View, label: 'Filmes', icon: Film }, { id: 'series' as View, label: 'Séries', icon: Tv }].map(({ id, label, icon: Icon }) => (
