@@ -10,6 +10,7 @@ body { background: #091018; }
 .home-hero { position:relative; min-height:100svh; overflow:hidden; background:#091018; }
 .hero-visual { position:relative; min-height:100svh; width:100%; overflow:hidden; background:radial-gradient(circle at 70% 30%,#1f3634 0,transparent 45%),#0b1217; transition:width .55s cubic-bezier(.22,1,.36,1); }
 .hero-visual-panel-open { width:calc(100% - 23.5rem); }
+.hero-visual-panel-open::after { content:""; position:absolute; z-index:6; inset:0 0 0 auto; width:8rem; pointer-events:none; background:linear-gradient(90deg,transparent 0%,rgba(9,16,24,.48) 45%,#091018 100%); }
 .home-hero-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; filter:saturate(.72) contrast(1.05); }
 .home-hero-poster-fallback { transform:scale(1.08); filter:blur(18px) saturate(.65) brightness(.6); opacity:.72; }
 .home-hero-shade { position:absolute; inset:0; background:linear-gradient(90deg,#091018 0%,rgba(9,16,24,.88) 24%,rgba(9,16,24,.18) 66%,rgba(9,16,24,.5) 100%),linear-gradient(0deg,#091018 0%,rgba(9,16,24,.99) 6%,rgba(9,16,24,.86) 14%,rgba(9,16,24,.24) 34%,transparent 58%,rgba(9,16,24,.42) 100%); }

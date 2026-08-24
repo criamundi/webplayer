@@ -3,6 +3,9 @@ export interface TodayMatch {
   competition?: string;
   home: string;
   away: string;
+  homeLogo?: string;
+  awayLogo?: string;
+  venue?: string;
   time: string;
   channels: string[];
 }
@@ -17,8 +20,8 @@ export async function loadTodayMatches(): Promise<TodayMatch[]> {
     return Array.isArray(matches) ? matches.slice(0, 8).filter((match) => match?.id && match.home && match.away && match.time) : [];
   }
 
-  type EspnTeam = { homeAway?: string; team?: { displayName?: string } };
-  type EspnEvent = { id?: string; date?: string; competitions?: Array<{ competitors?: EspnTeam[]; broadcasts?: Array<{ names?: string[]; shortName?: string }> }> };
+  type EspnTeam = { homeAway?: string; team?: { displayName?: string; logo?: string } };
+  type EspnEvent = { id?: string; date?: string; competitions?: Array<{ competitors?: EspnTeam[]; broadcasts?: Array<{ names?: string[]; shortName?: string }>; venue?: { fullName?: string; address?: { city?: string } } }> };
   type EspnPayload = { events?: EspnEvent[]; leagues?: Array<{ name?: string }> };
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
   const leagues = ['bra.1', 'bra.2', 'bra.copa_do_brazil'];
@@ -29,11 +32,14 @@ export async function loadTodayMatches(): Promise<TodayMatch[]> {
     const competition = payload.leagues?.[0]?.name || 'Futebol brasileiro';
     return (payload.events || []).flatMap<TodayMatch>((event) => {
       const details = event.competitions?.[0];
-      const home = details?.competitors?.find((team) => team.homeAway === 'home')?.team?.displayName;
-      const away = details?.competitors?.find((team) => team.homeAway === 'away')?.team?.displayName;
+      const homeTeam = details?.competitors?.find((team) => team.homeAway === 'home')?.team;
+      const awayTeam = details?.competitors?.find((team) => team.homeAway === 'away')?.team;
+      const home = homeTeam?.displayName;
+      const away = awayTeam?.displayName;
       if (!event.id || !event.date || !home || !away) return [];
       const channels = (details?.broadcasts || []).flatMap((broadcast) => broadcast.names || (broadcast.shortName ? [broadcast.shortName] : []));
-      return [{ id: `${league}-${event.id}`, competition, home, away, time: new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(event.date)), channels: [...new Set(channels)] }];
+      const venue = [details?.venue?.fullName, details?.venue?.address?.city].filter(Boolean).join(' • ');
+      return [{ id: `${league}-${event.id}`, competition, home, away, homeLogo: homeTeam?.logo, awayLogo: awayTeam?.logo, venue: venue || undefined, time: new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(event.date)), channels: [...new Set(channels)] }];
     });
   }));
   return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []).sort((a, b) => a.time.localeCompare(b.time)).slice(0, 8);

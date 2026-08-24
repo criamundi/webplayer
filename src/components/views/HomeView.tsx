@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, Sparkles, Star, Trophy, Tv, X } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Clock3, ExternalLink, Film, Heart, History, LoaderCircle, MapPin, PanelRightOpen, Play, Radio, Sparkles, Star, Trophy, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 import { storage } from '@/lib/storage';
 import { loadTodayMatches, type TodayMatch } from '@/lib/sports';
+import { searchChannels } from '@/lib/playlistStore';
 
 interface HomeViewProps {
   favorites: Set<string>;
@@ -80,6 +81,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
+  const [matchChannels, setMatchChannels] = useState<Record<string, Channel>>({});
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
@@ -89,6 +91,23 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     void loadTodayMatches().then((items) => { if (active) setMatches(items); }).catch(() => { if (active) setMatches([]); }).finally(() => { if (active) setMatchesLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const connectBroadcasts = async () => {
+      const linked: Record<string, Channel> = {};
+      await Promise.all(matches.map(async (match) => {
+        for (const broadcaster of match.channels) {
+          const candidates = await searchChannels(broadcaster, 12);
+          const live = candidates.find((item) => !/\/movie\/|\/series\//i.test(item.url));
+          if (live) { linked[match.id] = live; break; }
+        }
+      }));
+      if (active) setMatchChannels(linked);
+    };
+    if (matches.length) void connectBroadcasts();
+    return () => { active = false; };
+  }, [matches]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -149,7 +168,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
           <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-emerald-400" /><span className="text-sm font-semibold text-white">Jogos de hoje</span></div><div className="flex items-center gap-3"><div className="text-right"><strong className="block text-base font-semibold tabular-nums text-white">{currentTime}</strong><span className="block text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span></div><button onClick={() => setInfoPanelOpen(false)} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div></div>
           <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-none">
-            {matchesLoading ? <div className="flex items-center gap-2 py-6 text-xs text-white/35"><LoaderCircle className="h-4 w-4 animate-spin text-emerald-400" />Carregando jogos</div> : matches.length ? <div className="space-y-2">{matches.map((match) => <div key={match.id} className="rounded-xl border border-white/8 bg-white/[0.035] p-3"><div className="mb-2 flex items-center justify-between gap-3"><span className="truncate text-[10px] uppercase tracking-wider text-white/35">{match.competition || 'Futebol brasileiro'}</span><strong className="text-xs text-emerald-300">{match.time}</strong></div><p className="text-sm font-medium text-white/85">{match.home} <span className="px-1 text-white/25">×</span> {match.away}</p><p className="mt-2 truncate text-[11px] text-white/42">{match.channels.length ? match.channels.join(' • ') : 'Transmissão não informada'}</p></div>)}</div> : <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center"><Trophy className="mx-auto mb-3 h-7 w-7 text-white/12" /><p className="text-xs font-medium text-white/50">Nenhum jogo brasileiro hoje</p><p className="mt-1 text-[11px] leading-4 text-white/28">A agenda é atualizada automaticamente.</p></div>}
+            {matchesLoading ? <div className="flex items-center gap-2 py-6 text-xs text-white/35"><LoaderCircle className="h-4 w-4 animate-spin text-emerald-400" />Carregando jogos</div> : matches.length ? <div className="space-y-2">{matches.map((match) => { const linkedChannel = matchChannels[match.id]; return <div key={match.id} className="rounded-xl border border-white/8 bg-white/[0.035] p-3"><div className="mb-2 flex items-center justify-between gap-3"><span className="truncate text-[10px] uppercase tracking-wider text-white/35">{match.competition || 'Futebol brasileiro'}</span><strong className="text-xs text-emerald-300">{match.time}</strong></div><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2"><span className="min-w-0 text-center">{match.homeLogo && <img src={match.homeLogo} alt="" className="mx-auto mb-1 h-7 w-7 object-contain" />}<span className="block truncate text-xs font-medium text-white/85">{match.home}</span></span><span className="text-[10px] text-white/25">×</span><span className="min-w-0 text-center">{match.awayLogo && <img src={match.awayLogo} alt="" className="mx-auto mb-1 h-7 w-7 object-contain" />}<span className="block truncate text-xs font-medium text-white/85">{match.away}</span></span></div>{match.venue && <p className="mt-2 flex items-center gap-1 truncate text-[10px] text-white/35"><MapPin className="h-3 w-3 shrink-0" />{match.venue}</p>}{linkedChannel ? <button onClick={() => onSelectChannel(linkedChannel)} className="mt-2 flex w-full items-center gap-2 rounded-lg bg-emerald-400/10 px-2.5 py-2 text-left transition hover:bg-emerald-400/18">{linkedChannel.logo ? <img src={linkedChannel.logo} alt="" className="h-6 w-6 rounded object-contain" /> : <Tv className="h-4 w-4 text-emerald-300" />}<span className="min-w-0 flex-1 truncate text-[11px] font-medium text-emerald-200">Assistir em {linkedChannel.name}</span><ExternalLink className="h-3 w-3 text-emerald-300" /></button> : <p className="mt-2 truncate text-[11px] text-white/42">{match.channels.length ? match.channels.join(' • ') : 'Transmissão não informada'}</p>}</div>; })}</div> : <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center"><Trophy className="mx-auto mb-3 h-7 w-7 text-white/12" /><p className="text-xs font-medium text-white/50">Nenhum jogo brasileiro hoje</p><p className="mt-1 text-[11px] leading-4 text-white/28">A agenda é atualizada automaticamente.</p></div>}
           </div>
           <div className="space-y-3 border-t border-white/8 p-5">
             {accountStatus?.daysRemaining != null && <div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 1 ? '1 dia restante' : `${accountStatus.daysRemaining} dias restantes`}</strong></span>{accountStatus.daysRemaining <= 7 && <button disabled={!renewalUrl} onClick={() => renewalUrl && window.open(renewalUrl, '_blank', 'noopener,noreferrer')} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-45">Renovar</button>}</div>}
