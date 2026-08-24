@@ -8,7 +8,7 @@ type WorkerRequest =
   | { type: 'ack' }
   | { type: 'end' };
 
-type WorkerChannel = Channel & { category: Category };
+type WorkerChannel = Channel & { category: Category; order: number };
 
 const BATCH_SIZE = 500;
 
@@ -131,6 +131,7 @@ async function processLine(rawLine: string) {
     group,
     tvgId: current.tvgId,
     category,
+    order: overallTotal,
   });
 
   groups[category].add(group);
@@ -203,13 +204,13 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const groupsByCategory = Object.fromEntries(
           (Object.keys(groups) as Category[]).map((category) => [
             category,
-            Array.from(groups[category]).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+            Array.from(groups[category]),
           ]),
         );
 
         const allGroups = Array.from(
           new Set((Object.values(groupsByCategory) as string[][]).flat()),
-        ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        );
 
         self.postMessage({
           type: 'done',

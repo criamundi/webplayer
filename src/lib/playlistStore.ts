@@ -4,7 +4,7 @@ import type { PlaylistCategory } from '@/lib/m3u';
 export type { PlaylistCategory } from '@/lib/m3u';
 
 const DB_NAME = 'nexus-playlist';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const CHANNEL_STORE = 'channels';
 const META_STORE = 'meta';
@@ -12,6 +12,7 @@ const META_STORE = 'meta';
 interface StoredChannel extends Channel {
   category: PlaylistCategory;
   nameLower: string;
+  order?: number;
 }
 
 interface PlaylistMeta {
@@ -190,6 +191,14 @@ function openDB():
                     false,
                 },
               );
+            }
+
+            if (!channelStore.indexNames.contains('categoryOrder')) {
+              channelStore.createIndex('categoryOrder', ['category', 'order'], { unique: false });
+            }
+
+            if (!channelStore.indexNames.contains('categoryGroupOrder')) {
+              channelStore.createIndex('categoryGroupOrder', ['category', 'group', 'order'], { unique: false });
             }
 
             /*
@@ -513,15 +522,6 @@ export async function saveChannelBatch(
 
                 ...batchGroups,
               ]),
-            ).sort(
-              (
-                a,
-                b,
-              ) =>
-                a.localeCompare(
-                  b,
-                  'pt-BR',
-                ),
             );
 
           /*
@@ -536,15 +536,6 @@ export async function saveChannelBatch(
 
                 ...batchGroups,
               ]),
-            ).sort(
-              (
-                a,
-                b,
-              ) =>
-                a.localeCompare(
-                  b,
-                  'pt-BR',
-                ),
             );
 
           const meta:
@@ -758,6 +749,7 @@ function stripStored(
   const plain = { ...channel } as Partial<StoredChannel>;
   delete plain.category;
   delete plain.nameLower;
+  delete plain.order;
   return plain as Channel;
 }
 
@@ -794,26 +786,18 @@ export async function getChannels(
           CHANNEL_STORE,
         );
 
-      const index =
-        group
-          ? store.index(
-              'categoryGroup',
-            )
-          : store.index(
-              'category',
-            );
+      const hasOrderedIndex = group ? store.indexNames.contains('categoryGroupOrder') : store.indexNames.contains('categoryOrder');
+      const index = group
+        ? store.index(hasOrderedIndex ? 'categoryGroupOrder' : 'categoryGroup')
+        : store.index(hasOrderedIndex ? 'categoryOrder' : 'category');
 
-      const range =
-        group
-          ? IDBKeyRange.only(
-              [
-                category,
-                group,
-              ],
-            )
-          : IDBKeyRange.only(
-              category,
-            );
+      const range = hasOrderedIndex
+        ? group
+          ? IDBKeyRange.bound([category, group, 0], [category, group, Number.MAX_SAFE_INTEGER])
+          : IDBKeyRange.bound([category, 0], [category, Number.MAX_SAFE_INTEGER])
+        : group
+          ? IDBKeyRange.only([category, group])
+          : IDBKeyRange.only(category);
 
       const request =
         index.openCursor(

@@ -288,7 +288,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "series-catalog" || body.action === "series-info"
           ? body.action
           : "playlist";
 
@@ -529,6 +529,57 @@ Deno.serve(
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
         return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
+      }
+
+      if (action === "series-catalog" || action === "series-info") {
+        const makeSeriesApiUrl = (apiAction: string, extra: Record<string, string> = {}) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({ username, password, action: apiAction, ...extra }).toString();
+          return url;
+        };
+        const seriesController = new AbortController();
+        const seriesTimeout = setTimeout(() => seriesController.abort(), 18000);
+        try {
+          if (action === "series-catalog") {
+            const [categoriesResponse, showsResponse] = await Promise.all([
+              fetch(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+              fetch(makeSeriesApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+            ]);
+            if (!categoriesResponse.ok || !showsResponse.ok) return json({ error: "Catálogo de séries indisponível." }, 502);
+            const categoriesRaw = await categoriesResponse.json();
+            const showsRaw = await showsResponse.json();
+            const categories = (Array.isArray(categoriesRaw) ? categoriesRaw : []).map((item: Record<string, unknown>) => ({ id: String(item.category_id ?? ""), name: String(item.category_name ?? "Sem categoria") })).filter((item: { id: string }) => item.id);
+            const shows = (Array.isArray(showsRaw) ? showsRaw : []).map((item: Record<string, unknown>) => ({
+              id: `series:${item.series_id}`, seriesId: String(item.series_id ?? ""), name: String(item.name ?? "Sem título"),
+              categoryId: String(item.category_id ?? ""), logo: String(item.cover ?? item.stream_icon ?? ""),
+              backdrop: Array.isArray(item.backdrop_path) ? String(item.backdrop_path[0] ?? "") : String(item.backdrop_path ?? ""),
+              plot: String(item.plot ?? ""), genre: String(item.genre ?? ""), rating: String(item.rating_5based ?? item.rating ?? ""),
+              releaseDate: String(item.releaseDate ?? item.release_date ?? ""), added: String(item.last_modified ?? item.added ?? ""), url: "",
+            })).filter((item: { seriesId: string }) => item.seriesId);
+            return json({ categories, shows });
+          }
+          if (!streamId) return json({ error: "Série inválida." }, 400);
+          const response = await fetch(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
+          if (!response.ok) return json({ error: "Informações da série indisponíveis." }, 502);
+          const raw = await response.json();
+          const info = raw?.info && typeof raw.info === "object" ? raw.info : {};
+          const root = new URL(serverUrl.toString());
+          const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
+          const episodesSource = raw?.episodes && typeof raw.episodes === "object" ? raw.episodes : {};
+          const episodes = Object.entries(episodesSource).flatMap(([seasonKey, list]) => (Array.isArray(list) ? list : []).map((episode: Record<string, unknown>, index: number) => {
+            const id = String(episode.id ?? "");
+            const extension = String(episode.container_extension ?? "mp4").replace(/[^a-z0-9]/gi, "") || "mp4";
+            const episodeInfo = episode.info && typeof episode.info === "object" ? episode.info as Record<string, unknown> : {};
+            return { id: `episode:${id}`, name: String(episode.title ?? `Episódio ${index + 1}`), url: `${root.origin}${rootPath}/series/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${id}.${extension}`, logo: String(episodeInfo.movie_image ?? info.cover ?? ""), season: Number(episode.season ?? seasonKey ?? 1), episode: Number(episode.episode_num ?? index + 1), duration: String(episodeInfo.duration ?? ""), plot: String(episodeInfo.plot ?? "") };
+          })).filter((episode: { id: string }) => episode.id !== "episode:");
+          return json({ info, episodes });
+        } catch {
+          return json({ error: "Não foi possível carregar as séries." }, 502);
+        } finally {
+          clearTimeout(seriesTimeout);
+        }
       }
 
       /* Catálogo oficial: datas e avaliações reais do provedor. */

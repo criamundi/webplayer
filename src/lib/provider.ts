@@ -36,6 +36,11 @@ export interface AccountStatus {
   renewalUrl?: string | null;
 }
 
+export interface SeriesCategory { id: string; name: string; }
+export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
+export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
+export interface SeriesDetails { info: Record<string, unknown>; episodes: SeriesEpisode[]; }
+
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
   if (!credentials?.provider || !credentials.username || !credentials.password) return null;
@@ -58,6 +63,20 @@ export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series
   const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
   const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, backdrop: normalizeBackdrop(item.backdrop) }));
   return { movies: prepare(result.movies), series: prepare(result.series) };
+}
+
+export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> {
+  const response = await authenticatedAction('series-catalog');
+  if (!response) return null;
+  const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
+  return { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+}
+
+export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {
+  const response = await authenticatedAction('series-info', { streamId: seriesId });
+  if (!response) return null;
+  const result = await response.json() as SeriesDetails;
+  return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes : [] };
 }
 
 function streamIdFromUrl(url: string): string | null {
