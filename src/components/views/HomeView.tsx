@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Sparkles, Star, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadAccountStatus, loadContentInfo, loadHomeCatalog, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
+import { loadAccountStatus, loadContentInfo, loadHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 import { storage } from '@/lib/storage';
 import { searchChannels } from '@/lib/playlistStore';
@@ -171,32 +171,29 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   useEffect(() => {
     let active = true;
-    const applyCatalog = async (catalog: { movies: CatalogItem[]; series: CatalogItem[] }) => {
-      if (!active) return;
-      const movieItems = catalog.movies ?? [];
-      const seriesItems = catalog.series ?? [];
-      [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
-      const featured = homeFeatureType === 'latest_series' ? seriesItems[0] ?? null : movieItems[0] ?? null;
-      setHeroItem((current) => {
-        if (current?.id !== featured?.id) setHeroImageLoading(Boolean(featured));
-        return featured;
-      });
-      setMovies((homeFeatureType === 'latest_movie' && featured) ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
-      setSeries((homeFeatureType === 'latest_series' && featured) ? seriesItems.filter((item) => item.id !== featured.id).slice(0, 10) : seriesItems.slice(0, 10));
-      if (!featured) { setHeroInfo(null); setHeroImageLoading(false); return; }
-      if (featured.contentType === 'series') {
-        setHeroInfo({ name: featured.name, plot: featured.plot, genre: featured.genre, rating: featured.rating, backdrop: featured.backdrop, cover: featured.logo });
-      } else {
-        const info = await loadContentInfo(featured);
-        if (active) setHeroInfo(info);
-      }
-    };
-    const refreshCatalog = async (force = false) => {
+    const refreshCatalog = async () => {
       if (catalogRequestRef.current) return;
       catalogRequestRef.current = true;
       try {
-        const catalog = await loadHomeCatalog(force);
-        if (catalog) await applyCatalog(catalog);
+        const catalog = await loadHomeCatalog();
+        if (!active || !catalog) return;
+        const movieItems = catalog.movies ?? [];
+        const seriesItems = catalog.series ?? [];
+        [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
+        const featured = homeFeatureType === 'latest_series' ? seriesItems[0] ?? null : movieItems[0] ?? null;
+        setHeroItem((current) => {
+          if (current?.id !== featured?.id) setHeroImageLoading(Boolean(featured));
+          return featured;
+        });
+        setMovies((homeFeatureType === 'latest_movie' && featured) ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
+        setSeries((homeFeatureType === 'latest_series' && featured) ? seriesItems.filter((item) => item.id !== featured.id).slice(0, 10) : seriesItems.slice(0, 10));
+        if (!featured) { setHeroInfo(null); setHeroImageLoading(false); return; }
+        if (featured.contentType === 'series') {
+          setHeroInfo({ name: featured.name, plot: featured.plot, genre: featured.genre, rating: featured.rating, backdrop: featured.backdrop, cover: featured.logo });
+        } else {
+          const info = await loadContentInfo(featured);
+          if (active) setHeroInfo(info);
+        }
       } catch (error) {
         console.warn('Não foi possível carregar a vitrine da Home:', error);
       } finally {
@@ -204,13 +201,11 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       }
     };
     void loadAccountStatus().then((status) => { if (active) setAccountStatus(status); });
-    void readCachedHomeCatalog().then((cached) => {
-      if (!active) return;
-      if (cached) void applyCatalog(cached.value);
-      if (!cached || Date.now() - cached.savedAt >= 20 * 60_000) void refreshCatalog(false);
-    });
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshCatalog(true); }, 30 * 60_000);
-    return () => { active = false; window.clearInterval(timer); };
+    void refreshCatalog();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshCatalog(); }, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshCatalog(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [homeFeatureType]);
 
   const heroBackground = heroInfo?.backdrop || heroItem?.backdrop;
