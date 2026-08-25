@@ -23,7 +23,7 @@ export async function loadTodayMatches(): Promise<TodayMatch[]> {
   type EspnTeam = { homeAway?: string; team?: { displayName?: string; logo?: string } };
   type EspnEvent = { id?: string; date?: string; competitions?: Array<{ competitors?: EspnTeam[]; broadcasts?: Array<{ names?: string[]; shortName?: string }>; venue?: { fullName?: string; address?: { city?: string } } }> };
   type EspnPayload = { events?: EspnEvent[]; leagues?: Array<{ name?: string }> };
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('-', '');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replace(/-/g, '');
   const leagues = ['bra.1', 'bra.2', 'bra.copa_do_brazil'];
   const results = await Promise.allSettled(leagues.map(async (league) => {
     const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${today}`, { headers: { Accept: 'application/json' } });

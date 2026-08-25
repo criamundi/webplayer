@@ -249,7 +249,6 @@ export function VideoPlayer({
       (
         url: string,
         generation: number,
-        category?: Channel['category'],
       ) => {
         const video =
           videoRef.current;
@@ -422,6 +421,7 @@ export function VideoPlayer({
       (
         url: string,
         generation: number,
+        category?: Channel['category'],
       ) => {
         const video =
           videoRef.current;
@@ -567,6 +567,7 @@ export function VideoPlayer({
       (
         url: string,
         generation: number,
+        category?: Channel['category'],
       ) => {
         let decoded = url;
 
