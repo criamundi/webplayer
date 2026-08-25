@@ -43,6 +43,10 @@ export interface SeriesDetails { info: Record<string, unknown>; episodes: Series
 export interface MovieCategory { id: string; name: string; }
 export interface MovieShow extends Channel { movieId: string; categoryId: string; rating?: string; added?: string; backdrop?: string; plot?: string; genre?: string; releaseDate?: string; }
 
+const CATALOG_CACHE_MS = 10 * 60_000;
+let seriesCatalogCache: { savedAt: number; value: { categories: SeriesCategory[]; shows: SeriesShow[] } } | null = null;
+let movieCatalogCache: { savedAt: number; value: { categories: MovieCategory[]; movies: MovieShow[] } } | null = null;
+
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
   if (!credentials?.provider || !credentials.username || !credentials.password) return null;
@@ -68,20 +72,26 @@ export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series
 }
 
 export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> {
+  if (seriesCatalogCache && Date.now() - seriesCatalogCache.savedAt < CATALOG_CACHE_MS) return seriesCatalogCache.value;
   const response = await authenticatedAction('series-catalog');
   if (!response) return null;
   const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
-  return { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+  const value = { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+  seriesCatalogCache = { savedAt: Date.now(), value };
+  return value;
 }
 
 export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> {
+  if (movieCatalogCache && Date.now() - movieCatalogCache.savedAt < CATALOG_CACHE_MS) return movieCatalogCache.value;
   const response = await authenticatedAction('movie-catalog');
   if (!response) return null;
   const result = await response.json() as { categories?: MovieCategory[]; movies?: MovieShow[] };
-  return {
+  const value = {
     categories: Array.isArray(result.categories) ? result.categories : [],
     movies: Array.isArray(result.movies) ? result.movies.map((movie) => ({ ...movie, logo: safeImageUrl(movie.logo), backdrop: normalizeBackdrop(movie.backdrop) })) : [],
   };
+  movieCatalogCache = { savedAt: Date.now(), value };
+  return value;
 }
 
 export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {

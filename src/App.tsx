@@ -1938,6 +1938,7 @@ export default function App() {
               channels={
                 channels
               }
+              groups={groups}
               activeChannel={
                 activeChannel
               }

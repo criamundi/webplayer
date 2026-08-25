@@ -3,6 +3,7 @@ import { ArrowLeft, Film, Heart, Loader2, Play, Search, Star, Tv } from 'lucide-
 import type { Channel } from '@/types';
 import { loadContentInfo, loadMovieCatalog, type ContentInfo, type MovieCategory, type MovieShow } from '@/lib/provider';
 import { getChannels } from '@/lib/playlistStore';
+import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -18,10 +19,11 @@ const PAGE_SIZE = 40;
 function MovieCover({ movie }: { movie: MovieShow }) {
   const [loading, setLoading] = useState(Boolean(movie.logo));
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setLoading(Boolean(movie.logo)); setFailed(false); }, [movie.logo]);
+  const [source, setSource] = useState(movie.logo);
+  useEffect(() => { setLoading(Boolean(movie.logo)); setFailed(false); setSource(movie.logo); }, [movie.logo]);
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
-    {movie.logo && !failed ? <img src={movie.logo} alt={movie.name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}
+    {source && !failed ? <img src={source} alt={movie.name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={() => { const proxied = getPlayableStreamUrl(movie.logo || ''); if (source !== proxied) setSource(proxied); else { setLoading(false); setFailed(true); } }} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}
   </>;
 }
 
@@ -43,24 +45,25 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   useEffect(() => {
     let active = true;
     void (async () => {
-      try {
-        const catalog = await Promise.race([
-          loadMovieCatalog(),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6000)),
-        ]);
-        if (!active) return;
-        if (catalog?.movies.length) {
-          setCategories(catalog.categories);
-          setMovies(catalog.movies);
-          return;
-        }
-      } catch { /* usa a lista local abaixo */ }
-      if (!active) return;
       setLocalMode(true);
       setCategories(groups.map((name) => ({ id: name, name })));
       const initial = await getChannels('movies', 10, 0);
-      if (active) { setMovies(initial as MovieShow[]); setLocalOffset(initial.length); setLocalHasMore(false); }
-    })().finally(() => { if (active) setLoading(false); });
+      if (!active) return;
+      setMovies(initial as MovieShow[]);
+      setLocalOffset(initial.length);
+      setLocalHasMore(false);
+      setLoading(false);
+      try {
+        const catalog = await loadMovieCatalog();
+        if (!active) return;
+        if (catalog?.movies.length) {
+          setLocalMode(false);
+          setActiveCategory(LATEST);
+          setCategories(catalog.categories);
+          setMovies(catalog.movies);
+        }
+      } catch { /* usa a lista local abaixo */ }
+    })();
     return () => { active = false; };
   }, [groups]);
 

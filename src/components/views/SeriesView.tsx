@@ -3,6 +3,7 @@ import { ArrowLeft, Clock3, Heart, Loader2, Play, Search, Star, Tv } from 'lucid
 import type { Channel } from '@/types';
 import { loadSeriesCatalog, loadSeriesDetails, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
 import { storage } from '@/lib/storage';
+import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface SeriesViewProps { channels: Channel[]; groups: string[]; favorites: Set<string>; onSelectChannel: (ch: Channel) => void; onToggleFavorite: (id: string, channel?: Channel) => void; }
 const LATEST = 'recent';
@@ -11,8 +12,9 @@ const text = (value: unknown) => typeof value === 'string' || typeof value === '
 function SeriesCover({ logo, name }: { logo?: string; name: string }) {
   const [loading, setLoading] = useState(Boolean(logo));
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setLoading(Boolean(logo)); setFailed(false); }, [logo]);
-  return <>{loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}{logo && !failed ? <img src={logo} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}</>;
+  const [source, setSource] = useState(logo);
+  useEffect(() => { setLoading(Boolean(logo)); setFailed(false); setSource(logo); }, [logo]);
+  return <>{loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}{source && !failed ? <img src={source} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={() => { const proxied = getPlayableStreamUrl(logo || ''); if (source !== proxied) setSource(proxied); else { setLoading(false); setFailed(true); } }} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}</>;
 }
 
 export function SeriesView({ favorites, onSelectChannel, onToggleFavorite }: SeriesViewProps) {

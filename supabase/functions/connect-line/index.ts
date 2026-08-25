@@ -540,7 +540,7 @@ Deno.serve(
           return url;
         };
         const movieController = new AbortController();
-        const movieTimeout = setTimeout(() => movieController.abort(), 18000);
+        const movieTimeout = setTimeout(() => movieController.abort(), 45000);
         try {
           const [categoriesResponse, moviesResponse] = await Promise.all([
             fetch(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
