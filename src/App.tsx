@@ -83,7 +83,7 @@ const defaultBranding: Branding = {
   logo_url: null,
   primary_color: '#bef264',
   secondary_color: '#091018',
-  main_font_scale: 1,
+  main_font_scale: 1.3,
 };
 
 const VIEW_LIMITS: Record<
