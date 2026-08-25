@@ -4,7 +4,6 @@ import {
 } from '@/lib/m3u';
 
 import type { Channel } from '@/types';
-import { readCatalogCache, writeCatalogCache } from '@/lib/catalogCache';
 
 export interface ContentInfo {
   name?: string;
@@ -44,26 +43,9 @@ export interface SeriesDetails { info: Record<string, unknown>; episodes: Series
 export interface MovieCategory { id: string; name: string; }
 export interface MovieShow extends Channel { movieId: string; categoryId: string; rating?: string; added?: string; backdrop?: string; plot?: string; genre?: string; releaseDate?: string; }
 
-const CATALOG_CACHE_MS = 20 * 60_000;
+const CATALOG_CACHE_MS = 10 * 60_000;
 let seriesCatalogCache: { savedAt: number; value: { categories: SeriesCategory[]; shows: SeriesShow[] } } | null = null;
 let movieCatalogCache: { savedAt: number; value: { categories: MovieCategory[]; movies: MovieShow[] } } | null = null;
-let homeCatalogCache: { savedAt: number; value: { movies: CatalogItem[]; series: CatalogItem[] } } | null = null;
-let homeCatalogRequest: Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> | null = null;
-let seriesCatalogRequest: Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> | null = null;
-let movieCatalogRequest: Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> | null = null;
-
-function credentialScope(): string {
-  try {
-    const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string } | null;
-    return `${credentials?.provider || 'none'}:${credentials?.username || 'none'}`;
-  } catch {
-    return 'none';
-  }
-}
-
-function cacheKey(dataset: string) {
-  return `${credentialScope()}:${dataset}`;
-}
 
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
@@ -81,71 +63,35 @@ export async function loadAccountStatus(): Promise<AccountStatus | null> {
   return response ? response.json() as Promise<AccountStatus> : null;
 }
 
-export async function readCachedHomeCatalog(): Promise<{ value: { movies: CatalogItem[]; series: CatalogItem[] }; savedAt: number } | null> {
-  if (homeCatalogCache) return { value: homeCatalogCache.value, savedAt: homeCatalogCache.savedAt };
-  const cached = await readCatalogCache<{ movies: CatalogItem[]; series: CatalogItem[] }>(cacheKey('home'));
-  if (cached) homeCatalogCache = { savedAt: cached.savedAt, value: cached.value };
-  return cached ? { value: cached.value, savedAt: cached.savedAt } : null;
-}
-
-export async function loadHomeCatalog(force = false): Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> {
-  const cached = await readCachedHomeCatalog();
-  if (!force && cached && Date.now() - cached.savedAt < CATALOG_CACHE_MS) return cached.value;
-  if (homeCatalogRequest) return homeCatalogRequest;
-  homeCatalogRequest = (async () => {
-    const response = await authenticatedAction('home-catalog');
-    if (!response) return cached?.value ?? null;
-    const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
-    const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, logo: safeImageUrl(item.logo), backdrop: normalizeBackdrop(item.backdrop) }));
-    const value = { movies: prepare(result.movies), series: prepare(result.series) };
-    homeCatalogCache = { savedAt: Date.now(), value };
-    await writeCatalogCache(cacheKey('home'), value);
-    return value;
-  })().finally(() => { homeCatalogRequest = null; });
-  return homeCatalogRequest;
+export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> {
+  const response = await authenticatedAction('home-catalog');
+  if (!response) return null;
+  const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
+  const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, logo: safeImageUrl(item.logo), backdrop: normalizeBackdrop(item.backdrop) }));
+  return { movies: prepare(result.movies), series: prepare(result.series) };
 }
 
 export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> {
   if (seriesCatalogCache && Date.now() - seriesCatalogCache.savedAt < CATALOG_CACHE_MS) return seriesCatalogCache.value;
-  const persisted = await readCatalogCache<{ categories: SeriesCategory[]; shows: SeriesShow[] }>(cacheKey('series'));
-  if (persisted && Date.now() - persisted.savedAt < CATALOG_CACHE_MS) {
-    seriesCatalogCache = persisted;
-    return persisted.value;
-  }
-  if (seriesCatalogRequest) return seriesCatalogRequest;
-  seriesCatalogRequest = (async () => {
-    const response = await authenticatedAction('series-catalog');
-    if (!response) return persisted?.value ?? null;
-    const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
-    const value = { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
-    seriesCatalogCache = { savedAt: Date.now(), value };
-    await writeCatalogCache(cacheKey('series'), value);
-    return value;
-  })().finally(() => { seriesCatalogRequest = null; });
-  return seriesCatalogRequest;
+  const response = await authenticatedAction('series-catalog');
+  if (!response) return null;
+  const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
+  const value = { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+  seriesCatalogCache = { savedAt: Date.now(), value };
+  return value;
 }
 
 export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> {
   if (movieCatalogCache && Date.now() - movieCatalogCache.savedAt < CATALOG_CACHE_MS) return movieCatalogCache.value;
-  const persisted = await readCatalogCache<{ categories: MovieCategory[]; movies: MovieShow[] }>(cacheKey('movies'));
-  if (persisted && Date.now() - persisted.savedAt < CATALOG_CACHE_MS) {
-    movieCatalogCache = persisted;
-    return persisted.value;
-  }
-  if (movieCatalogRequest) return movieCatalogRequest;
-  movieCatalogRequest = (async () => {
-    const response = await authenticatedAction('movie-catalog');
-    if (!response) return persisted?.value ?? null;
-    const result = await response.json() as { categories?: MovieCategory[]; movies?: MovieShow[] };
-    const value = {
-      categories: Array.isArray(result.categories) ? result.categories : [],
-      movies: Array.isArray(result.movies) ? result.movies.map((movie) => ({ ...movie, logo: safeImageUrl(movie.logo), backdrop: normalizeBackdrop(movie.backdrop) })) : [],
-    };
-    movieCatalogCache = { savedAt: Date.now(), value };
-    await writeCatalogCache(cacheKey('movies'), value);
-    return value;
-  })().finally(() => { movieCatalogRequest = null; });
-  return movieCatalogRequest;
+  const response = await authenticatedAction('movie-catalog');
+  if (!response) return null;
+  const result = await response.json() as { categories?: MovieCategory[]; movies?: MovieShow[] };
+  const value = {
+    categories: Array.isArray(result.categories) ? result.categories : [],
+    movies: Array.isArray(result.movies) ? result.movies.map((movie) => ({ ...movie, logo: safeImageUrl(movie.logo), backdrop: normalizeBackdrop(movie.backdrop) })) : [],
+  };
+  movieCatalogCache = { savedAt: Date.now(), value };
+  return value;
 }
 
 export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {
