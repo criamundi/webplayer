@@ -461,6 +461,36 @@ async function connectLine(
   }
 }
 
+function normalizeProviderStreamUrl(
+  channel: Channel,
+  streamBase: string,
+  username: string,
+  password: string,
+): Channel {
+  if (!streamBase || !channel.url) return channel;
+  try {
+    const original = new URL(channel.url);
+    const filename = original.pathname.split('/').filter(Boolean).pop();
+    if (!filename) return channel;
+    const kind = channel.category === 'movies' ? 'movie' : channel.category === 'series' ? 'series' : 'live';
+    const base = streamBase.replace(/\/$/, '');
+    const url = `${base}/${kind}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${filename}`;
+    return { ...channel, id: `${url}::${channel.name}`, url };
+  } catch {
+    return channel;
+  }
+}
+
+function normalizeProviderProgress(
+  progress: StreamProgress,
+  streamBase: string,
+  username: string,
+  password: string,
+): StreamProgress {
+  if (!progress.channels.length || !streamBase) return progress;
+  return { ...progress, channels: progress.channels.map((channel) => normalizeProviderStreamUrl(channel, streamBase, username, password)) };
+}
+
 /*
 |--------------------------------------------------------------------------
 | CARREGAMENTO COMPLETO
@@ -490,6 +520,8 @@ export async function loadLinePlaylist(
   const result: Channel[] =
     [];
 
+  const streamBase = response.headers.get('X-Provider-Stream-Base')?.trim() || '';
+
   try {
     await streamM3UResponse(
       response,
@@ -503,7 +535,7 @@ export async function loadLinePlaylist(
             .length
         ) {
           result.push(
-            ...progress.channels,
+            ...normalizeProviderProgress(progress, streamBase, username, password).channels,
           );
         }
       },
@@ -557,10 +589,12 @@ export async function loadLinePlaylistStreaming(
       signal,
     );
 
+  const streamBase = response.headers.get('X-Provider-Stream-Base')?.trim() || '';
+
   try {
     await streamM3UResponse(
       response,
-      onBatch,
+      (progress) => onBatch(normalizeProviderProgress(progress, streamBase, username, password)),
       requestSignal,
     );
   } catch (error) {

@@ -415,6 +415,8 @@ export default function App() {
       return;
     }
 
+    const playlistScope = `${creds.provider.trim().toLocaleLowerCase('pt-BR')}::${creds.username.trim()}`;
+
     const controller =
       new AbortController();
 
@@ -470,7 +472,9 @@ export default function App() {
         const meta =
           await getPlaylistMeta();
 
-        if (
+        if (meta && meta.scope !== playlistScope) {
+          await clearPlaylist();
+        } else if (
           meta &&
           mounted
         ) {
@@ -689,6 +693,7 @@ export default function App() {
               await saveChannelBatch(
                 progress.channels,
                 progress.category,
+                playlistScope,
               );
 
               /*
@@ -942,6 +947,7 @@ export default function App() {
                * Salva metadata definitiva.
                */
               await savePlaylistMeta({
+                scope: playlistScope,
                 totals:
                   finalTotals,
 

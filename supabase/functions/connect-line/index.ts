@@ -12,6 +12,9 @@ const corsHeaders = {
 
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
+
+  "Access-Control-Expose-Headers":
+    "X-Provider-Stream-Base",
 };
 
 const supabaseUrl =
@@ -1037,6 +1040,8 @@ Deno.serve(
 
             "Cache-Control":
               "no-store",
+
+            "X-Provider-Stream-Base": `${serverUrl.origin}${serverUrl.pathname.toLowerCase().endsWith(".php") ? serverUrl.pathname.slice(0, serverUrl.pathname.lastIndexOf("/")) : serverUrl.pathname.replace(/\/$/, "")}`,
           },
         },
       );

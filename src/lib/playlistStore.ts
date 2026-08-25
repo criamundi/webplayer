@@ -18,6 +18,8 @@ interface StoredChannel extends Channel {
 interface PlaylistMeta {
   key: 'playlist';
 
+  scope?: string;
+
   totals: Record<
     PlaylistCategory,
     number
@@ -344,6 +346,7 @@ export async function clearPlaylist():
 export async function saveChannelBatch(
   channels: Channel[],
   category: PlaylistCategory,
+  scope?: string,
 ): Promise<void> {
   if (!channels.length) {
     return;
@@ -542,6 +545,8 @@ export async function saveChannelBatch(
             PlaylistMeta = {
             key:
               'playlist',
+
+            scope,
 
             totals,
 
