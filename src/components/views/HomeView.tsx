@@ -14,6 +14,7 @@ interface HomeViewProps {
   onNavigate: (view: View) => void;
   recents: Channel[];
   canManageSportsChannel: boolean;
+  homeFeatureType: 'latest_movie' | 'latest_series';
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
@@ -71,7 +72,7 @@ function validRating(value?: string) {
   return Number(value.replace(',', '.')) > 0;
 }
 
-export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, recents, canManageSportsChannel }: HomeViewProps) {
+export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, recents, canManageSportsChannel, homeFeatureType }: HomeViewProps) {
   const favoritesRef = useRef(favorites);
   const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
@@ -89,6 +90,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [renewalChecking, setRenewalChecking] = useState(false);
   const [renewalCompleted, setRenewalCompleted] = useState(false);
   const renewalBaselineRef = useRef<{ expiresAt: number; days: number } | null>(null);
+  const catalogRequestRef = useRef(false);
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
 
@@ -169,25 +171,42 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   useEffect(() => {
     let active = true;
+    const refreshCatalog = async () => {
+      if (catalogRequestRef.current) return;
+      catalogRequestRef.current = true;
+      try {
+        const catalog = await loadHomeCatalog();
+        if (!active || !catalog) return;
+        const movieItems = catalog.movies ?? [];
+        const seriesItems = catalog.series ?? [];
+        [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
+        const featured = homeFeatureType === 'latest_series' ? seriesItems[0] ?? null : movieItems[0] ?? null;
+        setHeroItem((current) => {
+          if (current?.id !== featured?.id) setHeroImageLoading(Boolean(featured));
+          return featured;
+        });
+        setMovies((homeFeatureType === 'latest_movie' && featured) ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
+        setSeries((homeFeatureType === 'latest_series' && featured) ? seriesItems.filter((item) => item.id !== featured.id).slice(0, 10) : seriesItems.slice(0, 10));
+        if (!featured) { setHeroInfo(null); setHeroImageLoading(false); return; }
+        if (featured.contentType === 'series') {
+          setHeroInfo({ name: featured.name, plot: featured.plot, genre: featured.genre, rating: featured.rating, backdrop: featured.backdrop, cover: featured.logo });
+        } else {
+          const info = await loadContentInfo(featured);
+          if (active) setHeroInfo(info);
+        }
+      } catch (error) {
+        console.warn('Não foi possível carregar a vitrine da Home:', error);
+      } finally {
+        catalogRequestRef.current = false;
+      }
+    };
     void loadAccountStatus().then((status) => { if (active) setAccountStatus(status); });
-    void loadHomeCatalog().then((catalog) => {
-      if (!active) return;
-      const movieItems = catalog?.movies ?? [];
-      const seriesItems = catalog?.series ?? [];
-      [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
-      const featured = movieItems[0] ?? null;
-      setHeroItem(featured);
-      if (!featured) setHeroImageLoading(false);
-      setMovies(featured ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
-      setSeries(seriesItems.slice(0, 10));
-      if (featured) void loadContentInfo(featured).then((info) => {
-        if (!active) return;
-        setHeroInfo(info);
-        if (!info?.backdrop && !featured.backdrop && !info?.cover && !featured.logo) setHeroImageLoading(false);
-      });
-    }).catch((error) => console.warn('Não foi possível carregar a vitrine da Home:', error));
-    return () => { active = false; };
-  }, []);
+    void refreshCatalog();
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshCatalog(); }, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshCatalog(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [homeFeatureType]);
 
   const heroBackground = heroInfo?.backdrop || heroItem?.backdrop;
   const heroPosterFallback = heroInfo?.cover || heroItem?.logo;
@@ -211,12 +230,12 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         <div className="home-hero-shade" />
         {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
         <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
-          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> Destaque</span>
+          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> {homeFeatureType === 'latest_series' ? 'Última série adicionada' : 'Último filme adicionado'}</span>
           {heroInfo?.titleLogo ? <><img src={heroInfo.titleLogo} alt={heroInfo.name || heroItem?.name || ''} className="mb-2 max-h-40 w-auto max-w-[min(80vw,420px)] object-contain object-left" /><h1 className="sr-only">{heroInfo.name || heroItem?.name}</h1></> : <h1 className="max-w-2xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">{heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'}</h1>}
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-white/62">{heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'}</p>
           {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? 'Direção:' : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
-          {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerUrl && <button onClick={() => window.open(trailerUrl, '_blank', 'noopener,noreferrer')} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
+          {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => heroItem.contentType === 'series' ? onNavigate('series') : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerUrl && <button onClick={() => window.open(trailerUrl, '_blank', 'noopener,noreferrer')} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
         </div>
         </div>
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>

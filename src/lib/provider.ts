@@ -63,7 +63,7 @@ export async function loadHomeCatalog(): Promise<{ movies: CatalogItem[]; series
   const response = await authenticatedAction('home-catalog');
   if (!response) return null;
   const result = await response.json() as { movies?: CatalogItem[]; series?: CatalogItem[] };
-  const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, backdrop: normalizeBackdrop(item.backdrop) }));
+  const prepare = (items: CatalogItem[] | undefined) => (Array.isArray(items) ? items : []).map((item) => ({ ...item, logo: safeImageUrl(item.logo), backdrop: normalizeBackdrop(item.backdrop) }));
   return { movies: prepare(result.movies), series: prepare(result.series) };
 }
 
@@ -126,9 +126,10 @@ function normalizeBackdrop(value: unknown): string | undefined {
   }
   if (trimmed.startsWith('/')) return `https://image.tmdb.org/t/p/original${trimmed}`;
   if (!/^https?:\/\//i.test(trimmed)) return undefined;
-  return trimmed
+  const normalized = trimmed
     .replace(/^http:\/\/image\.tmdb\.org/i, 'https://image.tmdb.org')
     .replace(/\/t\/p\/(?:w\d+|original)\//, '/t/p/original/');
+  return safeImageUrl(normalized);
 }
 
 function findBackdrop(value: unknown, depth = 0): string | undefined {
