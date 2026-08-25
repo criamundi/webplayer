@@ -531,6 +531,47 @@ Deno.serve(
         return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
       }
 
+      if (action === "movie-catalog") {
+        const makeMovieApiUrl = (apiAction: string) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({ username, password, action: apiAction }).toString();
+          return url;
+        };
+        const movieController = new AbortController();
+        const movieTimeout = setTimeout(() => movieController.abort(), 18000);
+        try {
+          const [categoriesResponse, moviesResponse] = await Promise.all([
+            fetch(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+            fetch(makeMovieApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+          ]);
+          if (!categoriesResponse.ok || !moviesResponse.ok) return json({ error: "Catálogo de filmes indisponível." }, 502);
+          const categoriesRaw = await categoriesResponse.json();
+          const moviesRaw = await moviesResponse.json();
+          const categories = (Array.isArray(categoriesRaw) ? categoriesRaw : []).map((item: Record<string, unknown>) => ({ id: String(item.category_id ?? ""), name: String(item.category_name ?? "Sem categoria") })).filter((item: { id: string }) => item.id);
+          const root = new URL(serverUrl.toString());
+          const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
+          const movies = (Array.isArray(moviesRaw) ? moviesRaw : []).map((item: Record<string, unknown>) => {
+            const movieId = String(item.stream_id ?? "");
+            const extension = String(item.container_extension ?? "mp4").replace(/[^a-z0-9]/gi, "") || "mp4";
+            return {
+              id: `movie:${movieId}`, movieId, name: String(item.name ?? "Sem título"),
+              categoryId: String(item.category_id ?? ""), logo: String(item.stream_icon ?? item.cover ?? ""),
+              backdrop: Array.isArray(item.backdrop_path) ? String(item.backdrop_path[0] ?? "") : String(item.backdrop_path ?? ""),
+              plot: String(item.plot ?? ""), genre: String(item.genre ?? ""), rating: String(item.rating_5based ?? item.rating ?? ""),
+              releaseDate: String(item.releaseDate ?? item.release_date ?? ""), added: String(item.added ?? ""),
+              url: `${root.origin}${rootPath}/movie/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${movieId}.${extension}`,
+            };
+          }).filter((item: { movieId: string }) => item.movieId);
+          return json({ categories, movies });
+        } catch {
+          return json({ error: "Não foi possível carregar os filmes." }, 502);
+        } finally {
+          clearTimeout(movieTimeout);
+        }
+      }
+
       if (action === "series-catalog" || action === "series-info") {
         const makeSeriesApiUrl = (apiAction: string, extra: Record<string, string> = {}) => {
           const url = new URL(serverUrl.toString());

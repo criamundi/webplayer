@@ -40,6 +40,8 @@ export interface SeriesCategory { id: string; name: string; }
 export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
 export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
 export interface SeriesDetails { info: Record<string, unknown>; episodes: SeriesEpisode[]; }
+export interface MovieCategory { id: string; name: string; }
+export interface MovieShow extends Channel { movieId: string; categoryId: string; rating?: string; added?: string; backdrop?: string; plot?: string; genre?: string; releaseDate?: string; }
 
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
@@ -70,6 +72,16 @@ export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[
   if (!response) return null;
   const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
   return { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+}
+
+export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> {
+  const response = await authenticatedAction('movie-catalog');
+  if (!response) return null;
+  const result = await response.json() as { categories?: MovieCategory[]; movies?: MovieShow[] };
+  return {
+    categories: Array.isArray(result.categories) ? result.categories : [],
+    movies: Array.isArray(result.movies) ? result.movies.map((movie) => ({ ...movie, logo: safeImageUrl(movie.logo), backdrop: normalizeBackdrop(movie.backdrop) })) : [],
+  };
 }
 
 export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {

@@ -1956,6 +1956,7 @@ export default function App() {
           {view ===
             'movies' && (
             <MoviesView
+              key={`movies-${viewResetKey}`}
               channels={
                 channels
               }
