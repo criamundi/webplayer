@@ -300,6 +300,14 @@ Deno.serve(
           ? body.streamId
           : "";
 
+      const contentName = typeof body.contentName === "string"
+        ? body.contentName.slice(0, 240).trim()
+        : "";
+
+      const contentYear = typeof body.contentYear === "string"
+        ? body.contentYear.match(/(?:19|20)\d{2}/)?.[0] ?? ""
+        : "";
+
       if (
         username.length <
           1 ||
@@ -608,7 +616,7 @@ Deno.serve(
           const response = await fetch(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
           if (!response.ok) return json({ error: "Informações da série indisponíveis." }, 502);
           const raw = await response.json();
-          const info = raw?.info && typeof raw.info === "object" ? raw.info : {};
+          const info = raw?.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : {};
           const root = new URL(serverUrl.toString());
           const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
           const episodesSource = raw?.episodes && typeof raw.episodes === "object" ? raw.episodes : {};
@@ -618,7 +626,72 @@ Deno.serve(
             const episodeInfo = episode.info && typeof episode.info === "object" ? episode.info as Record<string, unknown> : {};
             return { id: `episode:${id}`, name: String(episode.title ?? `Episódio ${index + 1}`), url: `${root.origin}${rootPath}/series/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${id}.${extension}`, logo: String(episodeInfo.movie_image ?? info.cover ?? ""), season: Number(episode.season ?? seasonKey ?? 1), episode: Number(episode.episode_num ?? index + 1), duration: String(episodeInfo.duration ?? ""), plot: String(episodeInfo.plot ?? "") };
           })).filter((episode: { id: string }) => episode.id !== "episode:");
-          return json({ info, episodes });
+          let enrichedInfo = info;
+          if (tmdbReadToken) {
+            const tmdbFetch = async (path: string, params: Record<string, string>) => {
+              const url = new URL(`https://api.themoviedb.org/3${path}`);
+              url.search = new URLSearchParams(params).toString();
+              return fetch(url, {
+                headers: { Authorization: `Bearer ${tmdbReadToken}`, Accept: "application/json" },
+                signal: seriesController.signal,
+              });
+            };
+
+            try {
+              let tmdbId = String(info.tmdb_id ?? info.tmdb ?? "").replace(/\D/g, "");
+              const seriesTitle = String(info.name ?? info.title ?? contentName)
+                .replace(/\s*\[(?:E|LEG|DUB)\].*$/i, "")
+                .trim();
+              const providerYear = String(info.releaseDate ?? info.release_date ?? "")
+                .match(/(?:19|20)\d{2}/)?.[0] ?? contentYear;
+
+              if (!tmdbId && seriesTitle) {
+                const searchResponse = await tmdbFetch("/search/tv", {
+                  query: seriesTitle,
+                  language: "pt-BR",
+                  include_adult: "false",
+                  ...(providerYear ? { first_air_date_year: providerYear } : {}),
+                });
+                if (searchResponse.ok) {
+                  const search = await searchResponse.json();
+                  tmdbId = String(search?.results?.[0]?.id ?? "");
+                }
+              }
+
+              if (tmdbId) {
+                const detailResponse = await tmdbFetch(`/tv/${tmdbId}`, {
+                  language: "pt-BR",
+                  append_to_response: "credits",
+                });
+                if (detailResponse.ok) {
+                  const detail = await detailResponse.json();
+                  const cast = Array.isArray(detail?.credits?.cast)
+                    ? detail.credits.cast
+                      .map((item: Record<string, unknown>) => item.name)
+                      .filter(Boolean)
+                      .slice(0, 8)
+                      .join(", ")
+                    : "";
+                  const backdrop = typeof detail?.backdrop_path === "string" && detail.backdrop_path
+                    ? `https://image.tmdb.org/t/p/original${detail.backdrop_path}`
+                    : "";
+
+                  enrichedInfo = {
+                    ...info,
+                    cast: info.cast ?? info.actors ?? cast,
+                    plot: info.plot ?? info.description ?? detail.overview,
+                    genre: info.genre ?? (Array.isArray(detail?.genres)
+                      ? detail.genres.map((item: Record<string, unknown>) => item.name).filter(Boolean).join(", ")
+                      : ""),
+                    releaseDate: info.releaseDate ?? info.release_date ?? detail.first_air_date,
+                    backdrop_path: info.backdrop_path ?? info.backdrop ?? backdrop,
+                  };
+                }
+              }
+            } catch { /* mantém os metadados originais do provedor */ }
+          }
+
+          return json({ info: enrichedInfo, episodes });
         } catch {
           return json({ error: "Não foi possível carregar as séries." }, 502);
         } finally {

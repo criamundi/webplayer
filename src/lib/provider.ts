@@ -148,8 +148,8 @@ export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[];
   return movieCatalogRequest;
 }
 
-export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {
-  const response = await authenticatedAction('series-info', { streamId: seriesId });
+export async function loadSeriesDetails(seriesId: string, contentName?: string, contentYear?: string): Promise<SeriesDetails | null> {
+  const response = await authenticatedAction('series-info', { streamId: seriesId, contentName, contentYear });
   if (!response) return null;
   const result = await response.json() as SeriesDetails;
   return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes.map((episode) => ({ ...episode, logo: safeImageUrl(episode.logo) })) : [] };
