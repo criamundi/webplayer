@@ -19,6 +19,9 @@ export interface ContentInfo {
   cover?: string;
   titleLogo?: string;
   trailerKey?: string;
+  contentRating?: string;
+  language?: string;
+  castMembers?: SeriesCastMember[];
 }
 
 export interface CatalogItem extends Channel {
@@ -243,6 +246,12 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
     tmdb.backdrop ?? info.backdrop_path ?? info.backdrop ?? movieData.backdrop_path ?? movieData.backdrop ?? raw.backdrop_path ?? raw.backdrop,
   ) ?? findBackdrop(raw);
   const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+  const castSource = Array.isArray(tmdb.castMembers) ? tmdb.castMembers : Array.isArray(info.castMembers) ? info.castMembers : [];
+  const castMembers = castSource.map((item) => item && typeof item === 'object' ? {
+    name: text((item as Record<string, unknown>).name) || '',
+    character: text((item as Record<string, unknown>).character),
+    image: safeImageUrl(text((item as Record<string, unknown>).image)),
+  } : { name: text(item) || '' }).filter((item) => item.name);
 
   return {
     name: text(tmdb.name ?? info.name ?? movieData.name), plot: text(tmdb.plot ?? info.plot ?? info.description), cast: text(tmdb.cast ?? info.cast),
@@ -250,6 +259,8 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
     duration: text(tmdb.duration ?? info.duration), rating: text(tmdb.rating ?? info.rating ?? info.rating_5based), backdrop,
     cover: text(tmdb.poster ?? info.movie_image ?? info.cover_big ?? movieData.stream_icon),
     titleLogo: text(tmdb.logo), trailerKey: text(tmdb.trailerKey ?? info.youtube_trailer),
+    contentRating: text(tmdb.contentRating ?? info.rating_age ?? info.mpaa_rating),
+    language: text(tmdb.language ?? info.language), castMembers,
   };
 }
 

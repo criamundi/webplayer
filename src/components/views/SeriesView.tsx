@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Heart, Loader2, Play, Search, Star, Tv, UserRound } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Clock3, Heart, Loader2, Play, Search, Star } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadSeriesCatalog, loadSeriesDetails, loadSeriesSeasonImages, type SeriesCastMember, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
+import { loadSeriesCatalog, loadSeriesDetails, loadSeriesSeasonImages, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
 import { storage } from '@/lib/storage';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
+import {
+  MediaArrowRow as ArrowRow,
+  MediaBackdrop as HeroBackdrop,
+  MediaCastPortrait as CastPortrait,
+  MediaCover as SeriesCover,
+  MediaHeroTitle as HeroTitle,
+} from '@/components/media/MediaDetailsUI';
+import { formatMediaDate as formatDate, mediaCastList as castList, mediaImageValue as imageValue, mediaText as text } from '@/components/media/mediaUtils';
 
 interface SeriesViewProps {
   channels: Channel[];
@@ -16,120 +24,6 @@ interface SeriesViewProps {
 }
 
 const LATEST = 'recent';
-const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-const formatDate = (value: string) => {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
-};
-
-function imageValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const image = imageValue(item);
-      if (image) return image;
-    }
-    return '';
-  }
-  if (typeof value !== 'string') return '';
-  const source = value.trim();
-  if (!source) return '';
-  if (source.startsWith('[') || source.startsWith('{')) {
-    try { return imageValue(JSON.parse(source)); } catch { return ''; }
-  }
-  return source;
-}
-
-function HeroBackdrop({ sources }: { sources: string[] }) {
-  const available = [...new Set(sources.filter(Boolean))];
-  const signature = available.join('|');
-  const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); }, [signature]);
-  const source = available[index];
-  if (!source) return null;
-  return <img key={source} src={source} alt="" onError={() => setIndex((current) => current + 1)} className="absolute inset-0 h-full w-full object-cover" />;
-}
-
-function castList(value: unknown, fallback: unknown): SeriesCastMember[] {
-  if (Array.isArray(value)) {
-    return value.map((item) => item && typeof item === 'object' ? {
-      name: text((item as Record<string, unknown>).name),
-      character: text((item as Record<string, unknown>).character),
-      image: text((item as Record<string, unknown>).image),
-    } : { name: text(item) }).filter((item) => item.name);
-  }
-  const names = text(fallback).split(',').map((name) => name.trim()).filter(Boolean);
-  return names.map((name) => ({ name }));
-}
-
-function SeriesCover({ logo, fallbackLogo, name, preserveAspect = false }: { logo?: string; fallbackLogo?: string; name: string; preserveAspect?: boolean }) {
-  const initialSource = logo || fallbackLogo;
-  const [loading, setLoading] = useState(Boolean(initialSource));
-  const [failed, setFailed] = useState(false);
-  const [source, setSource] = useState(initialSource);
-
-  useEffect(() => {
-    const nextSource = logo || fallbackLogo;
-    setLoading(Boolean(nextSource));
-    setFailed(false);
-    setSource(nextSource);
-  }, [fallbackLogo, logo]);
-
-  const handleError = () => {
-    if (fallbackLogo && source !== fallbackLogo) {
-      setLoading(true);
-      setSource(fallbackLogo);
-      return;
-    }
-    setLoading(false);
-    setFailed(true);
-  };
-
-  return <>
-    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
-    {source && !failed
-      ? <>{preserveAspect && <img src={source} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl" />}<img src={source} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={handleError} className={preserveAspect ? 'relative z-[1] h-full w-full object-contain' : 'h-full w-full object-cover transition duration-500 group-hover:scale-105'} /></>
-      : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}
-  </>;
-}
-
-function HeroTitle({ logo, name }: { logo?: string; name: string }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [logo]);
-  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{name}</h1>;
-  return <img src={logo} alt={name} onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
-}
-
-function CastPortrait({ member }: { member: SeriesCastMember }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [member.image]);
-  return <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white/[0.05]">
-    {member.image && !failed
-      ? <img src={member.image} alt={member.name} loading="lazy" decoding="async" onError={() => setFailed(true)} className="h-full w-full object-cover object-top" />
-      : <span className="flex h-full items-center justify-center"><UserRound className="h-10 w-10 text-white/15" /></span>}
-  </div>;
-}
-
-function ArrowRow({ title, children }: { title: string; children: ReactNode }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const scroll = (direction: -1 | 1) => {
-    const track = trackRef.current;
-    const firstItem = track?.querySelector<HTMLElement>('[data-arrow-item]');
-    if (!track || !firstItem) return;
-    const gap = Number.parseFloat(getComputedStyle(track).gap) || 16;
-    track.scrollBy({ left: direction * (firstItem.offsetWidth + gap), behavior: 'smooth' });
-  };
-
-  return <div>
-    <div className="mb-4 flex items-center justify-between gap-4">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => scroll(-1)} className="shelf-arrow" aria-label={`Voltar em ${title}`}><ChevronLeft className="h-4 w-4" /></button>
-        <button type="button" onClick={() => scroll(1)} className="shelf-arrow" aria-label={`Avançar em ${title}`}><ChevronRight className="h-4 w-4" /></button>
-      </div>
-    </div>
-    <div ref={trackRef} className="flex snap-x snap-mandatory gap-4 overflow-hidden scroll-smooth pb-4">{children}</div>
-  </div>;
-}
 
 export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resumeSeriesId, onResumeHandled }: SeriesViewProps) {
   const [categories, setCategories] = useState<SeriesCategory[]>([]);

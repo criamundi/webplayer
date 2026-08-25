@@ -656,7 +656,7 @@ export function VideoPlayer({
       [
         startHls,
         startMpegTs,
-        fail,
+        playMedia,
       ],
     );
 

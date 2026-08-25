@@ -877,14 +877,14 @@ Deno.serve(
 
           const detailResponse = await tmdbFetch(`/movie/${tmdbId}`, {
             language: "pt-BR",
-            append_to_response: "images,videos,credits",
+            append_to_response: "images,videos,credits,release_dates",
             include_image_language: "pt,en,null",
             include_video_language: "pt-BR,pt,en-US,en,null",
           });
           if (!detailResponse.ok) return json(info);
 
           const detail = await detailResponse.json();
-          const imageUrl = (path: unknown) => typeof path === "string" && path ? `https://image.tmdb.org/t/p/original${path}` : "";
+          const imageUrl = (path: unknown, size = "original") => typeof path === "string" && path ? `https://image.tmdb.org/t/p/${size}${path}` : "";
           const logos = Array.isArray(detail?.images?.logos) ? detail.images.logos : [];
           const logoRank = (item: Record<string, unknown>) => item.iso_639_1 === "pt" ? 3 : item.iso_639_1 === "en" ? 2 : 1;
           logos.sort((a: Record<string, unknown>, b: Record<string, unknown>) => logoRank(b) - logoRank(a) || Number(b.vote_average ?? 0) - Number(a.vote_average ?? 0));
@@ -894,7 +894,19 @@ Deno.serve(
             .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.official === true) - Number(a.official === true) || (b.type === "Trailer" ? 1 : 0) - (a.type === "Trailer" ? 1 : 0))[0];
           const crew = Array.isArray(detail?.credits?.crew) ? detail.credits.crew : [];
           const cast = Array.isArray(detail?.credits?.cast) ? detail.credits.cast : [];
+          const castMembers = cast.slice(0, 12).map((item: Record<string, unknown>) => ({
+            name: String(item.name ?? ""),
+            character: String(item.character ?? ""),
+            image: imageUrl(item.profile_path, "w342"),
+          })).filter((item: { name: string }) => item.name);
           const directors = crew.filter((item: Record<string, unknown>) => item.job === "Director").map((item: Record<string, unknown>) => item.name).filter(Boolean).slice(0, 3).join(", ");
+          const releaseResults = Array.isArray(detail?.release_dates?.results) ? detail.release_dates.results : [];
+          const countryRelease = releaseResults.find((item: Record<string, unknown>) => item.iso_3166_1 === "BR")
+            ?? releaseResults.find((item: Record<string, unknown>) => item.iso_3166_1 === "US");
+          const certifications = countryRelease && Array.isArray((countryRelease as Record<string, unknown>).release_dates)
+            ? (countryRelease as Record<string, unknown>).release_dates as Array<Record<string, unknown>>
+            : [];
+          const contentRating = String(certifications.find((item) => String(item.certification ?? "").trim())?.certification ?? "");
 
           return json({
             ...info,
@@ -911,7 +923,10 @@ Deno.serve(
               genre: Array.isArray(detail.genres) ? detail.genres.map((item: Record<string, unknown>) => item.name).filter(Boolean).join(", ") : "",
               rating: Number(detail.vote_average) > 0 ? Number(detail.vote_average).toFixed(1) : "",
               director: directors,
-              cast: cast.map((item: Record<string, unknown>) => item.name).filter(Boolean).slice(0, 6).join(", "),
+              cast: castMembers.map((item: { name: string }) => item.name).join(", "),
+              castMembers,
+              contentRating,
+              language: String(detail.original_language ?? "").toUpperCase(),
             },
           });
         } catch {
