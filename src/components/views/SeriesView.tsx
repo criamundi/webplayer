@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Heart, Loader2, Play, Search, Star, Tv } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Heart, Loader2, Play, Search, Star, Tv, UserRound } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadSeriesCatalog, loadSeriesDetails, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
+import { loadSeriesCatalog, loadSeriesDetails, loadSeriesSeasonImages, type SeriesCastMember, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
 import { storage } from '@/lib/storage';
 
 interface SeriesViewProps {
@@ -16,17 +16,24 @@ interface SeriesViewProps {
 
 const LATEST = 'recent';
 const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+const formatDate = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
 
-function people(value: unknown) {
-  if (typeof value === 'string') return value;
-  if (!Array.isArray(value)) return '';
-  return value
-    .map((item) => typeof item === 'string' ? item : item && typeof item === 'object' ? text((item as Record<string, unknown>).name) : '')
-    .filter(Boolean)
-    .join(', ');
+function castList(value: unknown, fallback: unknown): SeriesCastMember[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => item && typeof item === 'object' ? {
+      name: text((item as Record<string, unknown>).name),
+      character: text((item as Record<string, unknown>).character),
+      image: text((item as Record<string, unknown>).image),
+    } : { name: text(item) }).filter((item) => item.name);
+  }
+  const names = text(fallback).split(',').map((name) => name.trim()).filter(Boolean);
+  return names.map((name) => ({ name }));
 }
 
-function SeriesCover({ logo, fallbackLogo, name }: { logo?: string; fallbackLogo?: string; name: string }) {
+function SeriesCover({ logo, fallbackLogo, name, preserveAspect = false }: { logo?: string; fallbackLogo?: string; name: string; preserveAspect?: boolean }) {
   const initialSource = logo || fallbackLogo;
   const [loading, setLoading] = useState(Boolean(initialSource));
   const [failed, setFailed] = useState(false);
@@ -52,9 +59,26 @@ function SeriesCover({ logo, fallbackLogo, name }: { logo?: string; fallbackLogo
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
     {source && !failed
-      ? <img src={source} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={handleError} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+      ? <>{preserveAspect && <img src={source} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl" />}<img src={source} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={handleError} className={preserveAspect ? 'relative z-[1] h-full w-full object-contain' : 'h-full w-full object-cover transition duration-500 group-hover:scale-105'} /></>
       : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}
   </>;
+}
+
+function HeroTitle({ logo, name }: { logo?: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [logo]);
+  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{name}</h1>;
+  return <img src={logo} alt={name} onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
+}
+
+function CastPortrait({ member }: { member: SeriesCastMember }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [member.image]);
+  return <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white/[0.05]">
+    {member.image && !failed
+      ? <img src={member.image} alt={member.name} loading="lazy" decoding="async" onError={() => setFailed(true)} className="h-full w-full object-cover object-top" />
+      : <span className="flex h-full items-center justify-center"><UserRound className="h-10 w-10 text-white/15" /></span>}
+  </div>;
 }
 
 function ArrowRow({ title, children }: { title: string; children: ReactNode }) {
@@ -90,6 +114,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [seriesInfo, setSeriesInfo] = useState<Record<string, unknown>>({});
+  const [seasonThumbs, setSeasonThumbs] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(() => storage.getWatchProgress());
   const [visibleCount, setVisibleCount] = useState(40);
 
@@ -137,6 +162,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     setSelected(show);
     setEpisodes([]);
     setSeriesInfo({});
+    setSeasonThumbs({});
     setDetailLoading(true);
     setProgress(storage.getWatchProgress());
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -163,6 +189,21 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const seasonEpisodes = useMemo(() => episodes.filter((item) => item.season === season).sort((a, b) => a.episode - b.episode), [episodes, season]);
   const continueEpisode = episodes.find((item) => progress[item.id] && progress[item.id].current < progress[item.id].duration - 30) || episodes[0];
   const similarSeries = selected ? shows.filter((show) => show.id !== selected.id && show.categoryId === selected.categoryId).slice(0, 10) : [];
+  const tmdbId = text(seriesInfo.tmdbId);
+  const castMembers = useMemo(() => castList(seriesInfo.castMembers, seriesInfo.cast || seriesInfo.actors), [seriesInfo]);
+
+  useEffect(() => {
+    if (!selected || !tmdbId) return;
+    let active = true;
+    void loadSeriesSeasonImages(tmdbId, season).then((images) => {
+      if (!active) return;
+      setSeasonThumbs((current) => ({
+        ...current,
+        ...Object.fromEntries(Object.entries(images).map(([episode, image]) => [`${season}:${episode}`, image])),
+      }));
+    });
+    return () => { active = false; };
+  }, [season, selected, tmdbId]);
 
   if (!selected) return <div data-series-catalog className="-mx-5 -mt-6 min-h-screen bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
@@ -187,7 +228,13 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const plot = text(seriesInfo.plot || seriesInfo.description) || selected.plot;
   const genre = text(seriesInfo.genre) || selected.genre;
   const release = text(seriesInfo.releaseDate || seriesInfo.release_date) || selected.releaseDate;
-  const cast = people(seriesInfo.cast || seriesInfo.actors || seriesInfo.actor || seriesInfo.starring);
+  const titleLogo = text(seriesInfo.titleLogo || seriesInfo.title_logo || seriesInfo.logo_path);
+  const creator = text(seriesInfo.creator || seriesInfo.director);
+  const contentRating = text(seriesInfo.contentRating || seriesInfo.rating_age || seriesInfo.mpaa_rating);
+  const language = text(seriesInfo.language).toUpperCase();
+  const detailRating = text(seriesInfo.tmdbRating || seriesInfo.rating || selected.rating);
+  const trailerKey = text(seriesInfo.trailerKey || seriesInfo.youtube_trailer);
+  const trailerUrl = trailerKey ? (/^https?:\/\//i.test(trailerKey) ? trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(trailerKey)}`) : '';
   const playEpisode = (episode: SeriesEpisode) => onSelectChannel({ ...episode, parentSeriesId: selected.id });
 
   return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
@@ -197,12 +244,19 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
       <button onClick={() => setSelected(null)} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
       <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.2em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Série'}</span>
-        <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{selected.name}</h1>
-        <div className="mt-4 flex gap-3 text-xs text-white/48">{release && <span>{release.match(/\d{4}/)?.[0]}</span>}{genre && <span>{genre}</span>}{selected.rating && Number(selected.rating) > 0 && <span className="text-amber-300">★ {selected.rating}</span>}</div>
+        <HeroTitle logo={titleLogo} name={selected.name} />
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
+          {contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{contentRating}</span>}
+          {release && <span>{formatDate(release)}</span>}
+          {language && <span>({language})</span>}
+          {detailRating && Number(detailRating) > 0 && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{detailRating}</span>}
+        </div>
+        {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
+        {creator && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Criação e direção:</span> {creator}</p>}
         {plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{plot}</p>}
-        {cast && <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/40"><span className="font-medium text-white/65">Elenco:</span> {cast}</p>}
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           {continueEpisode && <button onClick={() => playEpisode(continueEpisode)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />{progress[continueEpisode.id] ? 'Continuar' : 'Reproduzir'}</button>}
+          {trailerUrl && <a href={trailerUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</a>}
           <button onClick={() => onToggleFavorite(selected.id)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm backdrop-blur"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
         </div>
         {continueEpisode && progress[continueEpisode.id] && <p className="mt-3 flex items-center gap-1 text-xs text-white/38"><Clock3 className="h-3.5 w-3.5" />Temporada {continueEpisode.season} • Episódio {continueEpisode.episode}</p>}
@@ -224,7 +278,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
               const percent = watched ? Math.min(100, Math.round((watched.current / watched.duration) * 100)) : 0;
               return <button data-arrow-item key={`${season}:${item.id}`} onClick={() => playEpisode(item)} className="group w-[min(78vw,22rem)] shrink-0 snap-start text-left">
                 <div className="relative aspect-video overflow-hidden rounded-2xl bg-white/[0.04]">
-                  <SeriesCover logo={item.logo} fallbackLogo={selected.logo} name={item.name} />
+                  <SeriesCover logo={seasonThumbs[`${season}:${item.episode}`] || item.logo} fallbackLogo={selected.logo} name={item.name} preserveAspect />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
                   {percent > 0 && <span className="absolute inset-x-0 bottom-0 h-1.5 bg-white/15"><span className="block h-full bg-emerald-400" style={{ width: `${percent}%` }} /></span>}
                   <span className="absolute bottom-4 left-4 text-sm font-semibold">Episódio {item.episode}</span>
@@ -236,6 +290,15 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           {similarSeries.length > 0 && <div className="mt-10">
             <ArrowRow title="Séries semelhantes">
               {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} />{Number(show.rating) > 0 && <span className="absolute right-2 top-2 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300">★ {show.rating}</span>}</div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
+            </ArrowRow>
+          </div>}
+          {castMembers.length > 0 && <div className="mt-10">
+            <ArrowRow title="Elenco">
+              {castMembers.map((member, index) => <div data-arrow-item key={`${member.name}:${index}`} className="w-36 shrink-0 snap-start text-center sm:w-40">
+                <CastPortrait member={member} />
+                <p className="mt-2 truncate text-sm font-medium text-white/75">{member.name}</p>
+                {member.character && <p className="mt-0.5 truncate text-xs text-white/35">{member.character}</p>}
+              </div>)}
             </ArrowRow>
           </div>}
         </>}

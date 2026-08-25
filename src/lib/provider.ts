@@ -40,6 +40,7 @@ export interface AccountStatus {
 export interface SeriesCategory { id: string; name: string; }
 export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
 export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
+export interface SeriesCastMember { name: string; character?: string; image?: string; }
 export interface SeriesDetails { info: Record<string, unknown>; episodes: SeriesEpisode[]; }
 export interface MovieCategory { id: string; name: string; }
 export interface MovieShow extends Channel { movieId: string; categoryId: string; rating?: string; added?: string; backdrop?: string; plot?: string; genre?: string; releaseDate?: string; }
@@ -51,6 +52,7 @@ let homeCatalogCache: { savedAt: number; value: { movies: CatalogItem[]; series:
 let homeCatalogRequest: Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> | null = null;
 let seriesCatalogRequest: Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> | null = null;
 let movieCatalogRequest: Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> | null = null;
+const seriesSeasonImageCache = new Map<string, Record<number, string>>();
 
 function credentialScope(): string {
   try {
@@ -153,6 +155,20 @@ export async function loadSeriesDetails(seriesId: string, contentName?: string, 
   if (!response) return null;
   const result = await response.json() as SeriesDetails;
   return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes.map((episode) => ({ ...episode, logo: safeImageUrl(episode.logo) })) : [] };
+}
+
+export async function loadSeriesSeasonImages(tmdbId: string, season: number): Promise<Record<number, string>> {
+  const key = `${tmdbId}:${season}`;
+  const cached = seriesSeasonImageCache.get(key);
+  if (cached) return cached;
+  const response = await authenticatedAction('series-season-images', { tmdbId, season });
+  if (!response) return {};
+  const result = await response.json() as { images?: Record<string, string> };
+  const images = Object.fromEntries(Object.entries(result.images || {})
+    .filter(([episode, image]) => Number(episode) > 0 && typeof image === 'string' && image)
+    .map(([episode, image]) => [Number(episode), image]));
+  seriesSeasonImageCache.set(key, images);
+  return images;
 }
 
 function safeImageUrl(value?: string): string | undefined {

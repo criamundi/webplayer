@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "series-catalog" || body.action === "series-info"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -307,6 +307,14 @@ Deno.serve(
       const contentYear = typeof body.contentYear === "string"
         ? body.contentYear.match(/(?:19|20)\d{2}/)?.[0] ?? ""
         : "";
+
+      const requestedTmdbId = typeof body.tmdbId === "string" && /^\d+$/.test(body.tmdbId)
+        ? body.tmdbId
+        : "";
+
+      const requestedSeason = Number.isInteger(body.season) && body.season >= 0 && body.season <= 100
+        ? Number(body.season)
+        : -1;
 
       if (
         username.length <
@@ -583,7 +591,7 @@ Deno.serve(
         }
       }
 
-      if (action === "series-catalog" || action === "series-info") {
+      if (action === "series-catalog" || action === "series-info" || action === "series-season-images") {
         const makeSeriesApiUrl = (apiAction: string, extra: Record<string, string> = {}) => {
           const url = new URL(serverUrl.toString());
           const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
@@ -594,6 +602,22 @@ Deno.serve(
         const seriesController = new AbortController();
         const seriesTimeout = setTimeout(() => seriesController.abort(), 18000);
         try {
+          if (action === "series-season-images") {
+            if (!tmdbReadToken || !requestedTmdbId || requestedSeason < 0) return json({ images: {} });
+            const seasonUrl = new URL(`https://api.themoviedb.org/3/tv/${requestedTmdbId}/season/${requestedSeason}`);
+            seasonUrl.search = new URLSearchParams({ language: "pt-BR" }).toString();
+            const seasonResponse = await fetch(seasonUrl, {
+              headers: { Authorization: `Bearer ${tmdbReadToken}`, Accept: "application/json" },
+              signal: seriesController.signal,
+            });
+            if (!seasonResponse.ok) return json({ images: {} });
+            const seasonData = await seasonResponse.json();
+            const images = Object.fromEntries((Array.isArray(seasonData?.episodes) ? seasonData.episodes : [])
+              .filter((episode: Record<string, unknown>) => Number(episode.episode_number) > 0 && typeof episode.still_path === "string" && episode.still_path)
+              .map((episode: Record<string, unknown>) => [String(episode.episode_number), `https://image.tmdb.org/t/p/w780${episode.still_path}`]));
+            return json({ images });
+          }
+
           if (action === "series-catalog") {
             const [categoriesResponse, showsResponse] = await Promise.all([
               fetch(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
@@ -661,30 +685,59 @@ Deno.serve(
               if (tmdbId) {
                 const detailResponse = await tmdbFetch(`/tv/${tmdbId}`, {
                   language: "pt-BR",
-                  append_to_response: "credits",
+                  append_to_response: "credits,images,videos,content_ratings,external_ids",
+                  include_image_language: "pt,en,null",
+                  include_video_language: "pt-BR,pt,en-US,en,null",
                 });
                 if (detailResponse.ok) {
                   const detail = await detailResponse.json();
-                  const cast = Array.isArray(detail?.credits?.cast)
-                    ? detail.credits.cast
-                      .map((item: Record<string, unknown>) => item.name)
-                      .filter(Boolean)
-                      .slice(0, 8)
-                      .join(", ")
-                    : "";
+                  const imageUrl = (path: unknown, size = "original") => typeof path === "string" && path ? `https://image.tmdb.org/t/p/${size}${path}` : "";
+                  const castMembers = Array.isArray(detail?.credits?.cast)
+                    ? detail.credits.cast.slice(0, 12).map((item: Record<string, unknown>) => ({
+                      name: String(item.name ?? ""),
+                      character: String(item.character ?? ""),
+                      image: imageUrl(item.profile_path, "w342"),
+                    })).filter((item: { name: string }) => item.name)
+                    : [];
+                  const cast = castMembers.map((item: { name: string }) => item.name).join(", ");
                   const backdrop = typeof detail?.backdrop_path === "string" && detail.backdrop_path
                     ? `https://image.tmdb.org/t/p/original${detail.backdrop_path}`
                     : "";
+                  const logos = Array.isArray(detail?.images?.logos) ? detail.images.logos : [];
+                  const logoRank = (item: Record<string, unknown>) => item.iso_639_1 === "pt" ? 3 : item.iso_639_1 === "en" ? 2 : 1;
+                  logos.sort((a: Record<string, unknown>, b: Record<string, unknown>) => logoRank(b) - logoRank(a) || Number(b.vote_average ?? 0) - Number(a.vote_average ?? 0));
+                  const videos = Array.isArray(detail?.videos?.results) ? detail.videos.results : [];
+                  const trailer = videos
+                    .filter((item: Record<string, unknown>) => item.site === "YouTube" && (item.type === "Trailer" || item.type === "Teaser"))
+                    .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.official === true) - Number(a.official === true) || (b.type === "Trailer" ? 1 : 0) - (a.type === "Trailer" ? 1 : 0))[0];
+                  const contentRatings = Array.isArray(detail?.content_ratings?.results) ? detail.content_ratings.results : [];
+                  const contentRating = contentRatings.find((item: Record<string, unknown>) => item.iso_3166_1 === "BR")
+                    ?? contentRatings.find((item: Record<string, unknown>) => item.iso_3166_1 === "US");
+                  const creators = Array.isArray(detail?.created_by)
+                    ? detail.created_by.map((item: Record<string, unknown>) => item.name).filter(Boolean).join(", ")
+                    : "";
+                  const providerBackdrop = Array.isArray(info.backdrop_path)
+                    ? String(info.backdrop_path[0] ?? "")
+                    : String(info.backdrop_path ?? info.backdrop ?? "");
 
                   enrichedInfo = {
                     ...info,
                     cast: info.cast ?? info.actors ?? cast,
+                    castMembers,
                     plot: info.plot ?? info.description ?? detail.overview,
                     genre: info.genre ?? (Array.isArray(detail?.genres)
                       ? detail.genres.map((item: Record<string, unknown>) => item.name).filter(Boolean).join(", ")
                       : ""),
                     releaseDate: info.releaseDate ?? info.release_date ?? detail.first_air_date,
-                    backdrop_path: info.backdrop_path ?? info.backdrop ?? backdrop,
+                    backdrop_path: providerBackdrop || backdrop,
+                    titleLogo: String(info.title_logo ?? info.logo_path ?? "") || imageUrl(logos[0]?.file_path),
+                    trailerKey: String(info.youtube_trailer ?? "") || String(trailer?.key ?? ""),
+                    creator: String(info.director ?? info.creator ?? "") || creators,
+                    contentRating: String(info.rating_age ?? info.mpaa_rating ?? "") || String(contentRating?.rating ?? ""),
+                    language: String(info.language ?? "") || String(detail.original_language ?? "").toUpperCase(),
+                    tmdbRating: Number(detail.vote_average) > 0 ? Number(detail.vote_average).toFixed(1) : "",
+                    imdbId: String(detail?.external_ids?.imdb_id ?? ""),
+                    tmdbId,
                   };
                 }
               }
