@@ -747,7 +747,6 @@ function stripStored(
     StoredChannel,
 ): Channel {
   const plain = { ...channel } as Partial<StoredChannel>;
-  delete plain.category;
   delete plain.nameLower;
   delete plain.order;
   return plain as Channel;

@@ -80,7 +80,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [series, setSeries] = useState<CatalogItem[]>([]);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
-  const [sportsChannel, setSportsChannel] = useState<Channel | null>(() => storage.getSportsChannel());
+  const [sportsChannel, setSportsChannel] = useState<Channel | null>(null);
   const [choosingSportsChannel, setChoosingSportsChannel] = useState(false);
   const [sportsChannelQuery, setSportsChannelQuery] = useState('');
   const [sportsChannelResults, setSportsChannelResults] = useState<Channel[]>([]);
@@ -104,14 +104,15 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       const channel = items.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === normalized)
         || items.find((item) => item.name.toLocaleLowerCase('pt-BR').includes('agenda esportiva'))
         || items[0];
-      if (channel && channel.url !== saved?.url) {
+      if (channel) {
         setSportsChannel(channel);
         storage.saveSportsChannel(channel);
-      } else if (channel && !sportsChannel) setSportsChannel(channel);
+        timers.forEach(window.clearTimeout);
+      }
     };
     void refreshSportsChannel();
-    timers.push(window.setTimeout(() => void refreshSportsChannel(), 2500));
-    timers.push(window.setTimeout(() => void refreshSportsChannel(), 7000));
+    timers.push(window.setTimeout(() => void refreshSportsChannel(), 2000));
+    timers.push(window.setTimeout(() => void refreshSportsChannel(), 5000));
     return () => { active = false; timers.forEach(window.clearTimeout); };
   }, []);
 

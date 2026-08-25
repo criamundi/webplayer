@@ -249,6 +249,7 @@ export function VideoPlayer({
       (
         url: string,
         generation: number,
+        category?: Channel['category'],
       ) => {
         const video =
           videoRef.current;
@@ -604,7 +605,7 @@ export function VideoPlayer({
           ) ||
           /\/live\//i.test(
             decoded,
-          );
+          ) || category === 'live';
 
         if (isTs) {
           if (
@@ -757,6 +758,7 @@ export function VideoPlayer({
           startPlayback(
             playableUrl,
             generation,
+            channel.category,
           );
         },
         SWITCH_DELAY,
@@ -970,6 +972,7 @@ export function VideoPlayer({
             startPlayback(
               playableUrl,
               generation,
+              channel.category,
             );
           },
           SWITCH_DELAY,

@@ -1,5 +1,14 @@
 body { background: #091018; }
-.app-font-scale h1,.app-font-scale h2 { zoom:var(--app-font-scale,1); transform-origin:left center; }
+.app-font-scale .text-xs { font-size:calc(.75rem * var(--app-font-scale,1)); }
+.app-font-scale .text-sm { font-size:calc(.875rem * var(--app-font-scale,1)); }
+.app-font-scale .text-base { font-size:calc(1rem * var(--app-font-scale,1)); }
+.app-font-scale .text-lg { font-size:calc(1.125rem * var(--app-font-scale,1)); }
+.app-font-scale .text-xl { font-size:calc(1.25rem * var(--app-font-scale,1)); }
+.app-font-scale .text-2xl { font-size:calc(1.5rem * var(--app-font-scale,1)); }
+.app-font-scale .text-3xl { font-size:calc(1.875rem * var(--app-font-scale,1)); }
+.app-font-scale .text-4xl { font-size:calc(2.25rem * var(--app-font-scale,1)); }
+.app-font-scale .text-5xl { font-size:calc(3rem * var(--app-font-scale,1)); }
+.app-font-scale .text-6xl { font-size:calc(3.75rem * var(--app-font-scale,1)); }
 .series-scroll { overflow-x:auto; overscroll-behavior-inline:contain; scroll-snap-type:x proximity; scrollbar-width:thin; scrollbar-color:rgba(52,211,153,.55) rgba(255,255,255,.05); }
 .series-scroll::-webkit-scrollbar { height:6px; }
 .series-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,.05); border-radius:999px; }

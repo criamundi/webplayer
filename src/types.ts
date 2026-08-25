@@ -6,6 +6,7 @@ export interface Channel {
   group?: string;
   tvgId?: string;
   favorite?: boolean;
+  category?: 'live' | 'movies' | 'series' | 'radio' | 'other';
 }
 
 export interface Playlist {

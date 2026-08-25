@@ -1924,7 +1924,7 @@ export default function App() {
                 recents
               }
               canManageSportsChannel={
-                canManageSportsChannel
+                canManageSportsChannel && adminAuthed
               }
             />
           )}
