@@ -174,6 +174,8 @@ export default function App() {
   const [viewResetKey, setViewResetKey] =
     useState(0);
 
+  const [seriesResumeId, setSeriesResumeId] = useState<string | null>(null);
+
   /*
    * Somente uma pequena janela fica no React.
    */
@@ -1473,6 +1475,7 @@ export default function App() {
           Channel,
       ) => {
         const isLive = channel.category === 'live';
+        if (channel.id.startsWith('episode:')) setSeriesResumeId(channel.parentSeriesId || null);
         if (!isLive && !document.fullscreenElement) {
           void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {
             // PlaybackView ainda cobre toda a janela quando o navegador bloqueia fullscreen.
@@ -2010,11 +2013,13 @@ export default function App() {
               onToggleFavorite={
                 handleToggleFavorite
               }
+              resumeSeriesId={seriesResumeId}
+              onResumeHandled={() => setSeriesResumeId(null)}
             />
           )}
 
           {view === 'player' && activeChannel && (
-            <PlaybackView channel={activeChannel} onNavigate={handleNavigate} />
+            <PlaybackView channel={activeChannel} onClose={() => handleNavigate(activeChannel.id.startsWith('episode:') ? 'series' : 'movies')} />
           )}
 
           {view ===
