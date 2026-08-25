@@ -21,6 +21,33 @@ const formatDate = (value: string) => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 };
 
+function imageValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const image = imageValue(item);
+      if (image) return image;
+    }
+    return '';
+  }
+  if (typeof value !== 'string') return '';
+  const source = value.trim();
+  if (!source) return '';
+  if (source.startsWith('[') || source.startsWith('{')) {
+    try { return imageValue(JSON.parse(source)); } catch { return ''; }
+  }
+  return source;
+}
+
+function HeroBackdrop({ sources }: { sources: string[] }) {
+  const available = [...new Set(sources.filter(Boolean))];
+  const signature = available.join('|');
+  const [index, setIndex] = useState(0);
+  useEffect(() => { setIndex(0); }, [signature]);
+  const source = available[index];
+  if (!source) return null;
+  return <img key={source} src={source} alt="" onError={() => setIndex((current) => current + 1)} className="absolute inset-0 h-full w-full object-cover" />;
+}
+
 function castList(value: unknown, fallback: unknown): SeriesCastMember[] {
   if (Array.isArray(value)) {
     return value.map((item) => item && typeof item === 'object' ? {
@@ -117,6 +144,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const [seasonThumbs, setSeasonThumbs] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(() => storage.getWatchProgress());
   const [visibleCount, setVisibleCount] = useState(40);
+  const detailRequestRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -126,6 +154,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         setCategories(catalog.categories);
         setShows(catalog.shows);
       })
+      .catch(() => { if (active) setShows([]); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -136,7 +165,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
 
   const categoryShows = useMemo(() => {
     const base = activeCategory === LATEST
-      ? [...shows].sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 10)
+      ? [...shows].sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 40)
       : shows.filter((show) => show.categoryId === activeCategory);
     const value = query.trim().toLocaleLowerCase('pt-BR');
     return value ? base.filter((show) => show.name.toLocaleLowerCase('pt-BR').includes(value)) : base;
@@ -159,6 +188,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   }, [categoryShows.length, selected, visibleCount]);
 
   const selectShow = useCallback(async (show: SeriesShow) => {
+    const requestId = ++detailRequestRef.current;
     setSelected(show);
     setEpisodes([]);
     setSeriesInfo({});
@@ -168,13 +198,14 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     window.scrollTo({ top: 0, behavior: 'smooth' });
     try {
       const details = await loadSeriesDetails(show.seriesId, show.name, show.releaseDate);
-      if (details) {
+      if (details && requestId === detailRequestRef.current) {
         setEpisodes(details.episodes);
         setSeriesInfo(details.info);
         setSeason(details.episodes[0]?.season || 1);
       }
+    } catch { /* mantém o Hero com os dados já existentes no catálogo */
     } finally {
-      setDetailLoading(false);
+      if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
   }, []);
 
@@ -201,9 +232,15 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         ...current,
         ...Object.fromEntries(Object.entries(images).map(([episode, image]) => [`${season}:${episode}`, image])),
       }));
-    });
+    }).catch(() => { /* mantém as imagens fornecidas pelo provedor */ });
     return () => { active = false; };
   }, [season, selected, tmdbId]);
+
+  const closeDetails = () => {
+    detailRequestRef.current += 1;
+    setDetailLoading(false);
+    setSelected(null);
+  };
 
   if (!selected) return <div data-series-catalog className="-mx-5 -mt-6 min-h-screen bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
@@ -224,7 +261,8 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     </div>
   </div>;
 
-  const infoBackdrop = text(seriesInfo.backdrop_path || seriesInfo.backdrop) || selected.backdrop || selected.logo;
+  const detailBackdrop = imageValue(seriesInfo.backdrop_path) || imageValue(seriesInfo.backdrop);
+  const heroBackdrops = [selected.backdrop || '', detailBackdrop, selected.logo || ''];
   const plot = text(seriesInfo.plot || seriesInfo.description) || selected.plot;
   const genre = text(seriesInfo.genre) || selected.genre;
   const release = text(seriesInfo.releaseDate || seriesInfo.release_date) || selected.releaseDate;
@@ -239,9 +277,9 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
 
   return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
-      {infoBackdrop && <img src={infoBackdrop} alt="" className={`absolute inset-0 h-full w-full ${selected.backdrop ? 'object-cover' : 'scale-110 object-cover opacity-48 blur-2xl'}`} />}
+      <HeroBackdrop sources={heroBackdrops} />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
-      <button onClick={() => setSelected(null)} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
+      <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
       <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.2em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Série'}</span>
         <HeroTitle logo={titleLogo} name={selected.name} />
