@@ -36,7 +36,7 @@ type PlayerStatus =
   | 'playing'
   | 'error';
 
-const START_TIMEOUT = 15000;
+const START_TIMEOUT = 25000;
 const SWITCH_DELAY = 350;
 
 export function VideoPlayer({
@@ -238,6 +238,23 @@ export function VideoPlayer({
       [],
     );
 
+  const playMedia = useCallback(async (video: HTMLVideoElement, generation: number) => {
+    try {
+      await video.play();
+    } catch (error) {
+      if (generation !== generationRef.current) return;
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        video.muted = true;
+        setMuted(true);
+        try {
+          await video.play();
+          return;
+        } catch { /* exibe o erro real abaixo */ }
+      }
+      fail(generation, 'O navegador não conseguiu iniciar este conteúdo.');
+    }
+  }, [fail]);
+
   /*
   |--------------------------------------------------------------------------
   | HLS
@@ -271,9 +288,7 @@ export function VideoPlayer({
         ) {
           video.src = url;
 
-          video
-            .play()
-            .catch(() => {});
+          void playMedia(video, generation);
 
           return true;
         }
@@ -340,9 +355,7 @@ export function VideoPlayer({
               return;
             }
 
-            video
-              .play()
-              .catch(() => {});
+            void playMedia(video, generation);
           },
         );
 
@@ -407,7 +420,7 @@ export function VideoPlayer({
 
         return true;
       },
-      [fail],
+      [fail, playMedia],
     );
 
   /*
@@ -421,7 +434,6 @@ export function VideoPlayer({
       (
         url: string,
         generation: number,
-        category?: Channel['category'],
       ) => {
         const video =
           videoRef.current;
@@ -484,9 +496,7 @@ export function VideoPlayer({
 
           player.load();
 
-          void Promise
-            .resolve(player.play())
-            .catch(() => {});
+          void playMedia(video, generation);
 
           player.on(
             mpegts.Events.ERROR,
@@ -553,7 +563,7 @@ export function VideoPlayer({
           return false;
         }
       },
-      [fail],
+      [fail, playMedia],
     );
 
   /*
@@ -631,14 +641,7 @@ export function VideoPlayer({
 
         video.src = url;
 
-        video
-          .play()
-          .catch(() => {
-            fail(
-              generation,
-              'Formato não suportado pelo navegador.',
-            );
-          });
+        void playMedia(video, generation);
       },
       [
         startHls,
@@ -1034,6 +1037,12 @@ export function VideoPlayer({
         preload="none"
         onPlay={() => setPaused(false)}
         onPause={() => setPaused(true)}
+        onError={(event) => {
+          if (status === 'error') return;
+          const code = event.currentTarget.error?.code;
+          const message = code === 4 ? 'Formato de vídeo não suportado pelo navegador.' : 'O servidor interrompeu o carregamento do vídeo.';
+          fail(generationRef.current, message);
+        }}
         onLoadedMetadata={(event) => {
           const saved = storage.getWatchProgress()[channel?.id || ''];
           if (saved && Number.isFinite(event.currentTarget.duration) && saved.current < event.currentTarget.duration - 15) event.currentTarget.currentTime = saved.current;

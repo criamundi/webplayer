@@ -1,6 +1,6 @@
 import { Clapperboard, Film, Heart, History, Home, Radio, Search, Settings, Tv } from 'lucide-react';
 
-export type View = 'home' | 'live' | 'movies' | 'series' | 'favorites' | 'continue' | 'search' | 'settings';
+export type View = 'home' | 'live' | 'movies' | 'series' | 'player' | 'favorites' | 'continue' | 'search' | 'settings';
 const navItems: Array<{ id: View; label: string; icon: typeof Home }> = [
   { id: 'home', label: 'Início', icon: Home }, { id: 'live', label: 'Canais ao Vivo', icon: Radio },
   { id: 'movies', label: 'Filmes', icon: Film }, { id: 'series', label: 'Séries', icon: Clapperboard },

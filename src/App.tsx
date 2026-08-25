@@ -49,6 +49,7 @@ import { FavoritesView } from '@/components/views/FavoritesView';
 import { SearchView } from '@/components/views/SearchView';
 import { SettingsView } from '@/components/views/SettingsView';
 import { ContinueWatchingView } from '@/components/views/ContinueWatchingView';
+import { PlaybackView } from '@/components/views/PlaybackView';
 
 /*
 |--------------------------------------------------------------------------
@@ -1469,9 +1470,7 @@ export default function App() {
           channel,
         );
 
-        setView(
-          'live',
-        );
+        setView(channel.category === 'live' ? 'live' : 'player');
 
         addRecent(
           channel,
@@ -1999,6 +1998,10 @@ export default function App() {
                 handleToggleFavorite
               }
             />
+          )}
+
+          {view === 'player' && activeChannel && (
+            <PlaybackView channel={activeChannel} onNavigate={handleNavigate} />
           )}
 
           {view ===

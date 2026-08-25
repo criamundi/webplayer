@@ -94,6 +94,7 @@ Deno.serve(async (req: Request) => {
       "User-Agent",
       "Mozilla/5.0",
     );
+    upstreamHeaders.set("Accept", "*/*");
 
     console.log(
       "STREAM OPEN:",
@@ -173,7 +174,16 @@ Deno.serve(async (req: Request) => {
         "Content-Type",
         contentType,
       );
+    } else if (/\.m3u8(?:$|\?)/i.test(target.toString())) {
+      responseHeaders.set("Content-Type", "application/vnd.apple.mpegurl");
+    } else if (/\.ts(?:$|\?)/i.test(target.toString())) {
+      responseHeaders.set("Content-Type", "video/mp2t");
+    } else if (/\.mp4(?:$|\?)/i.test(target.toString())) {
+      responseHeaders.set("Content-Type", "video/mp4");
     }
+
+    responseHeaders.set("X-Content-Type-Options", "nosniff");
+    responseHeaders.set("X-Accel-Buffering", "no");
 
     const contentLength =
       upstream.headers.get(
