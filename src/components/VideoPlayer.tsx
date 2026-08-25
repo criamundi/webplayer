@@ -10,6 +10,7 @@ import mpegts from 'mpegts.js';
 
 import {
   AlertTriangle,
+  ArrowLeft,
   Loader2,
   Maximize,
   Minimize,
@@ -28,6 +29,8 @@ import { storage } from '@/lib/storage';
 interface VideoPlayerProps {
   channel: Channel | null;
   startMuted?: boolean;
+  immersive?: boolean;
+  onClose?: () => void;
 }
 
 type PlayerStatus =
@@ -42,6 +45,8 @@ const SWITCH_DELAY = 350;
 export function VideoPlayer({
   channel,
   startMuted = false,
+  immersive = false,
+  onClose,
 }: VideoPlayerProps) {
   const videoRef =
     useRef<HTMLVideoElement>(null);
@@ -1033,8 +1038,9 @@ export function VideoPlayer({
           true,
         )
       }
-      className="relative h-full w-full overflow-hidden rounded-2xl bg-black"
+      className={`relative h-full w-full overflow-hidden bg-black ${immersive ? 'rounded-none' : 'rounded-2xl'}`}
     >
+      {immersive && onClose && <button type="button" onClick={onClose} className="absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition hover:bg-black/75 hover:text-white" aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
       <video
         ref={videoRef}
         playsInline

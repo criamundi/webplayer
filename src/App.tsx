@@ -1472,11 +1472,18 @@ export default function App() {
         channel:
           Channel,
       ) => {
+        const isLive = channel.category === 'live';
+        if (!isLive && !document.fullscreenElement) {
+          void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {
+            // PlaybackView ainda cobre toda a janela quando o navegador bloqueia fullscreen.
+          });
+        }
+
         setActiveChannel(
           channel,
         );
 
-        setView(channel.category === 'live' ? 'live' : 'player');
+        setView(isLive ? 'live' : 'player');
 
         addRecent(
           channel,
