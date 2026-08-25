@@ -2016,6 +2016,7 @@ export default function App() {
               loadFavorites={
                 handleLoadFavorites
               }
+              onNavigate={handleNavigate}
             />
           )}
 
