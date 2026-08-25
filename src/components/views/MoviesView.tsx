@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Film, Heart, Loader2, Play, Search, Star, Tv } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadContentInfo, loadMovieCatalog, type ContentInfo, type MovieCategory, type MovieShow } from '@/lib/provider';
+import { getChannels } from '@/lib/playlistStore';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -24,7 +25,7 @@ function MovieCover({ movie }: { movie: MovieShow }) {
   </>;
 }
 
-export function MoviesView({ favorites, onSelectChannel, onToggleFavorite }: MoviesViewProps) {
+export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorite }: MoviesViewProps) {
   const [categories, setCategories] = useState<MovieCategory[]>([]);
   const [movies, setMovies] = useState<MovieShow[]>([]);
   const [activeCategory, setActiveCategory] = useState(LATEST);
@@ -34,40 +35,85 @@ export function MoviesView({ favorites, onSelectChannel, onToggleFavorite }: Mov
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [localMode, setLocalMode] = useState(false);
+  const [localOffset, setLocalOffset] = useState(0);
+  const [localHasMore, setLocalHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     let active = true;
-    void loadMovieCatalog().then((catalog) => {
-      if (!active || !catalog) return;
-      setCategories(catalog.categories);
-      setMovies(catalog.movies);
-    }).finally(() => { if (active) setLoading(false); });
+    void (async () => {
+      try {
+        const catalog = await Promise.race([
+          loadMovieCatalog(),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6000)),
+        ]);
+        if (!active) return;
+        if (catalog?.movies.length) {
+          setCategories(catalog.categories);
+          setMovies(catalog.movies);
+          return;
+        }
+      } catch { /* usa a lista local abaixo */ }
+      if (!active) return;
+      setLocalMode(true);
+      setCategories(groups.map((name) => ({ id: name, name })));
+      const initial = await getChannels('movies', 10, 0);
+      if (active) { setMovies(initial as MovieShow[]); setLocalOffset(initial.length); setLocalHasMore(false); }
+    })().finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [groups]);
+
+  useEffect(() => {
+    if (!localMode) return;
+    let active = true;
+    void (async () => {
+      setLoading(true);
+      const group = activeCategory === LATEST ? undefined : activeCategory;
+      const limit = activeCategory === LATEST ? 10 : PAGE_SIZE;
+      const result = await getChannels('movies', limit, 0, group);
+      if (!active) return;
+      setMovies(result as MovieShow[]);
+      setLocalOffset(result.length);
+      setLocalHasMore(activeCategory !== LATEST && result.length === PAGE_SIZE);
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [activeCategory, localMode]);
 
   const categoryMovies = useMemo(() => {
     const base = activeCategory === LATEST
       ? [...movies].sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 10)
-      : movies.filter((movie) => movie.categoryId === activeCategory);
+      : localMode ? movies : movies.filter((movie) => movie.categoryId === activeCategory);
     const value = query.trim().toLocaleLowerCase('pt-BR');
     return value ? base.filter((movie) => movie.name.toLocaleLowerCase('pt-BR').includes(value)) : base;
-  }, [activeCategory, movies, query]);
+  }, [activeCategory, localMode, movies, query]);
 
   const visibleMovies = categoryMovies.slice(0, visibleCount);
 
   useEffect(() => { setVisibleCount(PAGE_SIZE); window.scrollTo({ top: 0, behavior: 'smooth' }); }, [activeCategory, query]);
 
   useEffect(() => {
-    if (selected || visibleCount >= categoryMovies.length) return;
+    if (selected || (visibleCount >= categoryMovies.length && !(localMode && localHasMore && activeCategory !== LATEST))) return;
     const loadMore = () => {
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 900) {
-        setVisibleCount((current) => Math.min(current + PAGE_SIZE, categoryMovies.length));
+        if (visibleCount < categoryMovies.length) {
+          setVisibleCount((current) => Math.min(current + PAGE_SIZE, categoryMovies.length));
+        } else if (localMode && localHasMore && !loadingMore && activeCategory !== LATEST) {
+          setLoadingMore(true);
+          void getChannels('movies', PAGE_SIZE, localOffset, activeCategory).then((result) => {
+            setMovies((current) => [...current, ...(result as MovieShow[])]);
+            setLocalOffset((current) => current + result.length);
+            setLocalHasMore(result.length === PAGE_SIZE);
+            setVisibleCount((current) => current + result.length);
+          }).finally(() => setLoadingMore(false));
+        }
       }
     };
     window.addEventListener('scroll', loadMore, { passive: true });
     loadMore();
     return () => window.removeEventListener('scroll', loadMore);
-  }, [categoryMovies.length, selected, visibleCount]);
+  }, [activeCategory, categoryMovies.length, loadingMore, localHasMore, localMode, localOffset, selected, visibleCount]);
 
   const selectMovie = useCallback(async (movie: MovieShow) => {
     setSelected(movie);
