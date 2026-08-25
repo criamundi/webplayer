@@ -90,11 +90,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const liveTransport = /\.ts(?:$|\?)/i.test(target.toString()) || /\/live\//i.test(target.pathname);
     upstreamHeaders.set(
       "User-Agent",
-      "Mozilla/5.0",
+      liveTransport
+        ? "VLC/3.0.20 LibVLC/3.0.20"
+        : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
     );
     upstreamHeaders.set("Accept", "*/*");
+    upstreamHeaders.set("Accept-Encoding", "identity");
+    if (liveTransport) upstreamHeaders.set("Icy-MetaData", "1");
 
     console.log(
       "STREAM OPEN:",
@@ -153,8 +158,9 @@ Deno.serve(async (req: Request) => {
 
     responseHeaders.set(
       "Access-Control-Expose-Headers",
-      "Content-Length, Content-Range, Accept-Ranges, Content-Type",
+      "Content-Length, Content-Range, Accept-Ranges, Content-Type, X-Upstream-Status",
     );
+    responseHeaders.set("X-Upstream-Status", String(upstream.status));
 
     responseHeaders.set(
       "Cache-Control",

@@ -522,9 +522,14 @@ export function VideoPlayer({
                 },
               );
 
+              const transportInfo = info && typeof info === 'object' ? info as Record<string, unknown> : {};
+              const httpStatus = Number(transportInfo.code ?? transportInfo.status ?? 0);
+
               fail(
                 generation,
-                'Não foi possível reproduzir este canal.',
+                httpStatus === 403
+                  ? 'O servidor do canal recusou a conexão. Atualize a lista ou verifique a linha no provedor.'
+                  : 'Não foi possível reproduzir este canal.',
               );
 
               try {
