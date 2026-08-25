@@ -11,6 +11,7 @@ import {
   MediaCover as SeriesCover,
   MediaHeroTitle as HeroTitle,
   MediaRatingBadge,
+  MediaSynopsis,
 } from '@/components/media/MediaDetailsUI';
 import { formatMediaDate as formatDate, mediaCastList as castList, mediaImageValue as imageValue, mediaRating, mediaText as text } from '@/components/media/mediaUtils';
 
@@ -187,7 +188,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         </div>
         {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
         {creator && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Criação e direção:</span> {creator}</p>}
-        {plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{plot}</p>}
+        {plot && <MediaSynopsis text={plot} />}
         <div className="mt-6 flex flex-wrap gap-3">
           {continueEpisode && <button onClick={() => playEpisode(continueEpisode)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />{progress[continueEpisode.id] ? 'Continuar' : 'Reproduzir'}</button>}
           {trailerKey && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}

@@ -61,6 +61,25 @@ export function MediaHeroTitle({ logo, name }: { logo?: string; name: string }) 
   return <img src={logo} alt={name} onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
 }
 
+export function MediaSynopsis({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { setExpanded(false); }, [text]);
+
+  const canExpand = text.trim().length > 180;
+
+  return <div className="mt-4 max-w-2xl">
+    <p className={`${expanded ? '' : 'line-clamp-3'} text-sm leading-6 text-white/55`}>{text}</p>
+    {canExpand && <button
+      type="button"
+      onClick={() => setExpanded((current) => !current)}
+      aria-expanded={expanded}
+      className="mt-1.5 text-sm font-medium text-emerald-400 transition hover:text-emerald-300"
+    >
+      {expanded ? 'Mostrar menos' : 'Saiba mais'}
+    </button>}
+  </div>;
+}
+
 export function MediaRatingBadge({ value }: { value: unknown }) {
   const rating = mediaRating(value);
   if (!rating) return null;

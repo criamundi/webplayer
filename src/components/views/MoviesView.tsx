@@ -12,6 +12,7 @@ import {
   MediaCover,
   MediaHeroTitle,
   MediaRatingBadge,
+  MediaSynopsis,
 } from '@/components/media/MediaDetailsUI';
 import { formatMediaDate, mediaCastList, mediaRating } from '@/components/media/mediaUtils';
 
@@ -197,7 +198,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         </div>
         {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
         {director && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Direção:</span> {director}</p>}
-        {plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{plot}</p>}
+        {plot && <MediaSynopsis text={plot} />}
         <div className="mt-6 flex flex-wrap gap-3">
           <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>
           {trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
