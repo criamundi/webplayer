@@ -69,14 +69,21 @@ export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[
   const response = await authenticatedAction('series-catalog');
   if (!response) return null;
   const result = await response.json() as { categories?: SeriesCategory[]; shows?: SeriesShow[] };
-  return { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, backdrop: normalizeBackdrop(show.backdrop) })) : [] };
+  return { categories: Array.isArray(result.categories) ? result.categories : [], shows: Array.isArray(result.shows) ? result.shows.map((show) => ({ ...show, logo: safeImageUrl(show.logo), backdrop: normalizeBackdrop(show.backdrop) })) : [] };
 }
 
 export async function loadSeriesDetails(seriesId: string): Promise<SeriesDetails | null> {
   const response = await authenticatedAction('series-info', { streamId: seriesId });
   if (!response) return null;
   const result = await response.json() as SeriesDetails;
-  return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes : [] };
+  return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes.map((episode) => ({ ...episode, logo: safeImageUrl(episode.logo) })) : [] };
+}
+
+function safeImageUrl(value?: string): string | undefined {
+  const url = value?.trim();
+  if (!url) return undefined;
+  if (!/^http:\/\//i.test(url)) return url;
+  return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-proxy?url=${encodeURIComponent(url)}`;
 }
 
 function streamIdFromUrl(url: string): string | null {

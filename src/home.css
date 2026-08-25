@@ -44,6 +44,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .hero-info-panel > :nth-child(2) > :first-child { border-color:rgba(255,255,255,.04)!important; }
 .hero-info-panel-open { opacity:1; transform:translateX(0); pointer-events:auto; }
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } .sidebar-shell:not(:hover) .sidebar-brand-logo { width:3rem; height:3rem; justify-content:center; } .sidebar-shell:not(:hover) .sidebar-brand-logo img { max-width:3rem; max-height:3rem; } }
+@media (min-width:1024px) { [data-series-catalog] aside { position:fixed!important; z-index:35; inset:0 auto 0 5rem; width:17rem; height:100vh; } [data-series-catalog] main { grid-column:2; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
 @media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:8rem; width:min(22rem,calc(100vw - 2.5rem)); } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
