@@ -11,8 +11,9 @@ import {
   MediaCastPortrait,
   MediaCover,
   MediaHeroTitle,
+  MediaRatingBadge,
 } from '@/components/media/MediaDetailsUI';
-import { formatMediaDate, mediaCastList } from '@/components/media/mediaUtils';
+import { formatMediaDate, mediaCastList, mediaRating } from '@/components/media/mediaUtils';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -158,20 +159,20 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         <div className="mb-6 flex items-end justify-between"><div><p className="text-[10px] uppercase tracking-[.18em] text-emerald-400">Filmes</p><h1 className="mt-1 text-2xl font-semibold">{activeCategory === LATEST ? 'Últimos adicionados' : categories.find((item) => item.id === activeCategory)?.name}</h1></div><span className="text-xs text-white/30">{categoryMovies.length} títulos</span></div>
         {loading
           ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
-          : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleMovies.map((movie) => <button key={movie.id} onClick={() => void selectMovie(movie)} className="group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} />{Number(movie.rating) > 0 && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur"><Star className="h-3 w-3 fill-current" />{movie.rating}</span>}</div><p className="mt-2 truncate text-sm font-medium text-white/75">{movie.name}</p></button>)}</div>}
+          : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleMovies.map((movie) => <button key={movie.id} onClick={() => void selectMovie(movie)} className="group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm font-medium text-white/75">{movie.name}</p></button>)}</div>}
         {(visibleMovies.length < categoryMovies.length || loadingMore) && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin text-emerald-400" />Carregando mais filmes</div>}
         {!loading && !categoryMovies.length && <div className="py-20 text-center text-sm text-white/35">Nenhum filme encontrado nesta categoria.</div>}
       </main>
     </div>
   </div>;
 
-  const heroBackdrops = [selected.backdrop || '', selectedInfo?.backdrop || '', selectedInfo?.cover || '', selected.logo || ''];
+  const heroBackdrops = [selectedInfo?.backdrop || '', selected.backdrop || '', selectedInfo?.cover || '', selected.logo || ''];
   const titleLogo = selectedInfo?.titleLogo;
   const plot = selectedInfo?.plot || selected.plot;
   const genre = selectedInfo?.genre || selected.genre;
   const release = selectedInfo?.releaseDate || selected.releaseDate;
   const duration = selectedInfo?.duration && !/^(?:0+:)+0+$/.test(selectedInfo.duration) ? selectedInfo.duration : '';
-  const rating = selectedInfo?.rating || selected.rating;
+  const rating = mediaRating(selectedInfo?.rating || selected.rating);
   const director = selectedInfo?.director;
   const contentRating = selectedInfo?.contentRating;
   const language = selectedInfo?.language?.toUpperCase();
@@ -211,7 +212,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         : <>
           {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">
-              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} />{Number(movie.rating) > 0 && <span className="absolute right-2 top-2 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300">★ {movie.rating}</span>}</div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
+              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
             </MediaArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">

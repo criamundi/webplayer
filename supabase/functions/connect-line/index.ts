@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -848,8 +848,21 @@ Deno.serve(
           const providerInfo = info?.info && typeof info.info === "object" ? info.info : {};
           const movieData = info?.movie_data && typeof info.movie_data === "object" ? info.movie_data : {};
           let tmdbId = String(providerInfo.tmdb_id ?? providerInfo.tmdb ?? movieData.tmdb_id ?? movieData.tmdb ?? "").replace(/\D/g, "");
-          const providerName = String(providerInfo.name ?? movieData.name ?? "").replace(/\s*\[(?:E|LEG|DUB)\].*$/i, "").trim();
-          const providerYear = String(providerInfo.release_date ?? providerInfo.releasedate ?? "").match(/(?:19|20)\d{2}/)?.[0] ?? "";
+          const rawMovieName = String(contentName || providerInfo.name || movieData.name || "");
+          const movieTitle = rawMovieName
+            .replace(/\[[^\]]*\]/g, " ")
+            .replace(/\b(?:LEGENDADO|DUBLADO|DUB|LEG|DUAL|NACIONAL|4K|UHD|FHD|HD)\b/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          const providerYear = contentYear
+            || String(providerInfo.release_date ?? providerInfo.releasedate ?? movieData.release_date ?? rawMovieName).match(/(?:19|20)\d{2}/)?.[0]
+            || "";
+          const normalizeTitle = (value: unknown) => String(value ?? "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
 
           const tmdbFetch = async (path: string, params: Record<string, string>) => {
             const url = new URL(`https://api.themoviedb.org/3${path}`);
@@ -860,16 +873,40 @@ Deno.serve(
             });
           };
 
-          if (!tmdbId && providerName) {
-            const searchResponse = await tmdbFetch("/search/movie", {
-              query: providerName,
+          if (movieTitle) {
+            let searchResponse = await tmdbFetch("/search/movie", {
+              query: movieTitle,
               language: "pt-BR",
               include_adult: "false",
               ...(providerYear ? { year: providerYear } : {}),
             });
-            if (searchResponse.ok) {
-              const search = await searchResponse.json();
-              tmdbId = String(search?.results?.[0]?.id ?? "");
+            let search = searchResponse.ok ? await searchResponse.json() : null;
+            if (providerYear && (!Array.isArray(search?.results) || search.results.length === 0)) {
+              searchResponse = await tmdbFetch("/search/movie", {
+                query: movieTitle,
+                language: "pt-BR",
+                include_adult: "false",
+              });
+              search = searchResponse.ok ? await searchResponse.json() : null;
+            }
+            if (Array.isArray(search?.results)) {
+              const normalizedMovieTitle = normalizeTitle(movieTitle);
+              const targetTitle = normalizeTitle(movieTitle.replace(/(?:19|20)\d{2}/g, " ")) || normalizedMovieTitle;
+              const results = search.results.slice(0, 10);
+              const ranked = results.map((item: Record<string, unknown>) => {
+                const localized = normalizeTitle(item.title);
+                const original = normalizeTitle(item.original_title);
+                const candidateYear = String(item.release_date ?? "").match(/(?:19|20)\d{2}/)?.[0] ?? "";
+                const titleScore = localized === targetTitle || original === targetTitle
+                  ? 8
+                  : localized.includes(targetTitle) || targetTitle.includes(localized) || original.includes(targetTitle) || targetTitle.includes(original)
+                    ? 4
+                    : 0;
+                const yearScore = providerYear && candidateYear === providerYear ? 3 : 0;
+                return { item, score: titleScore + yearScore };
+              }).sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+              const best = ranked[0];
+              if (best?.item?.id && (!tmdbId || best.score >= 4)) tmdbId = String(best.item.id);
             }
           }
 

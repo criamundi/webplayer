@@ -132,7 +132,8 @@ export async function loadSeriesCatalog(): Promise<{ categories: SeriesCategory[
 
 export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[]; movies: MovieShow[] } | null> {
   if (movieCatalogCache && Date.now() - movieCatalogCache.savedAt < CATALOG_CACHE_MS) return movieCatalogCache.value;
-  const persisted = await readCatalogCache<{ categories: MovieCategory[]; movies: MovieShow[] }>(cacheKey('movies'));
+  const movieCacheKey = cacheKey('movies-v2');
+  const persisted = await readCatalogCache<{ categories: MovieCategory[]; movies: MovieShow[] }>(movieCacheKey);
   if (persisted && Date.now() - persisted.savedAt < CATALOG_CACHE_MS) {
     movieCatalogCache = persisted;
     return persisted.value;
@@ -147,7 +148,7 @@ export async function loadMovieCatalog(): Promise<{ categories: MovieCategory[];
       movies: Array.isArray(result.movies) ? result.movies.map((movie) => ({ ...movie, logo: safeImageUrl(movie.logo), backdrop: normalizeBackdrop(movie.backdrop) })) : [],
     };
     movieCatalogCache = { savedAt: Date.now(), value };
-    await writeCatalogCache(cacheKey('movies'), value);
+    await writeCatalogCache(movieCacheKey, value);
     return value;
   })().finally(() => { movieCatalogRequest = null; });
   return movieCatalogRequest;
@@ -234,9 +235,15 @@ function findBackdrop(value: unknown, depth = 0): string | undefined {
 }
 
 export async function loadContentInfo(channel: Channel): Promise<ContentInfo | null> {
-  const streamId = streamIdFromUrl(channel.url);
+  const mediaChannel = channel as Channel & { movieId?: string; streamId?: string; releaseDate?: string };
+  const explicitId = String(mediaChannel.movieId || mediaChannel.streamId || '').trim();
+  const streamId = /^\d+$/.test(explicitId) ? explicitId : streamIdFromUrl(channel.url);
   if (!streamId) return null;
-  const response = await authenticatedAction('content-info', { streamId });
+  const response = await authenticatedAction('content-info', {
+    streamId,
+    contentName: channel.name,
+    contentYear: mediaChannel.releaseDate || channel.name,
+  });
   if (!response) return null;
   const raw = await response.json() as Record<string, unknown>;
   const info = (raw.info && typeof raw.info === 'object' ? raw.info : raw) as Record<string, unknown>;
@@ -254,13 +261,21 @@ export async function loadContentInfo(channel: Channel): Promise<ContentInfo | n
   } : { name: text(item) || '' }).filter((item) => item.name);
 
   return {
-    name: text(tmdb.name ?? info.name ?? movieData.name), plot: text(tmdb.plot ?? info.plot ?? info.description), cast: text(tmdb.cast ?? info.cast),
-    director: text(tmdb.director ?? info.director), genre: text(tmdb.genre ?? info.genre), releaseDate: text(tmdb.releaseDate ?? info.release_date ?? info.releasedate),
-    duration: text(tmdb.duration ?? info.duration), rating: text(tmdb.rating ?? info.rating ?? info.rating_5based), backdrop,
-    cover: text(tmdb.poster ?? info.movie_image ?? info.cover_big ?? movieData.stream_icon),
-    titleLogo: text(tmdb.logo), trailerKey: text(tmdb.trailerKey ?? info.youtube_trailer),
-    contentRating: text(tmdb.contentRating ?? info.rating_age ?? info.mpaa_rating),
-    language: text(tmdb.language ?? info.language), castMembers,
+    name: text(tmdb.name ?? info.name ?? movieData.name),
+    plot: text(tmdb.plot ?? info.plot ?? info.description ?? movieData.plot ?? movieData.description),
+    cast: text(tmdb.cast ?? info.cast ?? movieData.cast),
+    director: text(tmdb.director ?? info.director ?? movieData.director),
+    genre: text(tmdb.genre ?? info.genre ?? movieData.genre),
+    releaseDate: text(tmdb.releaseDate ?? info.release_date ?? info.releasedate ?? movieData.release_date ?? movieData.releasedate),
+    duration: text(tmdb.duration ?? info.duration ?? movieData.duration),
+    rating: text(tmdb.rating ?? info.rating ?? info.rating_5based ?? movieData.rating ?? movieData.rating_5based),
+    backdrop,
+    cover: safeImageUrl(text(tmdb.poster ?? info.movie_image ?? info.cover_big ?? movieData.stream_icon ?? movieData.cover)),
+    titleLogo: safeImageUrl(text(tmdb.logo ?? info.titleLogo ?? info.title_logo ?? info.logo_path ?? movieData.title_logo)),
+    trailerKey: text(tmdb.trailerKey ?? info.youtube_trailer ?? movieData.youtube_trailer),
+    contentRating: text(tmdb.contentRating ?? info.rating_age ?? info.mpaa_rating ?? movieData.rating_age ?? movieData.mpaa_rating),
+    language: text(tmdb.language ?? info.language ?? movieData.language),
+    castMembers,
   };
 }
 

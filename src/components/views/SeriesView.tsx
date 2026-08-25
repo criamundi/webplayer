@@ -10,8 +10,9 @@ import {
   MediaCastPortrait as CastPortrait,
   MediaCover as SeriesCover,
   MediaHeroTitle as HeroTitle,
+  MediaRatingBadge,
 } from '@/components/media/MediaDetailsUI';
-import { formatMediaDate as formatDate, mediaCastList as castList, mediaImageValue as imageValue, mediaText as text } from '@/components/media/mediaUtils';
+import { formatMediaDate as formatDate, mediaCastList as castList, mediaImageValue as imageValue, mediaRating, mediaText as text } from '@/components/media/mediaUtils';
 
 interface SeriesViewProps {
   channels: Channel[];
@@ -151,7 +152,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         <div className="mb-6 flex items-end justify-between"><div><p className="text-[10px] uppercase tracking-[.18em] text-emerald-400">Séries</p><h1 className="mt-1 text-2xl font-semibold">{activeCategory === LATEST ? 'Últimos adicionados' : categories.find((item) => item.id === activeCategory)?.name}</h1></div><span className="text-xs text-white/30">{categoryShows.length} títulos</span></div>
         {loading
           ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
-          : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show) => <button key={show.id} onClick={() => void selectShow(show)} className="group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} />{Number(show.rating) > 0 && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur"><Star className="h-3 w-3 fill-current" />{show.rating}</span>}</div><p className="mt-2 truncate text-sm font-medium text-white/75">{show.name}</p></button>)}</div>}
+          : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show) => <button key={show.id} onClick={() => void selectShow(show)} className="group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm font-medium text-white/75">{show.name}</p></button>)}</div>}
         {visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin text-emerald-400" />Carregando mais séries</div>}
       </main>
     </div>
@@ -166,7 +167,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const creator = text(seriesInfo.creator || seriesInfo.director);
   const contentRating = text(seriesInfo.contentRating || seriesInfo.rating_age || seriesInfo.mpaa_rating);
   const language = text(seriesInfo.language).toUpperCase();
-  const detailRating = text(seriesInfo.tmdbRating || seriesInfo.rating || selected.rating);
+  const detailRating = mediaRating(seriesInfo.tmdbRating || seriesInfo.rating || selected.rating);
   const trailerKey = text(seriesInfo.trailerKey || seriesInfo.youtube_trailer);
   const playEpisode = (episode: SeriesEpisode) => onSelectChannel({ ...episode, parentSeriesId: selected.id });
 
@@ -222,7 +223,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           </ArrowRow>
           {similarSeries.length > 0 && <div className="mt-10">
             <ArrowRow title="Séries semelhantes">
-              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} />{Number(show.rating) > 0 && <span className="absolute right-2 top-2 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300">★ {show.rating}</span>}</div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
+              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
             </ArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">

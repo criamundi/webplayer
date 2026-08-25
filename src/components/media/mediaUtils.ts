@@ -7,6 +7,14 @@ export const formatMediaDate = (value: string) => {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 };
 
+export function mediaRating(value: unknown): string {
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
+  const match = String(value).trim().replace(',', '.').match(/\d+(?:\.\d+)?/);
+  if (!match || Number(match[0]) <= 0) return '';
+  const rating = Number(match[0]);
+  return Number.isInteger(rating) ? String(rating) : rating.toFixed(1).replace(/\.0$/, '');
+}
+
 export function mediaImageValue(value: unknown): string {
   if (Array.isArray(value)) {
     for (const item of value) {

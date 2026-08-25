@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Tv, UserRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Star, Tv, UserRound } from 'lucide-react';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 import type { SeriesCastMember } from '@/lib/provider';
+import { mediaRating } from '@/components/media/mediaUtils';
 
 function imageCandidates(...values: Array<string | undefined>) {
   const candidates: string[] = [];
@@ -58,6 +59,12 @@ export function MediaHeroTitle({ logo, name }: { logo?: string; name: string }) 
   useEffect(() => { setFailed(false); }, [logo]);
   if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{name}</h1>;
   return <img src={logo} alt={name} onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
+}
+
+export function MediaRatingBadge({ value }: { value: unknown }) {
+  const rating = mediaRating(value);
+  if (!rating) return null;
+  return <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/75 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur"><Star className="h-3 w-3 fill-current" />{rating}</span>;
 }
 
 export function MediaCastPortrait({ member }: { member: SeriesCastMember }) {
