@@ -4,6 +4,7 @@ import type { Channel } from '@/types';
 import { loadContentInfo, loadMovieCatalog, type ContentInfo, type MovieCategory, type MovieShow } from '@/lib/provider';
 import { getChannels } from '@/lib/playlistStore';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { TrailerPlayer } from '@/components/TrailerPlayer';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -41,6 +42,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   const [localOffset, setLocalOffset] = useState(0);
   const [localHasMore, setLocalHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [trailerOpen, setTrailerOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -153,7 +155,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   const heroImage = selectedInfo?.backdrop || selected.backdrop || selectedInfo?.cover || selected.logo;
   const rating = selectedInfo?.rating || selected.rating;
   const duration = selectedInfo?.duration && !/^(?:0+:)+0+$/.test(selectedInfo.duration) ? selectedInfo.duration : undefined;
-  const trailerUrl = selectedInfo?.trailerKey ? (/^https?:\/\//i.test(selectedInfo.trailerKey) ? selectedInfo.trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(selectedInfo.trailerKey)}`) : undefined;
+  const trailerSource = selectedInfo?.trailerKey;
   const similarMovies = movies.filter((movie) => movie.id !== selected.id && movie.categoryId === selected.categoryId).slice(0, 10);
 
   return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
@@ -167,9 +169,10 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">{rating && Number(rating) > 0 && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{rating}</span>}{selectedInfo?.releaseDate && <span>{selectedInfo.releaseDate.match(/\d{4}/)?.[0]}</span>}{duration && <span>{duration}</span>}{selectedInfo?.genre && <span>{selectedInfo.genre}</span>}</div>
         {detailLoading ? <Loader2 className="mt-5 h-6 w-6 animate-spin text-emerald-400" /> : selectedInfo?.plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{selectedInfo.plot}</p>}
         {selectedInfo?.cast && <p className="mt-3 line-clamp-2 text-xs leading-5 text-white/40"><span className="font-medium text-white/65">Elenco:</span> {selectedInfo.cast}</p>}
-        <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>{trailerUrl && <a href={trailerUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</a>}<button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button></div>
+        <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}<button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button></div>
       </div>
     </section>
     {similarMovies.length > 0 && <section className="bg-[#091018] px-5 pb-16 pt-8 sm:px-8 lg:px-12"><h2 className="mb-4 text-lg font-semibold">Filmes semelhantes</h2><div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">{similarMovies.map((movie) => <button key={movie.id} onClick={() => void selectMovie(movie)} className="group w-40 shrink-0 text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MovieCover movie={movie} />{Number(movie.rating) > 0 && <span className="absolute right-2 top-2 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300">★ {movie.rating}</span>}</div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}</div></section>}
+    {trailerOpen && trailerSource && <TrailerPlayer source={trailerSource} title={selected.name} onClose={() => setTrailerOpen(false)} />}
   </div>;
 }

@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Clock3, Heart, Loader2, Play, Sea
 import type { Channel } from '@/types';
 import { loadSeriesCatalog, loadSeriesDetails, loadSeriesSeasonImages, type SeriesCastMember, type SeriesCategory, type SeriesEpisode, type SeriesShow } from '@/lib/provider';
 import { storage } from '@/lib/storage';
+import { TrailerPlayer } from '@/components/TrailerPlayer';
 
 interface SeriesViewProps {
   channels: Channel[];
@@ -144,6 +145,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const [seasonThumbs, setSeasonThumbs] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(() => storage.getWatchProgress());
   const [visibleCount, setVisibleCount] = useState(40);
+  const [trailerOpen, setTrailerOpen] = useState(false);
   const detailRequestRef = useRef(0);
 
   useEffect(() => {
@@ -272,7 +274,6 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const language = text(seriesInfo.language).toUpperCase();
   const detailRating = text(seriesInfo.tmdbRating || seriesInfo.rating || selected.rating);
   const trailerKey = text(seriesInfo.trailerKey || seriesInfo.youtube_trailer);
-  const trailerUrl = trailerKey ? (/^https?:\/\//i.test(trailerKey) ? trailerKey : `https://www.youtube.com/watch?v=${encodeURIComponent(trailerKey)}`) : '';
   const playEpisode = (episode: SeriesEpisode) => onSelectChannel({ ...episode, parentSeriesId: selected.id });
 
   return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
@@ -294,7 +295,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         {plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{plot}</p>}
         <div className="mt-6 flex flex-wrap gap-3">
           {continueEpisode && <button onClick={() => playEpisode(continueEpisode)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />{progress[continueEpisode.id] ? 'Continuar' : 'Reproduzir'}</button>}
-          {trailerUrl && <a href={trailerUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</a>}
+          {trailerKey && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
           <button onClick={() => onToggleFavorite(selected.id)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm backdrop-blur"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
         </div>
         {continueEpisode && progress[continueEpisode.id] && <p className="mt-3 flex items-center gap-1 text-xs text-white/38"><Clock3 className="h-3.5 w-3.5" />Temporada {continueEpisode.season} • Episódio {continueEpisode.episode}</p>}
@@ -341,5 +342,6 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           </div>}
         </>}
     </section>
+    {trailerOpen && <TrailerPlayer source={trailerKey} title={selected.name} onClose={() => setTrailerOpen(false)} />}
   </div>;
 }
