@@ -65,7 +65,6 @@ interface Branding {
   background_url?: string | null;
   login_background_url?: string | null;
   main_font_scale?: number;
-  home_feature_type?: 'latest_movie' | 'latest_series';
 }
 
 type Phase =
@@ -86,7 +85,6 @@ const defaultBranding: Branding = {
   primary_color: '#bef264',
   secondary_color: '#091018',
   main_font_scale: 1.3,
-  home_feature_type: 'latest_movie',
 };
 
 const VIEW_LIMITS: Record<
@@ -341,12 +339,12 @@ export default function App() {
         const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
         const provider = providers?.[0];
         if (provider) {
-          const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, home_feature_type').eq('provider_id', provider.id).maybeSingle();
+          const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').eq('provider_id', provider.id).maybeSingle();
           data = providerBranding as Branding | null;
         }
       }
       if (!data) {
-        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, home_feature_type').maybeSingle();
+        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').maybeSingle();
         data = globalBranding as Branding | null;
       }
 
@@ -1447,7 +1445,7 @@ export default function App() {
           const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
           const provider = providers?.[0];
           if (provider) {
-            const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, home_feature_type').eq('provider_id', provider.id).maybeSingle();
+            const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').eq('provider_id', provider.id).maybeSingle();
             if (data) setBranding(data as Branding);
           }
         }
@@ -1937,13 +1935,16 @@ export default function App() {
               onNavigate={
                 handleNavigate
               }
+              onSelectSeries={(seriesId) => {
+                setSeriesResumeId(seriesId);
+                handleNavigate('series');
+              }}
               recents={
                 recents
               }
               canManageSportsChannel={
                 canManageSportsChannel && adminAuthed
               }
-              homeFeatureType={branding.home_feature_type || 'latest_movie'}
             />
           )}
 

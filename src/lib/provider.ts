@@ -161,6 +161,13 @@ export async function loadSeriesDetails(seriesId: string, contentName?: string, 
   return { info: result.info || {}, episodes: Array.isArray(result.episodes) ? result.episodes.map((episode) => ({ ...episode, logo: safeImageUrl(episode.logo) })) : [] };
 }
 
+export async function loadSeriesContentInfo(seriesId: string, contentName?: string, contentYear?: string): Promise<Record<string, unknown> | null> {
+  const response = await authenticatedAction('series-content-info', { streamId: seriesId, contentName, contentYear });
+  if (!response) return null;
+  const result = await response.json() as { info?: Record<string, unknown> };
+  return result.info && typeof result.info === 'object' ? result.info : null;
+}
+
 export async function loadSeriesSeasonImages(tmdbId: string, season: number): Promise<Record<number, string>> {
   const key = `${tmdbId}:${season}`;
   const cached = seriesSeasonImageCache.get(key);

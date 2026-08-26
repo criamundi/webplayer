@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Sparkles, Star, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadAccountStatus, loadContentInfo, loadHomeCatalog, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
+import { loadAccountStatus, loadContentInfo, loadHomeCatalog, loadSeriesContentInfo, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 import { storage } from '@/lib/storage';
 import { searchChannels } from '@/lib/playlistStore';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
+import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
+import { mediaImageValue, mediaText } from '@/components/media/mediaUtils';
+import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface HomeViewProps {
   favorites: Set<string>;
   onSelectChannel: (ch: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
   onNavigate: (view: View) => void;
+  onSelectSeries: (seriesId: string) => void;
   recents: Channel[];
   canManageSportsChannel: boolean;
-  homeFeatureType: 'latest_movie' | 'latest_series';
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
@@ -73,13 +76,104 @@ function validRating(value?: string) {
   return Number(value.replace(',', '.')) > 0;
 }
 
-export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, recents, canManageSportsChannel, homeFeatureType }: HomeViewProps) {
+function shuffleFeaturedItems(items: CatalogItem[]) {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function mixedRecentItems(movies: CatalogItem[], series: CatalogItem[]) {
+  const shuffledMovies = shuffleFeaturedItems(movies.slice(0, 10));
+  const shuffledSeries = shuffleFeaturedItems(series.slice(0, 10));
+  const mixed: CatalogItem[] = [];
+  const length = Math.max(shuffledMovies.length, shuffledSeries.length);
+  const seriesFirst = Math.random() >= 0.5;
+  for (let index = 0; index < length; index += 1) {
+    const first = seriesFirst ? shuffledSeries[index] : shuffledMovies[index];
+    const second = seriesFirst ? shuffledMovies[index] : shuffledSeries[index];
+    if (first) mixed.push(first);
+    if (second) mixed.push(second);
+  }
+  return mixed;
+}
+
+function homeImageValue(value: unknown) {
+  const source = mediaImageValue(value);
+  return /^http:\/\//i.test(source) ? getPlayableStreamUrl(source) : source;
+}
+
+function mergeHeroInfo(base: ContentInfo, detail: ContentInfo | null) {
+  if (!detail) return base;
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(detail)) {
+    if (value == null || (typeof value === 'string' && !value.trim())) continue;
+    (merged as Record<string, unknown>)[key] = value;
+  }
+  return merged;
+}
+
+function seriesHeroInfo(item: CatalogItem, info: Record<string, unknown>): ContentInfo {
+  return {
+    name: mediaText(info.name || info.title) || item.name,
+    plot: mediaText(info.plot || info.description) || item.plot,
+    cast: mediaText(info.cast || info.actors),
+    director: mediaText(info.creator || info.director),
+    genre: mediaText(info.genre) || item.genre,
+    releaseDate: mediaText(info.releaseDate || info.release_date),
+    duration: mediaText(info.duration || info.episode_run_time),
+    rating: mediaText(info.tmdbRating || info.rating || info.rating_5based) || item.rating,
+    backdrop: homeImageValue(info.backdrop_path || info.backdrop) || item.backdrop,
+    cover: homeImageValue(info.cover || info.movie_image) || item.logo,
+    titleLogo: homeImageValue(info.titleLogo || info.title_logo || info.logo_path),
+    trailerKey: mediaText(info.trailerKey || info.youtube_trailer),
+    contentRating: mediaText(info.contentRating || info.rating_age || info.mpaa_rating),
+    language: mediaText(info.language),
+  };
+}
+
+function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; info: ContentInfo | null; onReady: () => void }) {
+  const candidates: Array<{ source: string; poster: boolean }> = [];
+  const add = (value: unknown, poster: boolean) => {
+    const source = homeImageValue(value);
+    if (!source || candidates.some((candidate) => candidate.source === source)) return;
+    candidates.push({ source, poster });
+  };
+  add(info?.backdrop, false);
+  add(item?.backdrop, false);
+  add(info?.cover, true);
+  add(item?.logo, true);
+
+  const [index, setIndex] = useState(0);
+  const signature = candidates.map((candidate) => candidate.source).join('|');
+  useEffect(() => { setIndex(0); }, [signature]);
+  const candidate = candidates[index];
+  useEffect(() => { if (!candidate) onReady(); }, [candidate, onReady]);
+  if (!candidate) return null;
+
+  return <img
+    key={`${item?.id}:${candidate.source}`}
+    src={candidate.source}
+    alt=""
+    onLoad={onReady}
+    onError={() => {
+      if (candidates[index + 1]) setIndex((current) => current + 1);
+      else onReady();
+    }}
+    className={`home-hero-image home-hero-image-enter ${candidate.poster ? 'home-hero-poster-fallback' : ''}`}
+  />;
+}
+
+export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, recents, canManageSportsChannel }: HomeViewProps) {
   const favoritesRef = useRef(favorites);
-  const [heroItem, setHeroItem] = useState<CatalogItem | null>(null);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
-  const [movies, setMovies] = useState<CatalogItem[]>([]);
-  const [series, setSeries] = useState<CatalogItem[]>([]);
+  const [catalogMovies, setCatalogMovies] = useState<CatalogItem[]>([]);
+  const [catalogSeries, setCatalogSeries] = useState<CatalogItem[]>([]);
+  const [heroPool, setHeroPool] = useState<CatalogItem[]>([]);
+  const [heroIndex, setHeroIndex] = useState(0);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
   const [sportsChannel, setSportsChannel] = useState<Channel | null>(null);
@@ -93,8 +187,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [trailerOpen, setTrailerOpen] = useState(false);
   const renewalBaselineRef = useRef<{ expiresAt: number; days: number } | null>(null);
   const catalogRequestRef = useRef(false);
+  const heroInfoCacheRef = useRef(new Map<string, ContentInfo>());
+  const heroInfoRequestRef = useRef(0);
+  const heroIndexRef = useRef(0);
+
+  const heroItem = heroPool[heroIndex] ?? null;
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
+  useEffect(() => { heroIndexRef.current = heroIndex; }, [heroIndex]);
 
   useEffect(() => {
     let active = true;
@@ -173,32 +273,25 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   useEffect(() => {
     let active = true;
-    const applyCatalog = async (catalog: { movies: CatalogItem[]; series: CatalogItem[] }) => {
+    const applyCatalog = (catalog: { movies: CatalogItem[]; series: CatalogItem[] }) => {
       if (!active) return;
       const movieItems = catalog.movies ?? [];
       const seriesItems = catalog.series ?? [];
       [...movieItems, ...seriesItems].forEach((item) => { if (favoritesRef.current.has(item.id)) storage.saveFavoriteItem(item); });
-      const featured = homeFeatureType === 'latest_series' ? seriesItems[0] ?? null : movieItems[0] ?? null;
-      setHeroItem((current) => {
-        if (current?.id !== featured?.id) setHeroImageLoading(Boolean(featured));
-        return featured;
-      });
-      setMovies((homeFeatureType === 'latest_movie' && featured) ? movieItems.filter((item) => item.id !== featured.id).slice(0, 10) : movieItems.slice(0, 10));
-      setSeries((homeFeatureType === 'latest_series' && featured) ? seriesItems.filter((item) => item.id !== featured.id).slice(0, 10) : seriesItems.slice(0, 10));
-      if (!featured) { setHeroInfo(null); setHeroImageLoading(false); return; }
-      if (featured.contentType === 'series') {
-        setHeroInfo({ name: featured.name, plot: featured.plot, genre: featured.genre, rating: featured.rating, backdrop: featured.backdrop, cover: featured.logo });
-      } else {
-        const info = await loadContentInfo(featured);
-        if (active) setHeroInfo(info);
-      }
+      const featuredItems = mixedRecentItems(movieItems, seriesItems);
+      setCatalogMovies(movieItems);
+      setCatalogSeries(seriesItems);
+      setHeroPool(featuredItems);
+      setHeroIndex(0);
+      heroIndexRef.current = 0;
+      if (!featuredItems.length) setHeroImageLoading(false);
     };
     const refreshCatalog = async (force = false) => {
       if (catalogRequestRef.current) return;
       catalogRequestRef.current = true;
       try {
         const catalog = await loadHomeCatalog(force);
-        if (catalog) await applyCatalog(catalog);
+        if (catalog) applyCatalog(catalog);
       } catch (error) {
         console.warn('Não foi possível carregar a vitrine da Home:', error);
       } finally {
@@ -208,41 +301,103 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     void loadAccountStatus().then((status) => { if (active) setAccountStatus(status); });
     void readCachedHomeCatalog().then((cached) => {
       if (!active) return;
-      if (cached) void applyCatalog(cached.value);
+      if (cached) applyCatalog(cached.value);
       if (!cached || Date.now() - cached.savedAt >= 20 * 60_000) void refreshCatalog(false);
     });
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshCatalog(true); }, 30 * 60_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [homeFeatureType]);
+  }, []);
 
-  const heroBackground = heroInfo?.backdrop || heroItem?.backdrop;
-  const heroPosterFallback = heroInfo?.cover || heroItem?.logo;
+  useEffect(() => {
+    if (!heroItem) {
+      setHeroInfo(null);
+      return;
+    }
+
+    const requestId = ++heroInfoRequestRef.current;
+    const basicInfo: ContentInfo = {
+      name: heroItem.name,
+      plot: heroItem.plot,
+      genre: heroItem.genre,
+      rating: heroItem.rating,
+      backdrop: heroItem.backdrop,
+      cover: heroItem.logo,
+    };
+    const cachedInfo = heroInfoCacheRef.current.get(heroItem.id);
+    setHeroInfo(cachedInfo ?? basicInfo);
+
+    if (cachedInfo) return;
+
+    const detailsRequest = heroItem.contentType === 'series'
+      ? loadSeriesContentInfo(heroItem.streamId || heroItem.id.replace(/^series:/, ''), heroItem.name).then((info) => info ? seriesHeroInfo(heroItem, info) : null)
+      : loadContentInfo(heroItem);
+
+    void detailsRequest.then((info) => {
+      if (!info || requestId !== heroInfoRequestRef.current) return;
+      const completeInfo = mergeHeroInfo(basicInfo, info);
+      heroInfoCacheRef.current.set(heroItem.id, completeInfo);
+      setHeroInfo(completeInfo);
+    }).catch(() => { /* mantém as informações do catálogo */ });
+  }, [heroItem]);
+
+  useEffect(() => {
+    if (heroPool.length < 2 || trailerOpen) return;
+    let active = true;
+    let preloader: HTMLImageElement | null = null;
+    const timer = window.setInterval(() => {
+      if (!active || document.visibilityState !== 'visible') return;
+      const nextIndex = (heroIndexRef.current + 1) % heroPool.length;
+      const next = heroPool[nextIndex];
+      const cachedNext = next ? heroInfoCacheRef.current.get(next.id) : undefined;
+      const imageSource = cachedNext?.backdrop || next?.backdrop || cachedNext?.cover || next?.logo;
+      const showNext = () => {
+        if (!active) return;
+        heroIndexRef.current = nextIndex;
+        setHeroIndex(nextIndex);
+      };
+      if (!imageSource) { showNext(); return; }
+      if (preloader) { preloader.onload = null; preloader.onerror = null; }
+      preloader = new Image();
+      preloader.onload = showNext;
+      preloader.onerror = showNext;
+      preloader.src = imageSource;
+    }, 12_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      if (preloader) { preloader.onload = null; preloader.onerror = null; }
+    };
+  }, [heroPool, trailerOpen]);
+
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const rawHeroRating = heroInfo?.rating || heroItem?.rating;
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
   const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
-  const metadata = [heroRating, releaseYear, duration, heroInfo?.genre].filter(Boolean);
+  const heroLanguage = heroInfo?.language?.trim().toUpperCase();
+  const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
   const renewalUrl = (() => { try { const url = new URL(rawRenewalUrl || ''); return /^https?:$/.test(url.protocol) ? url.toString() : undefined; } catch { return undefined; } })();
   const trailerSource = heroInfo?.trailerKey;
   const currentTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(now);
   const currentDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).format(now).replace('.', '');
+  const movies = catalogMovies.slice(0, 10);
+  const series = catalogSeries.slice(0, 10);
 
   return (
     <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
         {heroImageLoading && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
-        {heroBackground ? <img src={heroBackground} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image" /> : heroPosterFallback ? <img src={heroPosterFallback} alt="" onLoad={() => setHeroImageLoading(false)} onError={() => setHeroImageLoading(false)} className="home-hero-image home-hero-poster-fallback" /> : null}
+        <HomeHeroArtwork key={heroItem?.id || 'hero-artwork-empty'} item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
         <div className="home-hero-shade" />
         {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
-        <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
-          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> {homeFeatureType === 'latest_series' ? 'Última série adicionada' : 'Último filme adicionado'}</span>
-          {heroInfo?.titleLogo ? <><img src={heroInfo.titleLogo} alt={heroInfo.name || heroItem?.name || ''} className="mb-2 max-h-40 w-auto max-w-[min(80vw,420px)] object-contain object-left" /><h1 className="sr-only">{heroInfo.name || heroItem?.name}</h1></> : <h1 className="max-w-2xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">{heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'}</h1>}
-          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
-          <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-white/62">{heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'}</p>
-          {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? 'Direção:' : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
-          {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => heroItem.contentType === 'series' ? onNavigate('series') : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
+        <div key={heroItem?.id || 'hero-empty'} className="home-hero-content-enter relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
+          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> {heroItem?.contentType === 'series' ? 'Série recentemente adicionada' : 'Filme recentemente adicionado'}</span>
+          <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
+          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
+          <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
+          {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? (heroItem?.contentType === 'series' ? 'Criação e direção:' : 'Direção:') : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
+          {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
         </div>
         </div>
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
@@ -271,7 +426,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </div>
         <div className="space-y-12 pb-16 pt-10">
           <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} />
-          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={() => onNavigate('series')} />
+          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} />
         </div>
       </div>
       {trailerOpen && trailerSource && <TrailerPlayer source={trailerSource} title={heroInfo?.name || heroItem?.name || 'Trailer'} onClose={() => setTrailerOpen(false)} />}

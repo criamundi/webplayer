@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -591,7 +591,7 @@ Deno.serve(
         }
       }
 
-      if (action === "series-catalog" || action === "series-info" || action === "series-season-images") {
+      if (action === "series-catalog" || action === "series-info" || action === "series-content-info" || action === "series-season-images") {
         const makeSeriesApiUrl = (apiAction: string, extra: Record<string, string> = {}) => {
           const url = new URL(serverUrl.toString());
           const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
@@ -643,7 +643,9 @@ Deno.serve(
           const info = raw?.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : {};
           const root = new URL(serverUrl.toString());
           const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
-          const episodesSource = raw?.episodes && typeof raw.episodes === "object" ? raw.episodes : {};
+          const episodesSource = action === "series-content-info"
+            ? {}
+            : raw?.episodes && typeof raw.episodes === "object" ? raw.episodes : {};
           const episodes = Object.entries(episodesSource).flatMap(([seasonKey, list]) => (Array.isArray(list) ? list : []).map((episode: Record<string, unknown>, index: number) => {
             const id = String(episode.id ?? "");
             const extension = String(episode.container_extension ?? "mp4").replace(/[^a-z0-9]/gi, "") || "mp4";
