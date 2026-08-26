@@ -102,7 +102,13 @@ function mixedRecentItems(movies: CatalogItem[], series: CatalogItem[]) {
 
 function homeImageValue(value: unknown) {
   const source = mediaImageValue(value);
-  return /^http:\/\//i.test(source) ? getPlayableStreamUrl(source) : source;
+  if (!source) return '';
+  const highResolutionSource = source.startsWith('/')
+    ? `https://image.tmdb.org/t/p/original${source}`
+    : source
+      .replace(/^http:\/\/image\.tmdb\.org/i, 'https://image.tmdb.org')
+      .replace(/\/t\/p\/(?:w\d+|original)\//, '/t/p/original/');
+  return /^http:\/\//i.test(highResolutionSource) ? getPlayableStreamUrl(highResolutionSource) : highResolutionSource;
 }
 
 function mergeHeroInfo(base: ContentInfo, detail: ContentInfo | null) {
@@ -188,6 +194,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const renewalBaselineRef = useRef<{ expiresAt: number; days: number } | null>(null);
   const catalogRequestRef = useRef(false);
   const heroInfoCacheRef = useRef(new Map<string, ContentInfo>());
+  const heroInfoPendingRef = useRef(new Map<string, Promise<ContentInfo>>());
   const heroInfoRequestRef = useRef(0);
   const heroIndexRef = useRef(0);
 
@@ -195,6 +202,45 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
   useEffect(() => { heroIndexRef.current = heroIndex; }, [heroIndex]);
+
+  const loadCompleteHeroInfo = useCallback((item: CatalogItem) => {
+    const cached = heroInfoCacheRef.current.get(item.id);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = heroInfoPendingRef.current.get(item.id);
+    if (pending) return pending;
+
+    const basicInfo: ContentInfo = {
+      name: item.name,
+      plot: item.plot,
+      genre: item.genre,
+      rating: item.rating,
+      backdrop: homeImageValue(item.backdrop),
+      cover: homeImageValue(item.logo),
+    };
+    const detailsRequest = item.contentType === 'series'
+      ? loadSeriesContentInfo(item.streamId || item.id.replace(/^series:/, ''), item.name)
+        .then((info) => info ? seriesHeroInfo(item, info) : null)
+      : loadContentInfo(item);
+
+    const request = detailsRequest
+      .then((info) => {
+        const completeInfo = mergeHeroInfo(basicInfo, info);
+        completeInfo.backdrop = homeImageValue(completeInfo.backdrop);
+        completeInfo.cover = homeImageValue(completeInfo.cover);
+        completeInfo.titleLogo = homeImageValue(completeInfo.titleLogo);
+        heroInfoCacheRef.current.set(item.id, completeInfo);
+        return completeInfo;
+      })
+      .catch(() => {
+        heroInfoCacheRef.current.set(item.id, basicInfo);
+        return basicInfo;
+      })
+      .finally(() => heroInfoPendingRef.current.delete(item.id));
+
+    heroInfoPendingRef.current.set(item.id, request);
+    return request;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -315,30 +361,18 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     }
 
     const requestId = ++heroInfoRequestRef.current;
-    const basicInfo: ContentInfo = {
-      name: heroItem.name,
-      plot: heroItem.plot,
-      genre: heroItem.genre,
-      rating: heroItem.rating,
-      backdrop: heroItem.backdrop,
-      cover: heroItem.logo,
-    };
     const cachedInfo = heroInfoCacheRef.current.get(heroItem.id);
-    setHeroInfo(cachedInfo ?? basicInfo);
+    if (cachedInfo) {
+      setHeroInfo(cachedInfo);
+      return;
+    }
 
-    if (cachedInfo) return;
-
-    const detailsRequest = heroItem.contentType === 'series'
-      ? loadSeriesContentInfo(heroItem.streamId || heroItem.id.replace(/^series:/, ''), heroItem.name).then((info) => info ? seriesHeroInfo(heroItem, info) : null)
-      : loadContentInfo(heroItem);
-
-    void detailsRequest.then((info) => {
-      if (!info || requestId !== heroInfoRequestRef.current) return;
-      const completeInfo = mergeHeroInfo(basicInfo, info);
-      heroInfoCacheRef.current.set(heroItem.id, completeInfo);
-      setHeroInfo(completeInfo);
-    }).catch(() => { /* mantém as informações do catálogo */ });
-  }, [heroItem]);
+    setHeroImageLoading(true);
+    void loadCompleteHeroInfo(heroItem).then((info) => {
+      if (requestId !== heroInfoRequestRef.current) return;
+      setHeroInfo(info);
+    });
+  }, [heroItem, loadCompleteHeroInfo]);
 
   useEffect(() => {
     if (heroPool.length < 2 || trailerOpen) return;
@@ -348,26 +382,32 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       if (!active || document.visibilityState !== 'visible') return;
       const nextIndex = (heroIndexRef.current + 1) % heroPool.length;
       const next = heroPool[nextIndex];
-      const cachedNext = next ? heroInfoCacheRef.current.get(next.id) : undefined;
-      const imageSource = cachedNext?.backdrop || next?.backdrop || cachedNext?.cover || next?.logo;
       const showNext = () => {
         if (!active) return;
+        setHeroImageLoading(true);
         heroIndexRef.current = nextIndex;
         setHeroIndex(nextIndex);
       };
-      if (!imageSource) { showNext(); return; }
-      if (preloader) { preloader.onload = null; preloader.onerror = null; }
-      preloader = new Image();
-      preloader.onload = showNext;
-      preloader.onerror = showNext;
-      preloader.src = imageSource;
-    }, 12_000);
+      if (!next) return;
+
+      void loadCompleteHeroInfo(next).then((nextInfo) => {
+        if (!active) return;
+        const imageSource = homeImageValue(nextInfo.backdrop || next.backdrop || nextInfo.cover || next.logo);
+        if (!imageSource) { showNext(); return; }
+        if (preloader) { preloader.onload = null; preloader.onerror = null; }
+        preloader = new Image();
+        preloader.decoding = 'async';
+        preloader.onload = showNext;
+        preloader.onerror = showNext;
+        preloader.src = imageSource;
+      });
+    }, 60_000);
     return () => {
       active = false;
       window.clearInterval(timer);
       if (preloader) { preloader.onload = null; preloader.onerror = null; }
     };
-  }, [heroPool, trailerOpen]);
+  }, [heroPool, trailerOpen, loadCompleteHeroInfo]);
 
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const rawHeroRating = heroInfo?.rating || heroItem?.rating;
