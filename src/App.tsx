@@ -1969,6 +1969,11 @@ export default function App() {
                   true,
                 )
               }
+              onBack={() =>
+                handleNavigate(
+                  'home',
+                )
+              }
               onSelectChannel={
                 handleSelectChannel
               }

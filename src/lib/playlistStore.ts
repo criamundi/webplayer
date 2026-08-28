@@ -867,6 +867,54 @@ export async function getChannels(
 
 /*
 |--------------------------------------------------------------------------
+| GRUPOS NA ORDEM REAL DA LISTA
+|--------------------------------------------------------------------------
+|
+| Reconstrói as categorias pela posição do primeiro canal de cada grupo.
+| Isso também corrige metadados antigos que tenham sido ordenados por nome.
+|
+*/
+
+export async function getChannelGroupsInOrder(
+  category: PlaylistCategory,
+): Promise<string[]> {
+  const meta = await getPlaylistMeta();
+  const expectedGroups = new Set(meta?.groupsByCategory[category] ?? []).size;
+  const db = await openDB();
+
+  const ordered = await new Promise<string[]>((resolve, reject) => {
+    const tx = db.transaction(CHANNEL_STORE, 'readonly');
+    const store = tx.objectStore(CHANNEL_STORE);
+    const indexName = store.indexNames.contains('categoryOrder') ? 'categoryOrder' : 'category';
+    const index = store.index(indexName);
+    const range = indexName === 'categoryOrder'
+      ? IDBKeyRange.bound([category, 0], [category, Number.MAX_SAFE_INTEGER])
+      : IDBKeyRange.only(category);
+    const request = index.openCursor(range);
+    const groups = new Set<string>();
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor || (expectedGroups > 0 && groups.size >= expectedGroups)) {
+        resolve(Array.from(groups));
+        return;
+      }
+
+      const item = cursor.value as StoredChannel;
+      if (item.group) groups.add(item.group);
+      cursor.continue();
+    };
+
+    request.onerror = () => reject(request.error || new Error('Erro ao ordenar categorias.'));
+  });
+
+  if (!ordered.length) return meta?.groupsByCategory[category] ?? [];
+  const missing = (meta?.groupsByCategory[category] ?? []).filter((group) => !ordered.includes(group));
+  return [...ordered, ...missing];
+}
+
+/*
+|--------------------------------------------------------------------------
 | BUSCA POR IDS
 |--------------------------------------------------------------------------
 */
@@ -994,6 +1042,7 @@ export async function getChannelsByIds(
 export async function searchChannels(
   query: string,
   limit = 120,
+  category?: PlaylistCategory,
 ): Promise<Channel[]> {
   const q =
     query
@@ -1054,6 +1103,7 @@ export async function searchChannels(
               StoredChannel;
 
           if (
+            (!category || item.category === category) &&
             item.nameLower.includes(
               q,
             )
