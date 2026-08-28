@@ -42,6 +42,8 @@ export interface AccountStatus {
 
 export interface LiveCategory { id: string; name: string; }
 export interface LiveChannel extends Channel { streamId: string; categoryId: string; channelNumber?: number | null; }
+export interface LiveProgram { title: string; description?: string; start?: string; end?: string; }
+export interface LiveEpg { current: LiveProgram | null; next: LiveProgram | null; }
 export interface SeriesCategory { id: string; name: string; }
 export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
 export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
@@ -54,6 +56,7 @@ const CATALOG_CACHE_MS = 20 * 60_000;
 let seriesCatalogCache: { savedAt: number; value: { categories: SeriesCategory[]; shows: SeriesShow[] } } | null = null;
 let movieCatalogCache: { savedAt: number; value: { categories: MovieCategory[]; movies: MovieShow[] } } | null = null;
 let liveCatalogCache: { savedAt: number; value: { categories: LiveCategory[]; channels: LiveChannel[] } } | null = null;
+const liveEpgCache = new Map<string, { savedAt: number; value: LiveEpg }>();
 let homeCatalogCache: { savedAt: number; value: { movies: CatalogItem[]; series: CatalogItem[] } } | null = null;
 let homeCatalogRequest: Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> | null = null;
 let seriesCatalogRequest: Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> | null = null;
@@ -99,6 +102,22 @@ export async function loadLiveCatalog(): Promise<{ categories: LiveCategory[]; c
     channels: Array.isArray(result.channels) ? result.channels.map((channel) => ({ ...channel, logo: safeImageUrl(channel.logo) })) : [],
   };
   liveCatalogCache = { savedAt: Date.now(), value };
+  return value;
+}
+
+export async function loadLiveEpg(streamId: string): Promise<LiveEpg | null> {
+  if (!/^\d+$/.test(streamId)) return null;
+  const key = `${credentialScope()}:${streamId}`;
+  const cached = liveEpgCache.get(key);
+  if (cached && Date.now() - cached.savedAt < 3 * 60_000) return cached.value;
+  const response = await authenticatedAction('live-epg', { streamId });
+  if (!response) return null;
+  const result = await response.json() as Partial<LiveEpg>;
+  const value: LiveEpg = {
+    current: result.current?.title ? result.current : null,
+    next: result.next?.title ? result.next : null,
+  };
+  liveEpgCache.set(key, { savedAt: Date.now(), value });
   return value;
 }
 
