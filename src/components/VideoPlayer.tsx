@@ -34,14 +34,6 @@ interface VideoPlayerProps {
   startMuted?: boolean;
   immersive?: boolean;
   onClose?: () => void;
-  liveProgram?: {
-    title: string;
-    schedule?: string;
-  } | null;
-  liveNextProgram?: {
-    title: string;
-    schedule?: string;
-  } | null;
 }
 
 type PlayerStatus =
@@ -66,8 +58,6 @@ export function VideoPlayer({
   startMuted = false,
   immersive = false,
   onClose,
-  liveProgram = null,
-  liveNextProgram = null,
 }: VideoPlayerProps) {
   const videoRef =
     useRef<HTMLVideoElement>(null);
@@ -91,9 +81,6 @@ export function VideoPlayer({
     useRef<number | null>(null);
 
   const hideTimerRef =
-    useRef<number | null>(null);
-
-  const liveInfoTimerRef =
     useRef<number | null>(null);
 
   const lastProgressSecondRef = useRef(-1);
@@ -123,8 +110,6 @@ export function VideoPlayer({
   const [fitMode, setFitMode] = useState<'contain' | 'cover'>('contain');
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const [showLiveInfo, setShowLiveInfo] = useState(false);
 
   const [
     isFullscreen,
@@ -933,38 +918,8 @@ export function VideoPlayer({
       }
     }, []);
 
-  const handleBack = useCallback(() => {
-    if (immersive) {
-      onClose?.();
-      return;
-    }
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.().catch(() => undefined);
-      return;
-    }
-    onClose?.();
-  }, [immersive, onClose]);
-
   const isLive = channel?.category === 'live';
   const canSeek = !isLive && Number.isFinite(duration) && duration > 0;
-
-  const revealLiveInfo = useCallback(() => {
-    if (!isLive || !channel) return;
-    setShowLiveInfo(true);
-    if (liveInfoTimerRef.current !== null) window.clearTimeout(liveInfoTimerRef.current);
-    liveInfoTimerRef.current = window.setTimeout(() => {
-      setShowLiveInfo(false);
-      liveInfoTimerRef.current = null;
-    }, 7000);
-  }, [channel, isLive]);
-
-  useEffect(() => {
-    if (status !== 'playing' || !isLive) {
-      setShowLiveInfo(false);
-      return;
-    }
-    revealLiveInfo();
-  }, [channel?.id, isLive, liveNextProgram?.title, liveProgram?.title, revealLiveInfo, status]);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
@@ -1027,13 +982,7 @@ export function VideoPlayer({
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON') return;
-    if (event.key === 'Backspace' || event.key === 'BrowserBack' || event.key === 'GoBack' || event.keyCode === 10009) {
-      event.preventDefault();
-      handleBack();
-    } else if (event.key === 'Enter' && isLive) {
-      event.preventDefault();
-      revealLiveInfo();
-    } else if (event.key === ' ' || event.key.toLowerCase() === 'k') {
+    if (event.key === ' ' || event.key.toLowerCase() === 'k') {
       event.preventDefault();
       togglePlayback();
     } else if (event.key === 'ArrowLeft' && canSeek) {
@@ -1048,7 +997,7 @@ export function VideoPlayer({
       toggleFullscreen();
     }
     handleMouseMove();
-  }, [canSeek, handleBack, handleMouseMove, isLive, revealLiveInfo, seekBy, toggleFullscreen, togglePlayback]);
+  }, [canSeek, handleMouseMove, seekBy, toggleFullscreen, togglePlayback]);
 
   useEffect(() => {
     if (!immersive) {
@@ -1162,10 +1111,6 @@ export function VideoPlayer({
         );
       }
 
-      if (liveInfoTimerRef.current !== null) {
-        window.clearTimeout(liveInfoTimerRef.current);
-      }
-
       destroyPlayback();
     };
   }, [
@@ -1189,20 +1134,16 @@ export function VideoPlayer({
       onMouseLeave={() => setShowControls(!immersive)}
       onClick={(event) => {
         const target = event.target as HTMLElement;
-        if (target === event.currentTarget || target.tagName === 'VIDEO') {
-          event.currentTarget.focus();
-          revealLiveInfo();
-        }
+        if (target === event.currentTarget || target.tagName === 'VIDEO') event.currentTarget.focus();
       }}
       onDoubleClick={(event) => {
-        const target = event.target as HTMLElement;
-        if (!target.closest('button, input, select')) toggleFullscreen();
+        if ((event.target as HTMLElement).tagName === 'VIDEO') toggleFullscreen();
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       className={`relative h-full w-full overflow-hidden bg-black ${immersive ? 'rounded-none' : 'rounded-2xl'} ${immersive && !showControls ? 'cursor-none' : ''}`}
     >
-      {(immersive || (isLive && isFullscreen)) && onClose && <button type="button" onClick={handleBack} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
+      {immersive && onClose && <button type="button" onClick={onClose} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
       <video
         ref={videoRef}
         playsInline
@@ -1248,22 +1189,6 @@ export function VideoPlayer({
         }}
         className={`h-full w-full ${fitMode === 'cover' ? 'object-cover' : 'object-contain'}`}
       />
-
-      {channel && isLive && status === 'playing' && <div className={`pointer-events-none absolute left-3 z-30 w-[calc(100%_-_1.5rem)] max-w-xl rounded-2xl border border-white/10 bg-black/75 p-3 shadow-2xl backdrop-blur-xl transition-all duration-500 sm:left-5 sm:w-[calc(100%_-_2.5rem)] sm:p-4 ${isFullscreen && onClose ? 'top-20' : 'top-3 sm:top-5'} ${showLiveInfo ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-3 opacity-0'}`}>
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <span className="relative flex h-12 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.07] sm:h-16 sm:w-20">
-            <Tv className="h-6 w-6 text-white/20" />
-            {channel.logo && <img src={channel.logo} alt="" className="absolute inset-0 h-full w-full p-2 object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <strong className="block truncate text-sm font-semibold text-white sm:text-lg">{channel.name}</strong>
-            <div className="mt-2 grid min-w-0 gap-1.5 text-[10px] sm:text-xs">
-              <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"><span className="font-bold uppercase tracking-[.12em] text-emerald-300">Agora</span><span className="truncate text-white/80">{liveProgram?.title || 'Programação não informada'}</span>{liveProgram?.schedule && <span className="tabular-nums text-white/40">{liveProgram.schedule}</span>}</div>
-              {liveNextProgram && <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"><span className="font-bold uppercase tracking-[.12em] text-white/35">A seguir</span><span className="truncate text-white/55">{liveNextProgram.title}</span>{liveNextProgram.schedule && <span className="tabular-nums text-white/30">{liveNextProgram.schedule}</span>}</div>}
-            </div>
-          </div>
-        </div>
-      </div>}
 
       {!channel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-white/70">
@@ -1408,7 +1333,7 @@ export function VideoPlayer({
               <div className="min-w-0 flex-1 px-1 sm:px-2">
                 <div className="truncate text-xs font-semibold sm:text-sm">{channel.name}</div>
                 <div className="mt-0.5 flex items-center gap-2 text-[10px] text-white/55 sm:text-xs">
-                  {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : liveProgram ? <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 font-semibold uppercase tracking-wider text-emerald-300">Agora</span><span className="truncate text-white/75">{liveProgram.title}</span>{liveProgram.schedule && <span className="hidden shrink-0 text-white/35 md:inline">{liveProgram.schedule}</span>}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
+                  {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
                 </div>
               </div>
 

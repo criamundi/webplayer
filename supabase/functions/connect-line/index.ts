@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -548,133 +548,6 @@ Deno.serve(
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
         return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
-      }
-
-      if (action === "live-catalog") {
-        const makeLiveApiUrl = (apiAction: string) => {
-          const url = new URL(serverUrl.toString());
-          const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
-          url.pathname = `${basePath}/player_api.php`;
-          url.search = new URLSearchParams({ username, password, action: apiAction }).toString();
-          return url;
-        };
-        const liveController = new AbortController();
-        const liveTimeout = setTimeout(() => liveController.abort(), 30000);
-        try {
-          const [categoriesResponse, streamsResponse] = await Promise.all([
-            fetch(makeLiveApiUrl("get_live_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
-            fetch(makeLiveApiUrl("get_live_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
-          ]);
-          if (!categoriesResponse.ok || !streamsResponse.ok) return json({ error: "Catálogo de canais indisponível." }, 502);
-          const categoriesRaw = await categoriesResponse.json();
-          const streamsRaw = await streamsResponse.json();
-          const categories = (Array.isArray(categoriesRaw) ? categoriesRaw : []).map((item: Record<string, unknown>) => ({
-            id: String(item.category_id ?? ""),
-            name: String(item.category_name ?? "Sem categoria"),
-          })).filter((item: { id: string }) => item.id);
-          const categoryNames = new Map(categories.map((item: { id: string; name: string }) => [item.id, item.name]));
-          const categoryOrder = new Map(categories.map((item: { id: string }, index: number) => [item.id, index]));
-          const root = new URL(serverUrl.toString());
-          const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
-          const streams = (Array.isArray(streamsRaw) ? streamsRaw : [])
-            .map((item: Record<string, unknown>, sourceIndex: number) => {
-              const streamId = String(item.stream_id ?? "");
-              const categoryId = String(item.category_id ?? "");
-              const channelNumber = Number(item.num ?? 0);
-              const extension = String(item.container_extension ?? "ts").replace(/[^a-z0-9]/gi, "") || "ts";
-              return {
-                id: `live:${streamId}`,
-                streamId,
-                categoryId,
-                channelNumber: Number.isFinite(channelNumber) && channelNumber > 0 ? channelNumber : null,
-                sourceIndex,
-                name: String(item.name ?? "Sem nome"),
-                url: `${root.origin}${rootPath}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${extension}`,
-                logo: String(item.stream_icon ?? ""),
-                group: categoryNames.get(categoryId) ?? "Outros",
-                tvgId: String(item.epg_channel_id ?? ""),
-                category: "live",
-              };
-            })
-            .filter((item: { streamId: string }) => item.streamId)
-            .sort((a: { categoryId: string; sourceIndex: number }, b: { categoryId: string; sourceIndex: number }) => {
-              const aCategory = categoryOrder.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER;
-              const bCategory = categoryOrder.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER;
-              return aCategory - bCategory || a.sourceIndex - b.sourceIndex;
-            })
-            .map((item: { sourceIndex: number; [key: string]: unknown }) => {
-              const result: Record<string, unknown> = { ...item };
-              delete result.sourceIndex;
-              return result;
-            });
-          return json({ categories, channels: streams });
-        } catch {
-          return json({ error: "Não foi possível carregar os canais ao vivo." }, 502);
-        } finally {
-          clearTimeout(liveTimeout);
-        }
-      }
-
-      if (action === "live-epg") {
-        if (!streamId) return json({ error: "Canal inválido." }, 400);
-        const epgUrl = new URL(serverUrl.toString());
-        const basePath = epgUrl.pathname.toLowerCase().endsWith(".php") ? epgUrl.pathname.slice(0, epgUrl.pathname.lastIndexOf("/")) : epgUrl.pathname.replace(/\/$/, "");
-        epgUrl.pathname = `${basePath}/player_api.php`;
-        epgUrl.search = new URLSearchParams({ username, password, action: "get_short_epg", stream_id: streamId, limit: "4" }).toString();
-
-        const epgController = new AbortController();
-        const epgTimeout = setTimeout(() => epgController.abort(), 12000);
-        try {
-          const response = await fetch(epgUrl, {
-            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-            signal: epgController.signal,
-          });
-          if (!response.ok) return json({ current: null, next: null });
-          const payload = await response.json();
-          const listings = Array.isArray(payload?.epg_listings) ? payload.epg_listings : [];
-          const decodeText = (value: unknown) => {
-            const raw = String(value ?? "").trim();
-            if (!raw || raw.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
-            try {
-              const bytes = Uint8Array.from(atob(raw), (character) => character.charCodeAt(0));
-              const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
-              const hasControlCharacter = Array.from(decoded).some((character) => {
-                const code = character.charCodeAt(0);
-                return code < 32 && code !== 9 && code !== 10 && code !== 13;
-              });
-              return decoded && !hasControlCharacter ? decoded : raw;
-            } catch {
-              return raw;
-            }
-          };
-          const toIso = (timestamp: unknown, date: unknown) => {
-            const seconds = Number(timestamp ?? 0);
-            if (Number.isFinite(seconds) && seconds > 0) return new Date(seconds * 1000).toISOString();
-            const parsed = Date.parse(String(date ?? ""));
-            return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
-          };
-          const programs = listings.map((item: Record<string, unknown>) => ({
-            title: decodeText(item.title),
-            description: decodeText(item.description),
-            start: toIso(item.start_timestamp, item.start),
-            end: toIso(item.stop_timestamp, item.end),
-          })).filter((item: { title: string }) => item.title);
-          const now = Date.now();
-          const currentIndex = programs.findIndex((item: { start: string; end: string }) => {
-            const start = Date.parse(item.start);
-            const end = Date.parse(item.end);
-            return Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end;
-          });
-          const selectedIndex = currentIndex >= 0 ? currentIndex : 0;
-          return json({
-            current: programs[selectedIndex] ?? null,
-            next: programs[selectedIndex + 1] ?? null,
-          });
-        } catch {
-          return json({ current: null, next: null });
-        } finally {
-          clearTimeout(epgTimeout);
-        }
       }
 
       if (action === "movie-catalog") {
