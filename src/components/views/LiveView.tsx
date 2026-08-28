@@ -4,7 +4,7 @@ import type { Channel } from '@/types';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { getChannelGroupsInOrder, getChannels, getChannelsByIds, searchChannels } from '@/lib/playlistStore';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
-import { loadLiveCatalog, type LiveChannel } from '@/lib/provider';
+import { loadLiveCatalog, loadLiveEpg, type LiveChannel, type LiveEpg, type LiveProgram } from '@/lib/provider';
 
 interface LiveViewProps {
   channels: Channel[];
@@ -13,6 +13,7 @@ interface LiveViewProps {
   favorites: Set<string>;
   recents: Channel[];
   onMenuOpen: () => void;
+  onBack: () => void;
   onSelectChannel: (channel: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
 }
@@ -33,6 +34,15 @@ const groupLabel = (group: string) => {
 };
 const channelsForGroup = (channels: LiveChannel[], group: string) => group === ALL_CHANNELS ? channels : channels.filter((channel) => channel.group === group);
 const normalizeChannelText = (value = '') => value.trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
+const programTime = (value?: string) => {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+};
+const programSchedule = (program?: LiveProgram | null) => {
+  const start = programTime(program?.start);
+  const end = programTime(program?.end);
+  return start && end ? `${start} – ${end}` : start;
+};
 
 function streamIdFromUrl(value: string) {
   try {
@@ -117,7 +127,7 @@ function Logo({ channel, compact = false }: { channel: Channel; compact?: boolea
   />;
 }
 
-export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, recents, onMenuOpen, onSelectChannel, onToggleFavorite }: LiveViewProps) {
+export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, recents, onMenuOpen, onBack, onSelectChannel, onToggleFavorite }: LiveViewProps) {
   const [activeGroup, setActiveGroup] = useState(ALL_CHANNELS);
   const [orderedGroups, setOrderedGroups] = useState(groups);
   const [officialChannels, setOfficialChannels] = useState<LiveChannel[] | null>(null);
@@ -128,6 +138,8 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [liveEpg, setLiveEpg] = useState<LiveEpg | null>(null);
+  const [epgLoading, setEpgLoading] = useState(false);
   const loadingMoreRef = useRef(false);
   const categoryListRef = useRef<HTMLElement>(null);
   const channelListRef = useRef<HTMLDivElement>(null);
@@ -135,10 +147,36 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const searchRef = useRef<HTMLInputElement>(null);
   const onSelectChannelRef = useRef(onSelectChannel);
   const liveActive = activeChannel?.category === 'live' && Boolean(activeChannel.url) ? activeChannel : null;
+  const activeOfficialChannel = liveActive && officialChannels?.find((channel) => channel.id === liveActive.id || (
+    normalizeChannelText(channel.name) === normalizeChannelText(liveActive.name)
+    && normalizeChannelText(channel.group) === normalizeChannelText(liveActive.group)
+  ));
+  const activeStreamId = liveActive ? ((liveActive as LiveChannel).streamId || activeOfficialChannel?.streamId || streamIdFromUrl(liveActive.url)) : '';
 
   useEffect(() => {
     onSelectChannelRef.current = onSelectChannel;
   }, [onSelectChannel]);
+
+  useEffect(() => {
+    let active = true;
+    setLiveEpg(null);
+    if (!activeStreamId) {
+      setEpgLoading(false);
+      return;
+    }
+    setEpgLoading(true);
+    const refresh = () => void loadLiveEpg(activeStreamId).then((result) => {
+      if (active) setLiveEpg(result);
+    }).finally(() => {
+      if (active) setEpgLoading(false);
+    });
+    refresh();
+    const interval = window.setInterval(refresh, 3 * 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [activeStreamId]);
 
   useEffect(() => {
     let active = true;
@@ -431,11 +469,23 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
 
           <div className="live-video-frame">
             {liveActive
-              ? <VideoPlayer channel={liveActive} />
+              ? <VideoPlayer
+                channel={liveActive}
+                onClose={onBack}
+                liveProgram={liveEpg?.current ? { title: liveEpg.current.title, schedule: programSchedule(liveEpg.current) } : null}
+              />
               : <div className="live-player-empty"><span><Radio className="h-9 w-9" /></span><strong>Pronto para assistir</strong><p>Escolha um canal na lista para iniciar a transmissão.</p></div>}
           </div>
 
-          <div className="live-player-footer"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /><span>A transmissão inicia ao selecionar um canal</span><span className="ml-auto hidden text-white/25 sm:block">Use tela cheia para uma experiência melhor</span></div>
+          <div className="live-program-guide">
+            <div className="live-program-current">
+              <span>Agora</span>
+              <strong>{epgLoading ? 'Carregando programação...' : liveEpg?.current?.title || 'Programação não informada'}</strong>
+              {liveEpg?.current && programSchedule(liveEpg.current) && <small>{programSchedule(liveEpg.current)}</small>}
+            </div>
+            {liveEpg?.next && <div className="live-program-next"><span>A seguir</span><strong>{liveEpg.next.title}</strong>{programSchedule(liveEpg.next) && <small>{programSchedule(liveEpg.next)}</small>}</div>}
+          </div>
+          <div className="live-player-footer"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /><span>Duplo clique abre a tela cheia</span><span className="ml-auto hidden text-white/25 sm:block">Voltar retorna à tela de canais</span></div>
         </section>
       </main>
     </div>
