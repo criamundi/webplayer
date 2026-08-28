@@ -71,7 +71,12 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const categoryListRef = useRef<HTMLElement>(null);
   const channelListRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const onSelectChannelRef = useRef(onSelectChannel);
   const liveActive = activeChannel?.category === 'live' && Boolean(activeChannel.url) ? activeChannel : null;
+
+  useEffect(() => {
+    onSelectChannelRef.current = onSelectChannel;
+  }, [onSelectChannel]);
 
   useEffect(() => {
     let active = true;
@@ -83,13 +88,13 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       setItems(result);
       setOffset(result.length);
       setHasMore(result.length === PAGE_SIZE);
-      if (result[0]) onSelectChannel(result[0]);
+      if (result[0]) onSelectChannelRef.current(result[0]);
     }).finally(() => {
       if (active) setLoading(false);
     });
 
     return () => { active = false; };
-  }, [activeGroup, onSelectChannel]);
+  }, [activeGroup]);
 
   const filtered = useMemo(() => {
     const value = query.trim().toLocaleLowerCase('pt-BR');
