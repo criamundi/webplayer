@@ -143,6 +143,13 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .live-player-empty strong { margin-top:1.1rem; color:rgba(255,255,255,.7); font-size:1rem; }
 .live-player-empty p { max-width:18rem; margin-top:.45rem; font-size:.72rem; line-height:1.5; }
 .live-player-footer { display:flex; align-items:center; gap:.45rem; padding:.75rem 1rem; color:rgba(255,255,255,.3); font-size:.62rem; }
+.live-program-guide { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.85fr); gap:1px; border-top:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.06); }
+.live-program-current,.live-program-next { display:grid; min-width:0; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.65rem; padding:.85rem 1rem; background:#0c151c; }
+.live-program-current > span,.live-program-next > span { font-size:.58rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#6ee7b7; }
+.live-program-next > span { color:rgba(255,255,255,.35); }
+.live-program-current strong,.live-program-next strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.72rem; color:rgba(255,255,255,.82); }
+.live-program-next strong { color:rgba(255,255,255,.58); }
+.live-program-current small,.live-program-next small { font-size:.62rem; color:rgba(255,255,255,.3); font-variant-numeric:tabular-nums; }
 @media (max-width:1279px) and (min-width:900px) {
   .live-workspace { grid-template-columns:4.75rem minmax(17rem,19rem) minmax(0,1fr); }
   .live-category-rail { padding:.65rem .5rem; }
@@ -175,6 +182,9 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   .live-category-card { min-height:5.6rem; }
   .live-resume-action { width:2.65rem; height:2.65rem; justify-content:center; padding:0; border-radius:999px; font-size:0; }
   .live-player-footer { display:none; }
+  .live-program-guide { grid-template-columns:1fr; }
+  .live-program-next { display:none; }
+  .live-program-current,.live-program-next { padding:.7rem .8rem; }
   .live-player-heading { min-height:4.1rem; }
   .live-player-logo { width:2.7rem; height:2.7rem; }
 }
