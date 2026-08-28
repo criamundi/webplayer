@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -548,6 +548,70 @@ Deno.serve(
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
         return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
+      }
+
+      if (action === "live-catalog") {
+        const makeLiveApiUrl = (apiAction: string) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({ username, password, action: apiAction }).toString();
+          return url;
+        };
+        const liveController = new AbortController();
+        const liveTimeout = setTimeout(() => liveController.abort(), 30000);
+        try {
+          const [categoriesResponse, streamsResponse] = await Promise.all([
+            fetch(makeLiveApiUrl("get_live_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+            fetch(makeLiveApiUrl("get_live_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+          ]);
+          if (!categoriesResponse.ok || !streamsResponse.ok) return json({ error: "Catálogo de canais indisponível." }, 502);
+          const categoriesRaw = await categoriesResponse.json();
+          const streamsRaw = await streamsResponse.json();
+          const categories = (Array.isArray(categoriesRaw) ? categoriesRaw : []).map((item: Record<string, unknown>) => ({
+            id: String(item.category_id ?? ""),
+            name: String(item.category_name ?? "Sem categoria"),
+          })).filter((item: { id: string }) => item.id);
+          const categoryNames = new Map(categories.map((item: { id: string; name: string }) => [item.id, item.name]));
+          const root = new URL(serverUrl.toString());
+          const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
+          const streams = (Array.isArray(streamsRaw) ? streamsRaw : [])
+            .map((item: Record<string, unknown>, sourceIndex: number) => {
+              const streamId = String(item.stream_id ?? "");
+              const categoryId = String(item.category_id ?? "");
+              const channelNumber = Number(item.num ?? 0);
+              const extension = String(item.container_extension ?? "ts").replace(/[^a-z0-9]/gi, "") || "ts";
+              return {
+                id: `live:${streamId}`,
+                streamId,
+                categoryId,
+                channelNumber: Number.isFinite(channelNumber) && channelNumber > 0 ? channelNumber : null,
+                sourceIndex,
+                name: String(item.name ?? "Sem nome"),
+                url: `${root.origin}${rootPath}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${extension}`,
+                logo: String(item.stream_icon ?? ""),
+                group: categoryNames.get(categoryId) ?? "Outros",
+                tvgId: String(item.epg_channel_id ?? ""),
+                category: "live",
+              };
+            })
+            .filter((item: { streamId: string }) => item.streamId)
+            .sort((a: { channelNumber: number | null; sourceIndex: number }, b: { channelNumber: number | null; sourceIndex: number }) => {
+              const aOrder = a.channelNumber ?? Number.MAX_SAFE_INTEGER;
+              const bOrder = b.channelNumber ?? Number.MAX_SAFE_INTEGER;
+              return aOrder - bOrder || a.sourceIndex - b.sourceIndex;
+            })
+            .map((item: { sourceIndex: number; [key: string]: unknown }) => {
+              const result: Record<string, unknown> = { ...item };
+              delete result.sourceIndex;
+              return result;
+            });
+          return json({ categories, channels: streams });
+        } catch {
+          return json({ error: "Não foi possível carregar os canais ao vivo." }, 502);
+        } finally {
+          clearTimeout(liveTimeout);
+        }
       }
 
       if (action === "movie-catalog") {

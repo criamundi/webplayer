@@ -4,6 +4,7 @@ import type { Channel } from '@/types';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { getChannelGroupsInOrder, getChannels, getChannelsByIds, searchChannels } from '@/lib/playlistStore';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { loadLiveCatalog, type LiveChannel } from '@/lib/provider';
 
 interface LiveViewProps {
   channels: Channel[];
@@ -30,6 +31,7 @@ const groupLabel = (group: string) => {
   if (group === RECENT_CHANNELS) return 'Últimos assistidos';
   return cleanGroupName(group);
 };
+const channelsForGroup = (channels: LiveChannel[], group: string) => group === ALL_CHANNELS ? channels : channels.filter((channel) => channel.group === group);
 
 function moveFocus(event: KeyboardEvent<HTMLElement>, container: HTMLElement | null, selector: string, direction: -1 | 1) {
   if (!container) return;
@@ -71,9 +73,11 @@ function Logo({ channel, compact = false }: { channel: Channel; compact?: boolea
 export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, recents, onMenuOpen, onSelectChannel, onToggleFavorite }: LiveViewProps) {
   const [activeGroup, setActiveGroup] = useState(ALL_CHANNELS);
   const [orderedGroups, setOrderedGroups] = useState(groups);
+  const [officialChannels, setOfficialChannels] = useState<LiveChannel[] | null>(null);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [items, setItems] = useState<Channel[]>([]);
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -91,21 +95,44 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
 
   useEffect(() => {
     let active = true;
-    void getChannelGroupsInOrder('live').then((result) => {
+    setCatalogReady(false);
+    void loadLiveCatalog().then(async (catalog) => {
       if (!active) return;
-      const merged = [...result, ...groups.filter((group) => !result.includes(group))];
-      setOrderedGroups(merged);
+      if (catalog?.channels.length) {
+        setOfficialChannels(catalog.channels);
+        setOrderedGroups(catalog.categories.map((category) => category.name));
+        return;
+      }
+      setOfficialChannels(null);
+      const result = await getChannelGroupsInOrder('live');
+      if (!active) return;
+      setOrderedGroups([...result, ...groups.filter((group) => !result.includes(group))]);
     }).catch(() => {
-      if (active) setOrderedGroups(groups);
+      if (active) {
+        setOfficialChannels(null);
+        setOrderedGroups(groups);
+      }
+    }).finally(() => {
+      if (active) setCatalogReady(true);
     });
     return () => { active = false; };
   }, [groups]);
 
   useEffect(() => {
-    if ([SEARCH_CHANNELS, FAVORITE_CHANNELS, RECENT_CHANNELS].includes(activeGroup)) return;
+    if (!catalogReady || [SEARCH_CHANNELS, FAVORITE_CHANNELS, RECENT_CHANNELS].includes(activeGroup)) return;
     let active = true;
     setLoading(true);
     setItems([]);
+    if (officialChannels) {
+      const source = channelsForGroup(officialChannels, activeGroup);
+      const result = source.slice(0, PAGE_SIZE);
+      setItems(result);
+      setOffset(result.length);
+      setHasMore(result.length < source.length);
+      setLoading(false);
+      if (result[0]) onSelectChannelRef.current(result[0]);
+      return;
+    }
     const group = activeGroup === ALL_CHANNELS ? undefined : activeGroup;
     void getChannels('live', PAGE_SIZE, 0, group).then((result) => {
       if (!active) return;
@@ -118,20 +145,26 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     });
 
     return () => { active = false; };
-  }, [activeGroup]);
+  }, [activeGroup, catalogReady, officialChannels]);
 
   useEffect(() => {
     if (activeGroup !== FAVORITE_CHANNELS) return;
     let active = true;
     setLoading(true);
-    void getChannelsByIds(Array.from(favorites), 500).then((result) => {
-      if (active) setItems(result.filter((channel) => channel.category === 'live'));
+    void getChannelsByIds(Array.from(favorites), 500).then((stored) => {
+      if (!active) return;
+      if (officialChannels) {
+        const savedNames = new Set(stored.map((channel) => channel.name.trim().toLocaleLowerCase('pt-BR')));
+        setItems(officialChannels.filter((channel) => favorites.has(channel.id) || savedNames.has(channel.name.trim().toLocaleLowerCase('pt-BR'))));
+      } else {
+        setItems(stored.filter((channel) => channel.category === 'live'));
+      }
     }).finally(() => {
       if (active) setLoading(false);
     });
     setHasMore(false);
     return () => { active = false; };
-  }, [activeGroup, favorites]);
+  }, [activeGroup, favorites, officialChannels]);
 
   useEffect(() => {
     if (activeGroup !== RECENT_CHANNELS) return;
@@ -153,7 +186,10 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     let active = true;
     setLoading(true);
     const timeout = window.setTimeout(() => {
-      void searchChannels(value, 120, 'live').then((result) => {
+      const request = officialChannels
+        ? Promise.resolve(officialChannels.filter((channel) => channel.name.toLocaleLowerCase('pt-BR').includes(value.toLocaleLowerCase('pt-BR'))).slice(0, 120))
+        : searchChannels(value, 120, 'live');
+      void request.then((result) => {
         if (active) setItems(result);
       }).finally(() => {
         if (active) setLoading(false);
@@ -164,7 +200,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       active = false;
       window.clearTimeout(timeout);
     };
-  }, [activeGroup, query]);
+  }, [activeGroup, officialChannels, query]);
 
   useEffect(() => {
     if (activeGroup !== SEARCH_CHANNELS) return;
@@ -184,6 +220,14 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
+      if (officialChannels) {
+        const source = channelsForGroup(officialChannels, activeGroup);
+        const result = source.slice(offset, offset + PAGE_SIZE);
+        setItems((current) => [...current, ...result]);
+        setOffset((current) => current + result.length);
+        setHasMore(offset + result.length < source.length);
+        return;
+      }
       const group = activeGroup === ALL_CHANNELS ? undefined : activeGroup;
       const result = await getChannels('live', PAGE_SIZE, offset, group);
       setItems((current) => [...current, ...result]);
@@ -195,7 +239,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [activeGroup, hasMore, offset]);
+  }, [activeGroup, hasMore, officialChannels, offset]);
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;

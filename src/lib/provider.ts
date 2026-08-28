@@ -40,6 +40,8 @@ export interface AccountStatus {
   renewalUrl?: string | null;
 }
 
+export interface LiveCategory { id: string; name: string; }
+export interface LiveChannel extends Channel { streamId: string; categoryId: string; channelNumber?: number | null; }
 export interface SeriesCategory { id: string; name: string; }
 export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
 export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
@@ -51,6 +53,7 @@ export interface MovieShow extends Channel { movieId: string; categoryId: string
 const CATALOG_CACHE_MS = 20 * 60_000;
 let seriesCatalogCache: { savedAt: number; value: { categories: SeriesCategory[]; shows: SeriesShow[] } } | null = null;
 let movieCatalogCache: { savedAt: number; value: { categories: MovieCategory[]; movies: MovieShow[] } } | null = null;
+let liveCatalogCache: { savedAt: number; value: { categories: LiveCategory[]; channels: LiveChannel[] } } | null = null;
 let homeCatalogCache: { savedAt: number; value: { movies: CatalogItem[]; series: CatalogItem[] } } | null = null;
 let homeCatalogRequest: Promise<{ movies: CatalogItem[]; series: CatalogItem[] } | null> | null = null;
 let seriesCatalogRequest: Promise<{ categories: SeriesCategory[]; shows: SeriesShow[] } | null> | null = null;
@@ -84,6 +87,19 @@ async function authenticatedAction(action: string, extra: Record<string, unknown
 export async function loadAccountStatus(): Promise<AccountStatus | null> {
   const response = await authenticatedAction('account-status');
   return response ? response.json() as Promise<AccountStatus> : null;
+}
+
+export async function loadLiveCatalog(): Promise<{ categories: LiveCategory[]; channels: LiveChannel[] } | null> {
+  if (liveCatalogCache && Date.now() - liveCatalogCache.savedAt < CATALOG_CACHE_MS) return liveCatalogCache.value;
+  const response = await authenticatedAction('live-catalog');
+  if (!response) return null;
+  const result = await response.json() as { categories?: LiveCategory[]; channels?: LiveChannel[] };
+  const value = {
+    categories: Array.isArray(result.categories) ? result.categories : [],
+    channels: Array.isArray(result.channels) ? result.channels.map((channel) => ({ ...channel, logo: safeImageUrl(channel.logo) })) : [],
+  };
+  liveCatalogCache = { savedAt: Date.now(), value };
+  return value;
 }
 
 export async function readCachedHomeCatalog(): Promise<{ value: { movies: CatalogItem[]; series: CatalogItem[] }; savedAt: number } | null> {
