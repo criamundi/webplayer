@@ -435,7 +435,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const rawHeroRating = heroInfo?.rating || heroItem?.rating;
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
-  const duration = mediaDuration(heroInfo?.duration);
+  const duration = heroItem?.contentType === 'series' ? '' : mediaDuration(heroInfo?.duration);
   const heroLanguage = heroInfo?.language?.trim().toUpperCase();
   const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
