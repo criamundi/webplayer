@@ -57,8 +57,9 @@ export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false }:
 export function MediaHeroTitle({ logo, name }: { logo?: string; name: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [logo]);
-  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{name}</h1>;
-  return <img src={logo} alt={name} decoding="async" fetchPriority="high" onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
+  const displayName = name.replace(/\s*(?:\[\s*l\s*\]|\(\s*l\s*\))\s*$/i, '').trim() || name;
+  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{displayName}</h1>;
+  return <img src={logo} alt={displayName} decoding="async" fetchPriority="high" onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
 }
 
 export function MediaSynopsis({ text }: { text: string }) {
