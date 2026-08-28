@@ -177,6 +177,7 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
   add(item?.logo, true);
 
   const [index, setIndex] = useState(0);
+  const [readySource, setReadySource] = useState('');
   const signature = candidates.map((candidate) => candidate.source).join('|');
   useEffect(() => { setIndex(0); }, [signature]);
   const candidate = candidates[index];
@@ -184,15 +185,18 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
   if (!candidate) return null;
 
   return <img
-    key={`${item?.id}:${candidate.source}`}
     src={candidate.source}
     alt=""
-    onLoad={onReady}
+    onLoad={() => {
+      setReadySource(candidate.source);
+      onReady();
+    }}
     onError={() => {
+      setReadySource('');
       if (candidates[index + 1]) setIndex((current) => current + 1);
       else onReady();
     }}
-    className={`home-hero-image home-hero-image-enter ${candidate.poster ? 'home-hero-poster-fallback' : ''}`}
+    className={`home-hero-image ${readySource === candidate.source ? 'home-hero-image-ready' : 'home-hero-image-loading'} ${candidate.poster ? 'home-hero-poster-fallback' : ''}`}
   />;
 }
 
@@ -450,11 +454,11 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
-        {heroImageLoading && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
-        <HomeHeroArtwork key={heroItem?.id || 'hero-artwork-empty'} item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
+        {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
+        <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
         <div className="home-hero-shade" />
         {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
-        <div key={heroItem?.id || 'hero-empty'} className="home-hero-content-enter relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
+        <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
