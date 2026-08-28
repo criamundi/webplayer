@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Sparkles, Star, Tv, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Star, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, loadSeriesContentInfo, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
@@ -109,6 +109,30 @@ function homeImageValue(value: unknown) {
       .replace(/^http:\/\/image\.tmdb\.org/i, 'https://image.tmdb.org')
       .replace(/\/t\/p\/(?:w\d+|original)\//, '/t/p/original/');
   return /^http:\/\//i.test(highResolutionSource) ? getPlayableStreamUrl(highResolutionSource) : highResolutionSource;
+}
+
+function preloadHeroImage(source: string) {
+  if (!source) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+    const timeout = window.setTimeout(finish, 12_000);
+    image.decoding = 'async';
+    image.onload = () => {
+      if (typeof image.decode === 'function') void image.decode().catch(() => undefined).finally(finish);
+      else finish();
+    };
+    image.onerror = finish;
+    image.src = source;
+  });
 }
 
 function mergeHeroInfo(base: ContentInfo, detail: ContentInfo | null) {
@@ -377,35 +401,34 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   useEffect(() => {
     if (heroPool.length < 2 || trailerOpen) return;
     let active = true;
-    let preloader: HTMLImageElement | null = null;
-    const timer = window.setInterval(() => {
-      if (!active || document.visibilityState !== 'visible') return;
-      const nextIndex = (heroIndexRef.current + 1) % heroPool.length;
-      const next = heroPool[nextIndex];
-      const showNext = () => {
-        if (!active) return;
-        setHeroImageLoading(true);
-        heroIndexRef.current = nextIndex;
-        setHeroIndex(nextIndex);
-      };
-      if (!next) return;
+    let transitioning = false;
+    const prepare = async (index: number) => {
+      const item = heroPool[index];
+      if (!item) return null;
+      const info = await loadCompleteHeroInfo(item);
+      const backdrop = homeImageValue(info.backdrop || item.backdrop || info.cover || item.logo);
+      const titleLogo = homeImageValue(info.titleLogo);
+      await Promise.all([preloadHeroImage(backdrop), preloadHeroImage(titleLogo)]);
+      return { index, info };
+    };
 
-      void loadCompleteHeroInfo(next).then((nextInfo) => {
-        if (!active) return;
-        const imageSource = homeImageValue(nextInfo.backdrop || next.backdrop || nextInfo.cover || next.logo);
-        if (!imageSource) { showNext(); return; }
-        if (preloader) { preloader.onload = null; preloader.onerror = null; }
-        preloader = new Image();
-        preloader.decoding = 'async';
-        preloader.onload = showNext;
-        preloader.onerror = showNext;
-        preloader.src = imageSource;
-      });
+    let prepared = prepare((heroIndexRef.current + 1) % heroPool.length);
+    const timer = window.setInterval(() => {
+      if (!active || transitioning || document.visibilityState !== 'visible') return;
+      transitioning = true;
+      void prepared.then((next) => {
+        if (!active || !next) return;
+        heroInfoRequestRef.current += 1;
+        setHeroInfo(next.info);
+        setHeroImageLoading(true);
+        heroIndexRef.current = next.index;
+        setHeroIndex(next.index);
+        prepared = prepare((next.index + 1) % heroPool.length);
+      }).finally(() => { transitioning = false; });
     }, 60_000);
     return () => {
       active = false;
       window.clearInterval(timer);
-      if (preloader) { preloader.onload = null; preloader.onerror = null; }
     };
   }, [heroPool, trailerOpen, loadCompleteHeroInfo]);
 
@@ -432,7 +455,6 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         <div className="home-hero-shade" />
         {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
         <div key={heroItem?.id || 'hero-empty'} className="home-hero-content-enter relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
-          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> {heroItem?.contentType === 'series' ? 'Série recentemente adicionada' : 'Filme recentemente adicionado'}</span>
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
