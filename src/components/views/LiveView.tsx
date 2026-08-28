@@ -32,6 +32,53 @@ const groupLabel = (group: string) => {
   return cleanGroupName(group);
 };
 const channelsForGroup = (channels: LiveChannel[], group: string) => group === ALL_CHANNELS ? channels : channels.filter((channel) => channel.group === group);
+const normalizeChannelText = (value = '') => value.trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
+
+function streamIdFromUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.searchParams.get('stream_id') || url.pathname.match(/\/(\d+)(?:\.[a-z0-9]+)?\/?$/i)?.[1] || '';
+  } catch {
+    return value.match(/\/(\d+)(?:\.[a-z0-9]+)?(?:\?.*)?$/i)?.[1] || '';
+  }
+}
+
+function mergeOfficialChannels(official: LiveChannel[], stored: Channel[]): LiveChannel[] {
+  const byStreamId = new Map<string, Channel>();
+  const byNameAndGroup = new Map<string, Channel[]>();
+  const byName = new Map<string, Channel[]>();
+
+  stored.forEach((channel) => {
+    const streamId = streamIdFromUrl(channel.url);
+    if (streamId && !byStreamId.has(streamId)) byStreamId.set(streamId, channel);
+
+    const name = normalizeChannelText(channel.name);
+    const identity = `${name}\u0000${normalizeChannelText(channel.group)}`;
+    byNameAndGroup.set(identity, [...(byNameAndGroup.get(identity) || []), channel]);
+    byName.set(name, [...(byName.get(name) || []), channel]);
+  });
+
+  const used = new Set<string>();
+  const nextUnused = (matches?: Channel[]) => matches?.find((channel) => !used.has(channel.id));
+
+  return official.map((channel) => {
+    const identity = `${normalizeChannelText(channel.name)}\u0000${normalizeChannelText(channel.group)}`;
+    const byId = byStreamId.get(channel.streamId);
+    const match = (byId && !used.has(byId.id) ? byId : undefined)
+      || nextUnused(byNameAndGroup.get(identity))
+      || nextUnused(byName.get(normalizeChannelText(channel.name)));
+
+    if (!match) return channel;
+    used.add(match.id);
+    return {
+      ...channel,
+      id: match.id,
+      url: match.url,
+      logo: channel.logo || match.logo,
+      tvgId: channel.tvgId || match.tvgId,
+    };
+  });
+}
 
 function moveFocus(event: KeyboardEvent<HTMLElement>, container: HTMLElement | null, selector: string, direction: -1 | 1) {
   if (!container) return;
@@ -99,7 +146,9 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     void loadLiveCatalog().then(async (catalog) => {
       if (!active) return;
       if (catalog?.channels.length) {
-        setOfficialChannels(catalog.channels);
+        const storedChannels = await getChannels('live', 1_000_000, 0);
+        if (!active) return;
+        setOfficialChannels(mergeOfficialChannels(catalog.channels, storedChannels));
         setOrderedGroups(catalog.categories.map((category) => category.name));
         return;
       }
