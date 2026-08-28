@@ -483,14 +483,13 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-32 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
-            { id: 'live' as View, label: 'Canais ao Vivo', eyebrow: 'AO VIVO', description: 'Assista à programação agora', icon: Radio },
-            { id: 'movies' as View, label: 'Filmes', eyebrow: 'CATÁLOGO', description: 'Explore todos os filmes', icon: Film },
-            { id: 'series' as View, label: 'Séries', eyebrow: 'EPISÓDIOS', description: 'Encontre sua próxima série', icon: Tv },
-          ].map(({ id, label, eyebrow, description, icon: Icon }) => (
+            { id: 'live' as View, label: 'Canais ao Vivo', description: 'Assista à programação agora', icon: Radio },
+            { id: 'movies' as View, label: 'Filmes', description: 'Explore todos os filmes', icon: Film },
+            { id: 'series' as View, label: 'Séries', description: 'Encontre sua próxima série', icon: Tv },
+          ].map(({ id, label, description, icon: Icon }) => (
             <button key={id} type="button" onClick={() => onNavigate(id)} className="home-shortcut group" aria-label={`${label}: ${description}`}>
               <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
               <span className="relative z-10 min-w-0 flex-1">
-                <span className="home-shortcut-eyebrow">{eyebrow}</span>
                 <strong className="home-shortcut-title">{label}</strong>
                 <span className="home-shortcut-description">{description}</span>
               </span>
