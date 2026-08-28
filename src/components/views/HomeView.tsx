@@ -482,8 +482,20 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-32 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[{ id: 'live' as View, label: 'Canais ao Vivo', icon: Radio }, { id: 'movies' as View, label: 'Filmes', icon: Film }, { id: 'series' as View, label: 'Séries', icon: Tv }].map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => onNavigate(id)} className="home-shortcut group"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-400 transition group-hover:bg-emerald-400 group-hover:text-slate-950"><Icon className="h-5 w-5" /></span><span className="font-medium text-white/85">{label}</span><ChevronRight className="ml-auto h-4 w-4 text-white/20 transition group-hover:translate-x-1 group-hover:text-emerald-400" /></button>
+          {[
+            { id: 'live' as View, label: 'Canais ao Vivo', eyebrow: 'AO VIVO', description: 'Assista à programação agora', icon: Radio },
+            { id: 'movies' as View, label: 'Filmes', eyebrow: 'CATÁLOGO', description: 'Explore todos os filmes', icon: Film },
+            { id: 'series' as View, label: 'Séries', eyebrow: 'EPISÓDIOS', description: 'Encontre sua próxima série', icon: Tv },
+          ].map(({ id, label, eyebrow, description, icon: Icon }) => (
+            <button key={id} type="button" onClick={() => onNavigate(id)} className="home-shortcut group" aria-label={`${label}: ${description}`}>
+              <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
+              <span className="relative z-10 min-w-0 flex-1">
+                <span className="home-shortcut-eyebrow">{eyebrow}</span>
+                <strong className="home-shortcut-title">{label}</strong>
+                <span className="home-shortcut-description">{description}</span>
+              </span>
+              <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
+            </button>
           ))}
         </div>
         <div className="space-y-12 pb-16 pt-10">
