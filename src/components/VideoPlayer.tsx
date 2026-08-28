@@ -17,6 +17,9 @@ import {
   Pause,
   Play,
   RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Settings2,
   Tv,
   Volume2,
   VolumeX,
@@ -41,6 +44,14 @@ type PlayerStatus =
 
 const START_TIMEOUT = 25000;
 const SWITCH_DELAY = 350;
+
+function formatPlayerTime(value: number) {
+  if (!Number.isFinite(value) || value < 0) return '00:00';
+  const seconds = Math.floor(value % 60).toString().padStart(2, '0');
+  const minutes = Math.floor((value / 60) % 60).toString().padStart(2, '0');
+  const hours = Math.floor(value / 3600);
+  return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
+}
 
 export function VideoPlayer({
   channel,
@@ -87,6 +98,18 @@ export function VideoPlayer({
     useState(1);
 
   const [paused, setPaused] = useState(false);
+
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const [duration, setDuration] = useState(0);
+
+  const [buffered, setBuffered] = useState(0);
+
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  const [fitMode, setFitMode] = useState<'contain' | 'cover'>('contain');
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [
     isFullscreen,
@@ -730,6 +753,13 @@ export function VideoPlayer({
 
     setStatus('loading');
     setErrorMsg('');
+    setCurrentTime(0);
+    setDuration(0);
+    setBuffered(0);
+    setPaused(false);
+    setPlaybackRate(1);
+    setSettingsOpen(false);
+    video.playbackRate = 1;
 
     /*
      * Pequeno intervalo para
@@ -888,6 +918,36 @@ export function VideoPlayer({
       }
     }, []);
 
+  const isLive = channel?.category === 'live';
+  const canSeek = !isLive && Number.isFinite(duration) && duration > 0;
+
+  const togglePlayback = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play();
+    else video.pause();
+  }, []);
+
+  const seekTo = useCallback((value: number) => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    video.currentTime = Math.min(Math.max(value, 0), video.duration);
+    setCurrentTime(video.currentTime);
+  }, []);
+
+  const seekBy = useCallback((seconds: number) => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    seekTo(video.currentTime + seconds);
+  }, [seekTo]);
+
+  const changePlaybackRate = useCallback((rate: number) => {
+    const video = videoRef.current;
+    if (video) video.playbackRate = rate;
+    setPlaybackRate(rate);
+    setSettingsOpen(false);
+  }, []);
+
   /*
   |--------------------------------------------------------------------------
   | CONTROLES
@@ -913,10 +973,31 @@ export function VideoPlayer({
             setShowControls(
               false,
             );
+            setSettingsOpen(false);
           },
-          3000,
+          4000,
         );
     }, []);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON') return;
+    if (event.key === ' ' || event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      togglePlayback();
+    } else if (event.key === 'ArrowLeft' && canSeek) {
+      event.preventDefault();
+      seekBy(-10);
+    } else if (event.key === 'ArrowRight' && canSeek) {
+      event.preventDefault();
+      seekBy(10);
+    } else if (event.key.toLowerCase() === 'm') {
+      setMuted((value) => !value);
+    } else if (event.key.toLowerCase() === 'f') {
+      toggleFullscreen();
+    }
+    handleMouseMove();
+  }, [canSeek, handleMouseMove, seekBy, toggleFullscreen, togglePlayback]);
 
   useEffect(() => {
     if (!immersive) {
@@ -1051,6 +1132,15 @@ export function VideoPlayer({
       onPointerMove={handleMouseMove}
       onTouchStart={handleMouseMove}
       onMouseLeave={() => setShowControls(!immersive)}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target === event.currentTarget || target.tagName === 'VIDEO') event.currentTarget.focus();
+      }}
+      onDoubleClick={(event) => {
+        if ((event.target as HTMLElement).tagName === 'VIDEO') toggleFullscreen();
+      }}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
       className={`relative h-full w-full overflow-hidden bg-black ${immersive ? 'rounded-none' : 'rounded-2xl'} ${immersive && !showControls ? 'cursor-none' : ''}`}
     >
       {immersive && onClose && <button type="button" onClick={onClose} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
@@ -1061,6 +1151,18 @@ export function VideoPlayer({
         preload="none"
         onPlay={() => setPaused(false)}
         onPause={() => setPaused(true)}
+        onDurationChange={(event) => {
+          const value = event.currentTarget.duration;
+          setDuration(Number.isFinite(value) && value > 0 ? value : 0);
+        }}
+        onProgress={(event) => {
+          const video = event.currentTarget;
+          if (!Number.isFinite(video.duration) || video.duration <= 0 || video.buffered.length === 0) {
+            setBuffered(0);
+            return;
+          }
+          setBuffered(Math.min(100, (video.buffered.end(video.buffered.length - 1) / video.duration) * 100));
+        }}
         onError={(event) => {
           if (status === 'error') return;
           const code = event.currentTarget.error?.code;
@@ -1068,19 +1170,24 @@ export function VideoPlayer({
           fail(generationRef.current, message);
         }}
         onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          setDuration(Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0);
           const saved = storage.getWatchProgress()[channel?.id || ''];
-          if (saved && Number.isFinite(event.currentTarget.duration) && saved.current < event.currentTarget.duration - 15) event.currentTarget.currentTime = saved.current;
+          if (saved && Number.isFinite(video.duration) && saved.current < video.duration - 15) video.currentTime = saved.current;
+          setCurrentTime(video.currentTime || 0);
         }}
         onTimeUpdate={(event) => {
           if (!channel) return;
           const video = event.currentTarget;
+          setCurrentTime(video.currentTime || 0);
+          if (Number.isFinite(video.duration) && video.duration > 0) setDuration(video.duration);
           const second = Math.floor(video.currentTime);
           if (Number.isFinite(video.duration) && video.duration > 0 && second % 5 === 0 && second !== lastProgressSecondRef.current) {
             lastProgressSecondRef.current = second;
             storage.saveWatchProgress(channel.id, video.currentTime, video.duration);
           }
         }}
-        className="h-full w-full object-contain"
+        className={`h-full w-full ${fitMode === 'cover' ? 'object-cover' : 'object-contain'}`}
       />
 
       {!channel && (
@@ -1141,26 +1248,41 @@ export function VideoPlayer({
         status !==
           'error' && (
           <div
-            className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity ${
+            className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/75 to-transparent px-4 pb-4 pt-16 transition-all duration-300 sm:px-6 sm:pb-5 ${
               showControls
-                ? 'opacity-100'
-                : 'pointer-events-none opacity-0'
+                ? 'translate-y-0 opacity-100'
+                : 'pointer-events-none translate-y-3 opacity-0'
             }`}
           >
-            <div className="flex items-center gap-2 rounded-xl bg-black/45 p-1.5 text-white backdrop-blur-md">
+            {canSeek ? <div className="group/progress relative mb-3 flex h-5 items-center">
+              <div className="pointer-events-none absolute inset-x-0 h-1 rounded-full bg-white/20 transition-all group-hover/progress:h-1.5">
+                <span className="absolute inset-y-0 left-0 rounded-full bg-white/25" style={{ width: `${buffered}%` }} />
+                <span className="absolute inset-y-0 left-0 rounded-full bg-emerald-400" style={{ width: `${Math.min(100, (currentTime / duration) * 100)}%` }} />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={duration}
+                step={0.1}
+                value={Math.min(currentTime, duration)}
+                onChange={(event) => seekTo(Number(event.target.value))}
+                className="player-progress-range relative z-10 h-5 w-full cursor-pointer appearance-none bg-transparent"
+                aria-label="Progresso do vídeo"
+              />
+            </div> : null}
+
+            <div className="relative flex items-center gap-1.5 text-white sm:gap-2">
 
               <button
                 type="button"
-                onClick={() => {
-                  const video = videoRef.current;
-                  if (!video) return;
-                  if (video.paused) void video.play(); else video.pause();
-                }}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 transition hover:bg-white/20"
+                onClick={togglePlayback}
+                className="player-control-primary"
                 aria-label={paused ? 'Reproduzir' : 'Pausar'}
               >
-                {paused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
+                {paused ? <Play className="h-5 w-5 fill-current" /> : <Pause className="h-5 w-5 fill-current" />}
               </button>
+
+              {canSeek && <><button type="button" onClick={() => seekBy(-10)} className="player-control-button hidden sm:flex" aria-label="Voltar 10 segundos"><RotateCcw className="h-5 w-5" /><span className="absolute mt-0.5 text-[8px] font-bold">10</span></button><button type="button" onClick={() => seekBy(10)} className="player-control-button hidden sm:flex" aria-label="Avançar 10 segundos"><RotateCw className="h-5 w-5" /><span className="absolute mt-0.5 text-[8px] font-bold">10</span></button></>}
 
               <button
                 type="button"
@@ -1172,7 +1294,8 @@ export function VideoPlayer({
                       !value,
                   )
                 }
-                className="rounded-lg p-2 hover:bg-white/10"
+                className="player-control-button"
+                aria-label={muted ? 'Ativar som' : 'Silenciar'}
               >
                 {muted ? (
                   <VolumeX className="h-5 w-5" />
@@ -1204,11 +1327,22 @@ export function VideoPlayer({
                     value === 0,
                   );
                 }}
-                className="w-24 accent-white"
+                className="hidden w-20 accent-emerald-400 sm:block lg:w-24"
               />
 
-              <div className="min-w-0 flex-1 truncate px-2 text-sm font-medium">
-                {channel.name}
+              <div className="min-w-0 flex-1 px-1 sm:px-2">
+                <div className="truncate text-xs font-semibold sm:text-sm">{channel.name}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-[10px] text-white/55 sm:text-xs">
+                  {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
+                </div>
+              </div>
+
+              <div className="relative">
+                <button type="button" onClick={() => setSettingsOpen((value) => !value)} className={`player-control-button ${settingsOpen ? 'bg-white/15 text-emerald-300' : ''}`} aria-label="Configurações do player"><Settings2 className="h-5 w-5" /></button>
+                {settingsOpen && <div className="absolute bottom-12 right-0 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#10171d]/95 p-2 text-sm shadow-2xl backdrop-blur-xl">
+                  {canSeek && <div className="border-b border-white/8 px-2 pb-2"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Velocidade</p><div className="grid grid-cols-3 gap-1">{[0.75, 1, 1.25, 1.5, 2].map((rate) => <button key={rate} type="button" onClick={() => changePlaybackRate(rate)} className={`rounded-lg px-2 py-1.5 text-xs transition ${playbackRate === rate ? 'bg-emerald-400 text-slate-950' : 'bg-white/5 text-white/65 hover:bg-white/10'}`}>{rate === 1 ? 'Normal' : `${rate}x`}</button>)}</div></div>}
+                  <div className="px-2 pt-2"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Imagem</p><div className="grid grid-cols-2 gap-1"><button type="button" onClick={() => setFitMode('contain')} className={`rounded-lg px-2 py-2 text-xs transition ${fitMode === 'contain' ? 'bg-emerald-400 text-slate-950' : 'bg-white/5 text-white/65 hover:bg-white/10'}`}>Ajustar</button><button type="button" onClick={() => setFitMode('cover')} className={`rounded-lg px-2 py-2 text-xs transition ${fitMode === 'cover' ? 'bg-emerald-400 text-slate-950' : 'bg-white/5 text-white/65 hover:bg-white/10'}`}>Preencher</button></div></div>
+                </div>}
               </div>
 
               <button
@@ -1216,7 +1350,8 @@ export function VideoPlayer({
                 onClick={
                   toggleFullscreen
                 }
-                className="rounded-lg p-2 hover:bg-white/10"
+                className="player-control-button"
+                aria-label={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
               >
                 {isFullscreen ? (
                   <Minimize className="h-5 w-5" />
