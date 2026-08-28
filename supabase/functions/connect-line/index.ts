@@ -291,7 +291,7 @@ Deno.serve(
           : "";
 
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -612,6 +612,68 @@ Deno.serve(
           return json({ error: "Não foi possível carregar os canais ao vivo." }, 502);
         } finally {
           clearTimeout(liveTimeout);
+        }
+      }
+
+      if (action === "live-epg") {
+        if (!streamId) return json({ error: "Canal inválido." }, 400);
+        const epgUrl = new URL(serverUrl.toString());
+        const basePath = epgUrl.pathname.toLowerCase().endsWith(".php") ? epgUrl.pathname.slice(0, epgUrl.pathname.lastIndexOf("/")) : epgUrl.pathname.replace(/\/$/, "");
+        epgUrl.pathname = `${basePath}/player_api.php`;
+        epgUrl.search = new URLSearchParams({ username, password, action: "get_short_epg", stream_id: streamId, limit: "4" }).toString();
+
+        const epgController = new AbortController();
+        const epgTimeout = setTimeout(() => epgController.abort(), 12000);
+        try {
+          const response = await fetch(epgUrl, {
+            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+            signal: epgController.signal,
+          });
+          if (!response.ok) return json({ current: null, next: null });
+          const payload = await response.json();
+          const listings = Array.isArray(payload?.epg_listings) ? payload.epg_listings : [];
+          const decodeText = (value: unknown) => {
+            const raw = String(value ?? "").trim();
+            if (!raw || raw.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
+            try {
+              const bytes = Uint8Array.from(atob(raw), (character) => character.charCodeAt(0));
+              const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
+              const hasControlCharacter = Array.from(decoded).some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 && code !== 9 && code !== 10 && code !== 13;
+              });
+              return decoded && !hasControlCharacter ? decoded : raw;
+            } catch {
+              return raw;
+            }
+          };
+          const toIso = (timestamp: unknown, date: unknown) => {
+            const seconds = Number(timestamp ?? 0);
+            if (Number.isFinite(seconds) && seconds > 0) return new Date(seconds * 1000).toISOString();
+            const parsed = Date.parse(String(date ?? ""));
+            return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+          };
+          const programs = listings.map((item: Record<string, unknown>) => ({
+            title: decodeText(item.title),
+            description: decodeText(item.description),
+            start: toIso(item.start_timestamp, item.start),
+            end: toIso(item.stop_timestamp, item.end),
+          })).filter((item: { title: string }) => item.title);
+          const now = Date.now();
+          const currentIndex = programs.findIndex((item: { start: string; end: string }) => {
+            const start = Date.parse(item.start);
+            const end = Date.parse(item.end);
+            return Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end;
+          });
+          const selectedIndex = currentIndex >= 0 ? currentIndex : 0;
+          return json({
+            current: programs[selectedIndex] ?? null,
+            next: programs[selectedIndex + 1] ?? null,
+          });
+        } catch {
+          return json({ current: null, next: null });
+        } finally {
+          clearTimeout(epgTimeout);
         }
       }
 
