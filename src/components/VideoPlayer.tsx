@@ -34,6 +34,10 @@ interface VideoPlayerProps {
   startMuted?: boolean;
   immersive?: boolean;
   onClose?: () => void;
+  liveProgram?: {
+    title: string;
+    schedule?: string;
+  } | null;
 }
 
 type PlayerStatus =
@@ -58,6 +62,7 @@ export function VideoPlayer({
   startMuted = false,
   immersive = false,
   onClose,
+  liveProgram = null,
 }: VideoPlayerProps) {
   const videoRef =
     useRef<HTMLVideoElement>(null);
@@ -918,6 +923,18 @@ export function VideoPlayer({
       }
     }, []);
 
+  const handleBack = useCallback(() => {
+    if (immersive) {
+      onClose?.();
+      return;
+    }
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => undefined);
+      return;
+    }
+    onClose?.();
+  }, [immersive, onClose]);
+
   const isLive = channel?.category === 'live';
   const canSeek = !isLive && Number.isFinite(duration) && duration > 0;
 
@@ -982,7 +999,10 @@ export function VideoPlayer({
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON') return;
-    if (event.key === ' ' || event.key.toLowerCase() === 'k') {
+    if (event.key === 'Backspace' || event.key === 'BrowserBack' || event.key === 'GoBack' || event.keyCode === 10009) {
+      event.preventDefault();
+      handleBack();
+    } else if (event.key === ' ' || event.key.toLowerCase() === 'k') {
       event.preventDefault();
       togglePlayback();
     } else if (event.key === 'ArrowLeft' && canSeek) {
@@ -997,7 +1017,7 @@ export function VideoPlayer({
       toggleFullscreen();
     }
     handleMouseMove();
-  }, [canSeek, handleMouseMove, seekBy, toggleFullscreen, togglePlayback]);
+  }, [canSeek, handleBack, handleMouseMove, seekBy, toggleFullscreen, togglePlayback]);
 
   useEffect(() => {
     if (!immersive) {
@@ -1137,13 +1157,14 @@ export function VideoPlayer({
         if (target === event.currentTarget || target.tagName === 'VIDEO') event.currentTarget.focus();
       }}
       onDoubleClick={(event) => {
-        if ((event.target as HTMLElement).tagName === 'VIDEO') toggleFullscreen();
+        const target = event.target as HTMLElement;
+        if (!target.closest('button, input, select')) toggleFullscreen();
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       className={`relative h-full w-full overflow-hidden bg-black ${immersive ? 'rounded-none' : 'rounded-2xl'} ${immersive && !showControls ? 'cursor-none' : ''}`}
     >
-      {immersive && onClose && <button type="button" onClick={onClose} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
+      {(immersive || (isLive && isFullscreen)) && onClose && <button type="button" onClick={handleBack} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
       <video
         ref={videoRef}
         playsInline
@@ -1333,7 +1354,7 @@ export function VideoPlayer({
               <div className="min-w-0 flex-1 px-1 sm:px-2">
                 <div className="truncate text-xs font-semibold sm:text-sm">{channel.name}</div>
                 <div className="mt-0.5 flex items-center gap-2 text-[10px] text-white/55 sm:text-xs">
-                  {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
+                  {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : liveProgram ? <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 font-semibold uppercase tracking-wider text-emerald-300">Agora</span><span className="truncate text-white/75">{liveProgram.title}</span>{liveProgram.schedule && <span className="hidden shrink-0 text-white/35 md:inline">{liveProgram.schedule}</span>}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
                 </div>
               </div>
 
