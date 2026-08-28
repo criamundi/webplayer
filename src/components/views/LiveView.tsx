@@ -473,6 +473,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
                 channel={liveActive}
                 onClose={onBack}
                 liveProgram={liveEpg?.current ? { title: liveEpg.current.title, schedule: programSchedule(liveEpg.current) } : null}
+                liveNextProgram={liveEpg?.next ? { title: liveEpg.next.title, schedule: programSchedule(liveEpg.next) } : null}
               />
               : <div className="live-player-empty"><span><Radio className="h-9 w-9" /></span><strong>Pronto para assistir</strong><p>Escolha um canal na lista para iniciar a transmissão.</p></div>}
           </div>
