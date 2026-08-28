@@ -8,7 +8,7 @@ import { searchChannels } from '@/lib/playlistStore';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
 import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
-import { mediaImageValue, mediaText } from '@/components/media/mediaUtils';
+import { mediaDuration, mediaImageValue, mediaText } from '@/components/media/mediaUtils';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface HomeViewProps {
@@ -435,7 +435,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const rawHeroRating = heroInfo?.rating || heroItem?.rating;
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
-  const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
+  const duration = mediaDuration(heroInfo?.duration);
   const heroLanguage = heroInfo?.language?.trim().toUpperCase();
   const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
