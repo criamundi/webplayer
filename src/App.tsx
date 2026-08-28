@@ -1902,7 +1902,7 @@ export default function App() {
 
         <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
 
-          {!['home', 'movies', 'series'].includes(view) && <TopBar
+          {!['home', 'movies', 'series', 'live'].includes(view) && <TopBar
             query={
               query
             }
@@ -1963,6 +1963,11 @@ export default function App() {
               }
               recents={
                 recents
+              }
+              onMenuOpen={() =>
+                setSidebarOpen(
+                  true,
+                )
               }
               onSelectChannel={
                 handleSelectChannel

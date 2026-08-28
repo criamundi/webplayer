@@ -277,6 +277,6 @@ export function parseM3U(content: string): ParsedPlaylist {
 
   return {
     channels,
-    groups: Array.from(groupSet).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    groups: Array.from(groupSet),
   };
 }
