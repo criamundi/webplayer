@@ -573,6 +573,7 @@ Deno.serve(
             name: String(item.category_name ?? "Sem categoria"),
           })).filter((item: { id: string }) => item.id);
           const categoryNames = new Map(categories.map((item: { id: string; name: string }) => [item.id, item.name]));
+          const categoryOrder = new Map(categories.map((item: { id: string }, index: number) => [item.id, index]));
           const root = new URL(serverUrl.toString());
           const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
           const streams = (Array.isArray(streamsRaw) ? streamsRaw : [])
@@ -596,10 +597,10 @@ Deno.serve(
               };
             })
             .filter((item: { streamId: string }) => item.streamId)
-            .sort((a: { channelNumber: number | null; sourceIndex: number }, b: { channelNumber: number | null; sourceIndex: number }) => {
-              const aOrder = a.channelNumber ?? Number.MAX_SAFE_INTEGER;
-              const bOrder = b.channelNumber ?? Number.MAX_SAFE_INTEGER;
-              return aOrder - bOrder || a.sourceIndex - b.sourceIndex;
+            .sort((a: { categoryId: string; sourceIndex: number }, b: { categoryId: string; sourceIndex: number }) => {
+              const aCategory = categoryOrder.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER;
+              const bCategory = categoryOrder.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER;
+              return aCategory - bCategory || a.sourceIndex - b.sourceIndex;
             })
             .map((item: { sourceIndex: number; [key: string]: unknown }) => {
               const result: Record<string, unknown> = { ...item };
