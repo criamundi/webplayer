@@ -14,7 +14,12 @@ command -v nginx >/dev/null || { echo "Nginx não instalado." >&2; exit 1; }
 install -d -o root -g root -m 0755 /opt/nexus-stream-proxy
 install -o root -g root -m 0644 "$SCRIPT_DIR/server.mjs" /opt/nexus-stream-proxy/server.mjs
 install -o root -g root -m 0644 "$SCRIPT_DIR/nexus-stream-proxy.service" /etc/systemd/system/nexus-stream-proxy.service
-install -o root -g root -m 0644 "$SCRIPT_DIR/nginx.conf" /etc/nginx/sites-available/nexus-stream-proxy
+NGINX_SITE=/etc/nginx/sites-available/nexus-stream-proxy
+if [[ -f "$NGINX_SITE" ]] && grep -qE 'listen[[:space:]]+443.*ssl' "$NGINX_SITE"; then
+  echo "Configuração HTTPS existente preservada."
+else
+  install -o root -g root -m 0644 "$SCRIPT_DIR/nginx.conf" "$NGINX_SITE"
+fi
 ln -sfn /etc/nginx/sites-available/nexus-stream-proxy /etc/nginx/sites-enabled/nexus-stream-proxy
 rm -f /etc/nginx/sites-enabled/default
 
