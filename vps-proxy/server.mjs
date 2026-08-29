@@ -11,6 +11,8 @@ const CONNECT_TIMEOUT_MS = Number(process.env.CONNECT_TIMEOUT_MS || 20000);
 const MAX_MANIFEST_BYTES = Number(process.env.MAX_MANIFEST_BYTES || 5 * 1024 * 1024);
 const SIGNED_URL_MAX_FUTURE_SECONDS = Number(process.env.SIGNED_URL_MAX_FUTURE_SECONDS || 86400);
 const HLS_SIGNED_URL_TTL_SECONDS = Number(process.env.HLS_SIGNED_URL_TTL_SECONDS || 43200);
+const LIVE_SWITCH_COOLDOWN_MS = Number(process.env.LIVE_SWITCH_COOLDOWN_MS || 1200);
+const activeLiveStreams = new Map();
 const allowedOrigins = new Set(
   (process.env.ALLOWED_ORIGINS || '*')
     .split(',')
@@ -69,6 +71,23 @@ function createSignedProxyUrl(proxyBase, rawTarget, ttlSeconds = HLS_SIGNED_URL_
   signedUrl.searchParams.set('expires', expires);
   signedUrl.searchParams.set('signature', signature);
   return signedUrl.toString();
+}
+
+function liveLineKey(target) {
+  const parts = target.pathname.split('/').filter(Boolean);
+  const liveIndex = parts.findIndex((part) => part.toLowerCase() === 'live');
+  if (liveIndex < 0 || !parts[liveIndex + 1] || !parts[liveIndex + 2] || !parts[liveIndex + 3]) {
+    return null;
+  }
+
+  return crypto
+    .createHmac('sha256', PROXY_TOKEN)
+    .update(`${target.origin}\n${parts[liveIndex + 1]}\n${parts[liveIndex + 2]}`)
+    .digest('hex');
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function setCors(req, res) {
@@ -254,7 +273,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   const rawTarget = requestUrl.searchParams.get('url') || '';
+  const authorization = String(req.headers.authorization || '');
+  const bearerToken = authorization.replace(/^Bearer\s+/i, '');
   const authorized =
+    safeTokenEquals(bearerToken) ||
     safeTokenEquals(requestUrl.searchParams.get('token')) ||
     signedRequestAllowed(requestUrl, rawTarget);
   if (!authorized) {
@@ -271,10 +293,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const rawPassthrough = requestUrl.searchParams.get('raw') === '1';
+
   const abortController = new AbortController();
+  const lineKey = req.method === 'GET' && !rawPassthrough ? liveLineKey(target) : null;
+  const previousStream = lineKey ? activeLiveStreams.get(lineKey) : null;
+  if (previousStream && previousStream !== abortController) {
+    previousStream.abort();
+  }
+  if (lineKey) {
+    activeLiveStreams.set(lineKey, abortController);
+  }
+
+  const releaseLiveStream = () => {
+    if (lineKey && activeLiveStreams.get(lineKey) === abortController) {
+      activeLiveStreams.delete(lineKey);
+    }
+  };
+
   req.once('aborted', () => abortController.abort());
   res.once('close', () => {
     if (!res.writableEnded) abortController.abort();
+    releaseLiveStream();
   });
 
   const liveTransport = /\.ts(?:$|\?)/i.test(target.href) || /\/live\//i.test(target.pathname);
@@ -289,6 +329,13 @@ const server = http.createServer(async (req, res) => {
   if (liveTransport) headers['Icy-MetaData'] = '1';
 
   try {
+    if (previousStream && LIVE_SWITCH_COOLDOWN_MS > 0) {
+      await wait(LIVE_SWITCH_COOLDOWN_MS);
+      if (lineKey && activeLiveStreams.get(lineKey) !== abortController) {
+        abortController.abort();
+      }
+    }
+
     const { response: upstream, target: finalTarget } = await openUpstream(
       target,
       req.method,
@@ -305,7 +352,7 @@ const server = http.createServer(async (req, res) => {
 
     const contentType = String(upstream.headers['content-type'] || '');
     const isHls = /(?:application|audio)\/(?:vnd\.apple\.mpegurl|x-mpegurl)/i.test(contentType) || /\.m3u8(?:$|\?)/i.test(finalTarget.href);
-    if (isHls) {
+    if (isHls && !rawPassthrough) {
       const manifest = await readLimitedText(upstream);
       const forwardedProto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
       const proxyBase = `${forwardedProto}://${req.headers.host}/stream`;
@@ -341,6 +388,10 @@ const server = http.createServer(async (req, res) => {
     } else {
       res.destroy(error);
     }
+  } finally {
+    if (res.writableEnded || abortController.signal.aborted) {
+      releaseLiveStream();
+    }
   }
 });
 
@@ -350,4 +401,3 @@ server.keepAliveTimeout = 5000;
 server.listen(PORT, HOST, () => {
   console.log(`nexus-stream-proxy ativo em http://${HOST}:${PORT}`);
 });
-

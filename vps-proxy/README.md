@@ -24,4 +24,9 @@ O endpoint também aceita URLs temporárias assinadas com HMAC-SHA256. A Edge
 Function usa o mesmo `PROXY_TOKEN` para gerar a assinatura, sem enviar o token
 ao navegador.
 
+Chamadas internas podem usar `raw=1` para receber playlists e respostas JSON
+sem reescrita HLS. Para streams ao vivo da mesma linha, uma nova troca encerra
+a conexão anterior e respeita um pequeno intervalo configurável por
+`LIVE_SWITCH_COOLDOWN_MS`.
+
 Antes de produção, configure `ALLOWED_ORIGINS` com os domínios do frontend e habilite HTTPS no Nginx.

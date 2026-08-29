@@ -34,6 +34,7 @@ if [[ ! -f /etc/nexus-stream-proxy.env ]]; then
     echo "CONNECT_TIMEOUT_MS=20000"
     echo "SIGNED_URL_MAX_FUTURE_SECONDS=86400"
     echo "HLS_SIGNED_URL_TTL_SECONDS=43200"
+    echo "LIVE_SWITCH_COOLDOWN_MS=1200"
   } > /etc/nexus-stream-proxy.env
 fi
 
@@ -47,4 +48,3 @@ sleep 1
 curl --fail --silent http://127.0.0.1:3000/health
 echo
 echo "Instalação concluída. O token está protegido em /etc/nexus-stream-proxy.env."
-
