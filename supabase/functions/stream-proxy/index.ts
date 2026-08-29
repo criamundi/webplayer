@@ -8,6 +8,26 @@ const corsHeaders: Record<string, string> = {
     "Content-Length, Content-Range, Accept-Ranges, Content-Type",
 };
 
+const textEncoder = new TextEncoder();
+
+async function signTarget(secret: string, target: string, expires: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    textEncoder.encode(`${expires}\n${target}`),
+  );
+  return Array.from(new Uint8Array(signature))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 Deno.serve(async (req: Request) => {
   // CORS
   if (req.method === "OPTIONS") {
@@ -73,6 +93,54 @@ Deno.serve(async (req: Request) => {
         headers: corsHeaders,
       },
     );
+  }
+
+  /*
+   * Quando a VPS está configurada, a Edge Function gera uma assinatura curta
+   * e redireciona o navegador. O segredo nunca sai do Supabase.
+   */
+  const vpsProxyUrl = Deno.env.get("VPS_STREAM_PROXY_URL")?.trim();
+  const vpsProxyToken = Deno.env.get("VPS_STREAM_PROXY_TOKEN")?.trim();
+
+  if (vpsProxyUrl && vpsProxyToken) {
+    try {
+      const redirectUrl = new URL(vpsProxyUrl);
+      if (redirectUrl.protocol !== "https:") {
+        throw new Error("VPS_STREAM_PROXY_URL precisa usar HTTPS.");
+      }
+      const expires = String(Math.floor(Date.now() / 1000) + 90);
+      const signature = await signTarget(vpsProxyToken, target.toString(), expires);
+      redirectUrl.searchParams.set("url", target.toString());
+      redirectUrl.searchParams.set("expires", expires);
+      redirectUrl.searchParams.set("signature", signature);
+
+      if (requestUrl.searchParams.get("resolve") === "1") {
+        return new Response(
+          JSON.stringify({ url: redirectUrl.toString() }),
+          {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json; charset=utf-8",
+              "Cache-Control": "no-store",
+              "Referrer-Policy": "no-referrer",
+            },
+          },
+        );
+      }
+
+      const redirectHeaders = new Headers(corsHeaders);
+      redirectHeaders.set("Location", redirectUrl.toString());
+      redirectHeaders.set("Cache-Control", "no-store");
+      redirectHeaders.set("Referrer-Policy", "no-referrer");
+
+      return new Response(null, {
+        status: 307,
+        headers: redirectHeaders,
+      });
+    } catch (error) {
+      console.error("VPS PROXY CONFIG ERROR:", error);
+    }
   }
 
   try {
