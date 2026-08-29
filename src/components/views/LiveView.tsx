@@ -23,6 +23,7 @@ const ALL_CHANNELS = '__all_live_channels__';
 const SEARCH_CHANNELS = '__search_live_channels__';
 const FAVORITE_CHANNELS = '__favorite_live_channels__';
 const RECENT_CHANNELS = '__recent_live_channels__';
+const CHANNEL_SELECTION_DELAY = 900;
 const cleanGroupName = (name: string) => name.trim() || 'Outros';
 const categoryInitial = (name: string) => name.replace(/^CANAIS\s*\|?\s*/i, '').trim().charAt(0).toUpperCase() || 'C';
 const groupLabel = (group: string) => {
@@ -145,6 +146,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const channelListRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const channelSelectionTimerRef = useRef<number | null>(null);
   const onSelectChannelRef = useRef(onSelectChannel);
   const liveActive = activeChannel?.category === 'live' && Boolean(activeChannel.url) ? activeChannel : null;
   const activeOfficialChannel = liveActive && officialChannels?.find((channel) => channel.id === liveActive.id || (
@@ -156,6 +158,23 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   useEffect(() => {
     onSelectChannelRef.current = onSelectChannel;
   }, [onSelectChannel]);
+
+  useEffect(() => () => {
+    if (channelSelectionTimerRef.current !== null) {
+      window.clearTimeout(channelSelectionTimerRef.current);
+    }
+  }, []);
+
+  const selectChannelSafely = useCallback((channel: Channel) => {
+    if (channel.id === liveActive?.id) return;
+    if (channelSelectionTimerRef.current !== null) {
+      window.clearTimeout(channelSelectionTimerRef.current);
+    }
+    channelSelectionTimerRef.current = window.setTimeout(() => {
+      channelSelectionTimerRef.current = null;
+      onSelectChannelRef.current(channel);
+    }, liveActive ? CHANNEL_SELECTION_DELAY : 0);
+  }, [liveActive?.id]);
 
   useEffect(() => {
     let active = true;
@@ -217,7 +236,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       setOffset(result.length);
       setHasMore(result.length < source.length);
       setLoading(false);
-      if (result[0]) onSelectChannelRef.current(result[0]);
       return;
     }
     const group = activeGroup === ALL_CHANNELS ? undefined : activeGroup;
@@ -226,7 +244,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       setItems(result);
       setOffset(result.length);
       setHasMore(result.length === PAGE_SIZE);
-      if (result[0]) onSelectChannelRef.current(result[0]);
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -425,7 +442,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
               <button
                 type="button"
                 data-live-channel
-                onClick={() => onSelectChannel(channel)}
+                onClick={() => selectChannelSafely(channel)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') moveFocus(event, channelListRef.current, '[data-live-channel]', 1);
                   if (event.key === 'ArrowUp') moveFocus(event, channelListRef.current, '[data-live-channel]', -1);

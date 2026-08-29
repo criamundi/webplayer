@@ -1857,6 +1857,13 @@ export default function App() {
       nextView:
         View,
     ) => {
+      if (
+        nextView !== 'live' &&
+        activeChannel?.category === 'live'
+      ) {
+        setActiveChannel(null);
+      }
+
       if (nextView === view) {
         setViewResetKey((current) => current + 1);
       }

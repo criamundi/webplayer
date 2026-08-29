@@ -211,6 +211,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [heroImageLoading, setHeroImageLoading] = useState(true);
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
   const [sportsChannel, setSportsChannel] = useState<Channel | null>(null);
+  const [sportsPlaybackEnabled, setSportsPlaybackEnabled] = useState(false);
   const [choosingSportsChannel, setChoosingSportsChannel] = useState(false);
   const [sportsChannelQuery, setSportsChannelQuery] = useState('');
   const [sportsChannelResults, setSportsChannelResults] = useState<Channel[]>([]);
@@ -306,6 +307,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   }, [choosingSportsChannel, sportsChannelQuery]);
 
   const chooseSportsChannel = (channel: Channel) => {
+    setSportsPlaybackEnabled(false);
     setSportsChannel(channel);
     storage.saveSportsChannel(channel);
     setChoosingSportsChannel(false);
@@ -467,10 +469,13 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </div>
         </div>
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
-          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex min-w-0 items-center gap-2"><Radio className="h-4 w-4 shrink-0 text-emerald-400" /><span className="truncate text-sm font-semibold text-white">{sportsChannel?.name || 'Agenda esportiva'}</span></div><div className="flex items-center gap-3"><div className="text-right"><strong className="block text-base font-semibold tabular-nums text-white">{currentTime}</strong><span className="block text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span></div><button onClick={() => setInfoPanelOpen(false)} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div></div>
+          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex min-w-0 items-center gap-2"><Radio className="h-4 w-4 shrink-0 text-emerald-400" /><span className="truncate text-sm font-semibold text-white">{sportsChannel?.name || 'Agenda esportiva'}</span></div><div className="flex items-center gap-3"><div className="text-right"><strong className="block text-base font-semibold tabular-nums text-white">{currentTime}</strong><span className="block text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span></div><button onClick={() => { setSportsPlaybackEnabled(false); setInfoPanelOpen(false); }} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div></div>
           <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-none">
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/30">
-              <div className="aspect-video">{infoPanelOpen ? <VideoPlayer channel={sportsChannel} startMuted /> : null}</div>
+              <div className="aspect-video">{infoPanelOpen && sportsPlaybackEnabled
+                ? <VideoPlayer channel={sportsChannel} startMuted />
+                : <button type="button" disabled={!sportsChannel} onClick={() => setSportsPlaybackEnabled(true)} className="flex h-full w-full flex-col items-center justify-center gap-3 bg-black text-white/65 transition hover:text-white disabled:cursor-wait disabled:opacity-50"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400 text-slate-950"><Play className="h-6 w-6 fill-current" /></span><strong className="text-sm">Reproduzir canal</strong></button>}
+              </div>
             </div>
             <div className="mt-3 rounded-2xl bg-white/[0.025] p-3">
               <div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2">{sportsChannel?.logo ? <img src={sportsChannel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg bg-black/20 object-contain p-1" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-300"><Tv className="h-4 w-4" /></span>}<span className="min-w-0"><strong className="block truncate text-xs text-white">{sportsChannel?.name || 'Procurando Agenda esportiva...'}</strong><span className="block truncate text-[10px] text-white/35">{sportsChannel?.group || 'Canal ao vivo'}</span></span></div>{canManageSportsChannel && <button onClick={() => setChoosingSportsChannel((value) => !value)} className="shrink-0 rounded-lg border border-emerald-400/20 px-3 py-2 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-400/10">{choosingSportsChannel ? 'Cancelar' : 'Trocar canal'}</button>}</div>
