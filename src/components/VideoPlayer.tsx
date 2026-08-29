@@ -331,29 +331,29 @@ export function VideoPlayer({
 
             lowLatencyMode: false,
 
-            maxBufferLength: 15,
+            maxBufferLength: 30,
 
-            maxMaxBufferLength: 25,
+            maxMaxBufferLength: 60,
 
-            backBufferLength: 5,
+            backBufferLength: 15,
 
             manifestLoadingTimeOut:
-              10000,
+              15000,
 
             levelLoadingTimeOut:
-              10000,
+              15000,
 
             fragLoadingTimeOut:
-              12000,
+              20000,
 
             /*
-             * Sem retry automático.
+             * Pequenas oscilações do provedor não devem encerrar o canal.
              */
-            manifestLoadingMaxRetry: 0,
+            manifestLoadingMaxRetry: 2,
 
-            levelLoadingMaxRetry: 0,
+            levelLoadingMaxRetry: 3,
 
-            fragLoadingMaxRetry: 0,
+            fragLoadingMaxRetry: 4,
           });
 
         hlsRef.current =
@@ -490,7 +490,10 @@ export function VideoPlayer({
                   true,
 
                 enableStashBuffer:
-                  false,
+                  true,
+
+                stashInitialSize:
+                  1024 * 1024,
 
                 lazyLoad:
                   false,
@@ -499,19 +502,19 @@ export function VideoPlayer({
                   true,
 
                 autoCleanupMaxBackwardDuration:
-                  15,
+                  60,
 
                 autoCleanupMinBackwardDuration:
-                  5,
+                  20,
 
                 liveBufferLatencyChasing:
-                  true,
+                  false,
 
                 liveBufferLatencyMaxLatency:
-                  3,
+                  10,
 
                 liveBufferLatencyMinRemain:
-                  0.5,
+                  2,
               },
             );
 
