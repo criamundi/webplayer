@@ -34,8 +34,14 @@ if [[ ! -f /etc/nexus-stream-proxy.env ]]; then
     echo "CONNECT_TIMEOUT_MS=20000"
     echo "SIGNED_URL_MAX_FUTURE_SECONDS=86400"
     echo "HLS_SIGNED_URL_TTL_SECONDS=43200"
-    echo "LIVE_SWITCH_COOLDOWN_MS=1200"
+    echo "LIVE_SWITCH_COOLDOWN_MS=5000"
   } > /etc/nexus-stream-proxy.env
+fi
+
+if grep -q '^LIVE_SWITCH_COOLDOWN_MS=' /etc/nexus-stream-proxy.env; then
+  sed -i 's/^LIVE_SWITCH_COOLDOWN_MS=.*/LIVE_SWITCH_COOLDOWN_MS=5000/' /etc/nexus-stream-proxy.env
+else
+  echo 'LIVE_SWITCH_COOLDOWN_MS=5000' >> /etc/nexus-stream-proxy.env
 fi
 
 nginx -t

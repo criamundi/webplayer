@@ -11,7 +11,7 @@ const CONNECT_TIMEOUT_MS = Number(process.env.CONNECT_TIMEOUT_MS || 20000);
 const MAX_MANIFEST_BYTES = Number(process.env.MAX_MANIFEST_BYTES || 5 * 1024 * 1024);
 const SIGNED_URL_MAX_FUTURE_SECONDS = Number(process.env.SIGNED_URL_MAX_FUTURE_SECONDS || 86400);
 const HLS_SIGNED_URL_TTL_SECONDS = Number(process.env.HLS_SIGNED_URL_TTL_SECONDS || 43200);
-const LIVE_SWITCH_COOLDOWN_MS = Number(process.env.LIVE_SWITCH_COOLDOWN_MS || 1200);
+const LIVE_SWITCH_COOLDOWN_MS = Number(process.env.LIVE_SWITCH_COOLDOWN_MS || 5000);
 const activeLiveStreams = new Map();
 const allowedOrigins = new Set(
   (process.env.ALLOWED_ORIGINS || '*')

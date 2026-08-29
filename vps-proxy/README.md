@@ -26,7 +26,7 @@ ao navegador.
 
 Chamadas internas podem usar `raw=1` para receber playlists e respostas JSON
 sem reescrita HLS. Para streams ao vivo da mesma linha, uma nova troca encerra
-a conexão anterior e respeita um pequeno intervalo configurável por
-`LIVE_SWITCH_COOLDOWN_MS`.
+a conexão anterior e aguarda cinco segundos por padrão. O intervalo pode ser
+configurado por `LIVE_SWITCH_COOLDOWN_MS`.
 
 Antes de produção, configure `ALLOWED_ORIGINS` com os domínios do frontend e habilite HTTPS no Nginx.
