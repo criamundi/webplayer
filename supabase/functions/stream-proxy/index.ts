@@ -114,6 +114,21 @@ Deno.serve(async (req: Request) => {
       redirectUrl.searchParams.set("expires", expires);
       redirectUrl.searchParams.set("signature", signature);
 
+      if (requestUrl.searchParams.get("resolve") === "1") {
+        return new Response(
+          JSON.stringify({ url: redirectUrl.toString() }),
+          {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json; charset=utf-8",
+              "Cache-Control": "no-store",
+              "Referrer-Policy": "no-referrer",
+            },
+          },
+        );
+      }
+
       const redirectHeaders = new Headers(corsHeaders);
       redirectHeaders.set("Location", redirectUrl.toString());
       redirectHeaders.set("Cache-Control", "no-store");
