@@ -9,6 +9,8 @@ const PORT = Number(process.env.PORT || 3000);
 const PROXY_TOKEN = process.env.PROXY_TOKEN || '';
 const CONNECT_TIMEOUT_MS = Number(process.env.CONNECT_TIMEOUT_MS || 20000);
 const MAX_MANIFEST_BYTES = Number(process.env.MAX_MANIFEST_BYTES || 5 * 1024 * 1024);
+const SIGNED_URL_MAX_FUTURE_SECONDS = Number(process.env.SIGNED_URL_MAX_FUTURE_SECONDS || 86400);
+const HLS_SIGNED_URL_TTL_SECONDS = Number(process.env.HLS_SIGNED_URL_TTL_SECONDS || 43200);
 const allowedOrigins = new Set(
   (process.env.ALLOWED_ORIGINS || '*')
     .split(',')
@@ -27,6 +29,46 @@ function safeTokenEquals(received) {
     expectedBuffer.length === receivedBuffer.length &&
     crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
   );
+}
+
+function signTarget(rawTarget, expires) {
+  return crypto
+    .createHmac('sha256', PROXY_TOKEN)
+    .update(`${expires}\n${rawTarget}`)
+    .digest('hex');
+}
+
+function safeSignatureEquals(received, expected) {
+  const receivedBuffer = Buffer.from(received || '');
+  const expectedBuffer = Buffer.from(expected);
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
+}
+
+function signedRequestAllowed(requestUrl, rawTarget) {
+  const expiresValue = requestUrl.searchParams.get('expires') || '';
+  const signature = requestUrl.searchParams.get('signature') || '';
+  if (!/^\d{10,}$/.test(expiresValue) || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+
+  const expires = Number(expiresValue);
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(expires) || expires < now || expires > now + SIGNED_URL_MAX_FUTURE_SECONDS) {
+    return false;
+  }
+
+  return safeSignatureEquals(signature, signTarget(rawTarget, expiresValue));
+}
+
+function createSignedProxyUrl(proxyBase, rawTarget, ttlSeconds = HLS_SIGNED_URL_TTL_SECONDS) {
+  const expires = String(Math.floor(Date.now() / 1000) + ttlSeconds);
+  const signature = signTarget(rawTarget, expires);
+  const signedUrl = new URL(proxyBase);
+  signedUrl.searchParams.set('url', rawTarget);
+  signedUrl.searchParams.set('expires', expires);
+  signedUrl.searchParams.set('signature', signature);
+  return signedUrl.toString();
 }
 
 function setCors(req, res) {
@@ -211,15 +253,18 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(403).end('Origem não autorizada.');
     return;
   }
-  if (!safeTokenEquals(requestUrl.searchParams.get('token'))) {
+  const rawTarget = requestUrl.searchParams.get('url') || '';
+  const authorized =
+    safeTokenEquals(requestUrl.searchParams.get('token')) ||
+    signedRequestAllowed(requestUrl, rawTarget);
+  if (!authorized) {
     res.writeHead(401).end('Token inválido.');
     return;
   }
 
-  const rawTarget = requestUrl.searchParams.get('url');
   let target;
   try {
-    target = new URL(rawTarget || '');
+    target = new URL(rawTarget);
     if (!['http:', 'https:'].includes(target.protocol)) throw new Error('Protocolo inválido.');
   } catch {
     res.writeHead(400).end('URL inválida.');
@@ -267,7 +312,7 @@ const server = http.createServer(async (req, res) => {
       const wrap = (value) => {
         try {
           const absolute = new URL(value, finalTarget).href;
-          return `${proxyBase}?url=${encodeURIComponent(absolute)}&token=${encodeURIComponent(PROXY_TOKEN)}`;
+          return createSignedProxyUrl(proxyBase, absolute);
         } catch {
           return value;
         }

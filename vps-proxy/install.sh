@@ -27,6 +27,8 @@ if [[ ! -f /etc/nexus-stream-proxy.env ]]; then
     echo "PROXY_TOKEN=$TOKEN"
     echo "ALLOWED_ORIGINS=*"
     echo "CONNECT_TIMEOUT_MS=20000"
+    echo "SIGNED_URL_MAX_FUTURE_SECONDS=86400"
+    echo "HLS_SIGNED_URL_TTL_SECONDS=43200"
   } > /etc/nexus-stream-proxy.env
 fi
 
