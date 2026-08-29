@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   createClient,
 } from "npm:@supabase/supabase-js@2.57.4";
+import { fetchProvider } from "../_shared/provider-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -494,7 +495,7 @@ Deno.serve(
       let upstreamResponse: Response;
       let upstreamPayload: Record<string, unknown>;
       try {
-        upstreamResponse = await fetch(playerApiUrl(serverUrl, username, password), {
+        upstreamResponse = await fetchProvider(playerApiUrl(serverUrl, username, password), {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
           redirect: "follow",
           signal: controller.signal,
@@ -562,8 +563,8 @@ Deno.serve(
         const liveTimeout = setTimeout(() => liveController.abort(), 30000);
         try {
           const [categoriesResponse, streamsResponse] = await Promise.all([
-            fetch(makeLiveApiUrl("get_live_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
-            fetch(makeLiveApiUrl("get_live_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+            fetchProvider(makeLiveApiUrl("get_live_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+            fetchProvider(makeLiveApiUrl("get_live_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
           ]);
           if (!categoriesResponse.ok || !streamsResponse.ok) return json({ error: "Catálogo de canais indisponível." }, 502);
           const categoriesRaw = await categoriesResponse.json();
@@ -625,7 +626,7 @@ Deno.serve(
         const epgController = new AbortController();
         const epgTimeout = setTimeout(() => epgController.abort(), 12000);
         try {
-          const response = await fetch(epgUrl, {
+          const response = await fetchProvider(epgUrl, {
             headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
             signal: epgController.signal,
           });
@@ -689,8 +690,8 @@ Deno.serve(
         const movieTimeout = setTimeout(() => movieController.abort(), 45000);
         try {
           const [categoriesResponse, moviesResponse] = await Promise.all([
-            fetch(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
-            fetch(makeMovieApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+            fetchProvider(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+            fetchProvider(makeMovieApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
           ]);
           if (!categoriesResponse.ok || !moviesResponse.ok) return json({ error: "Catálogo de filmes indisponível." }, 502);
           const categoriesRaw = await categoriesResponse.json();
@@ -747,8 +748,8 @@ Deno.serve(
 
           if (action === "series-catalog") {
             const [categoriesResponse, showsResponse] = await Promise.all([
-              fetch(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
-              fetch(makeSeriesApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+              fetchProvider(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+              fetchProvider(makeSeriesApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
             ]);
             if (!categoriesResponse.ok || !showsResponse.ok) return json({ error: "Catálogo de séries indisponível." }, 502);
             const categoriesRaw = await categoriesResponse.json();
@@ -764,7 +765,7 @@ Deno.serve(
             return json({ categories, shows });
           }
           if (!streamId) return json({ error: "Série inválida." }, 400);
-          const response = await fetch(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
+          const response = await fetchProvider(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
           if (!response.ok) return json({ error: "Informações da série indisponíveis." }, 502);
           const raw = await response.json();
           const info = raw?.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : {};
@@ -897,8 +898,8 @@ Deno.serve(
         const catalogTimeout = setTimeout(() => catalogController.abort(), 15000);
         try {
           const [vodResponse, seriesResponse] = await Promise.all([
-            fetch(makeApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
-            fetch(makeApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+            fetchProvider(makeApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+            fetchProvider(makeApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
           ]);
           if (!vodResponse.ok || !seriesResponse.ok) return json({ error: "Catálogo indisponível." }, 502);
           const vodRaw = await vodResponse.json();
@@ -964,7 +965,7 @@ Deno.serve(
         const infoController = new AbortController();
         const infoTimeout = setTimeout(() => infoController.abort(), 12000);
         try {
-          const infoResponse = await fetch(infoUrl, {
+          const infoResponse = await fetchProvider(infoUrl, {
             headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
             redirect: "follow",
             signal: infoController.signal,
@@ -1200,7 +1201,7 @@ Deno.serve(
 
       try {
         upstream =
-          await fetch(
+          await fetchProvider(
             playlistUrl,
             {
               method:

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { fetchProvider } from "../_shared/provider-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ Deno.serve(async (req: Request) => {
     let upstream: Response | null = null;
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      upstream = await fetch(currentUrl, {
+      upstream = await fetchProvider(currentUrl, {
         headers: { Accept: "application/x-mpegURL, application/vnd.apple.mpegurl, text/plain, */*" },
         redirect: "manual",
       });
