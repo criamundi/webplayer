@@ -92,6 +92,57 @@ export async function loadAccountStatus(): Promise<AccountStatus | null> {
   return response ? response.json() as Promise<AccountStatus> : null;
 }
 
+export async function validateLineAccess(
+  credentials?: { provider: string; username: string; password: string },
+  signal?: AbortSignal,
+): Promise<AccountStatus> {
+  const saved = credentials ?? (() => {
+    try {
+      return JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!saved?.provider || !saved.username || !saved.password) {
+    throw new Error('Dados da lista não encontrados.');
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        provider: saved.provider,
+        username: saved.username,
+        password: saved.password,
+        action: 'account-status',
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('Não foi possível validar a lista no provedor agora.');
+  }
+
+  if (!response.ok) {
+    let message = 'Não foi possível carregar a lista.';
+    try {
+      const body = await response.json() as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      // mantém mensagem padrão
+    }
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<AccountStatus>;
+}
+
 export async function loadLiveCatalog(): Promise<{ categories: LiveCategory[]; channels: LiveChannel[] } | null> {
   if (liveCatalogCache && Date.now() - liveCatalogCache.savedAt < CATALOG_CACHE_MS) return liveCatalogCache.value;
   const response = await authenticatedAction('live-catalog');

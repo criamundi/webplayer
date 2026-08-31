@@ -10,7 +10,7 @@ import type { Channel } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { storage } from '@/lib/storage';
 
-import { loadLinePlaylistStreaming } from '@/lib/provider';
+import { loadLinePlaylistStreaming, validateLineAccess } from '@/lib/provider';
 
 import type {
   PlaylistCategory,
@@ -71,6 +71,7 @@ type Phase =
   | 'loading'
   | 'login'
   | 'connecting'
+  | 'access-error'
   | 'ready';
 
 /*
@@ -523,21 +524,12 @@ export default function App() {
             );
 
             /*
-             * Libera o aplicativo imediatamente.
+             * O cache fica preparado, mas o aplicativo ainda
+             * NÃO é liberado. Primeiro validamos a situação
+             * atual da linha no provedor.
              */
             firstLiveLoadedRef.current =
               true;
-
-            phaseRef.current =
-              'ready';
-
-            setPhase(
-              'ready',
-            );
-
-            setView(
-              'home',
-            );
           }
         }
       } catch (error) {
@@ -602,13 +594,51 @@ export default function App() {
        */
 
       if (hadLocalPlaylist) {
-        setStreamingDone(true);
-        setLoadProgress(null);
+        try {
+          await validateLineAccess(
+            {
+              provider: creds.provider,
+              username: creds.username,
+              password: creds.password,
+            },
+            controller.signal,
+          );
 
-        phaseRef.current = 'ready';
-        setPhase('ready');
+          if (!mounted || controller.signal.aborted) return;
 
-        return;
+          setStreamingDone(true);
+          setLoadProgress(null);
+
+          phaseRef.current = 'ready';
+          setPhase('ready');
+          setView('home');
+
+          return;
+        } catch (error) {
+          if (
+            error instanceof DOMException &&
+            error.name === 'AbortError'
+          ) {
+            return;
+          }
+
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível validar sua lista.';
+
+          console.error('Falha ao validar lista salva:', error);
+
+          setLoadError(message);
+          setStreamingDone(true);
+          setLoadProgress(null);
+          setActiveChannel(null);
+
+          phaseRef.current = 'access-error';
+          setPhase('access-error');
+
+          return;
+        }
       }
 
       /*
@@ -901,23 +931,6 @@ export default function App() {
                   null,
                 );
 
-                /*
-                 * Se já existia cache,
-                 * continua usando o cache.
-                 */
-                if (
-                  hadLocalPlaylist
-                ) {
-                  phaseRef.current =
-                    'ready';
-
-                  setPhase(
-                    'ready',
-                  );
-
-                  return;
-                }
-
                 throw new Error(
                   'A lista retornada pelo provedor está vazia.',
                 );
@@ -1065,83 +1078,16 @@ export default function App() {
         );
 
         /*
-         * =====================================================
-         * ERRO ANTES DA NOVA LISTA COMEÇAR
-         * =====================================================
-         *
-         * Mantém cache antigo.
+         * Qualquer falha de validação/carregamento impede a
+         * abertura do player com dados antigos ou parciais.
          */
+        setActiveChannel(null);
 
-        if (
-          !newPlaylistStarted &&
-          hadLocalPlaylist
-        ) {
-          phaseRef.current =
-            'ready';
+        phaseRef.current =
+          'access-error';
 
-          setPhase(
-            'ready',
-          );
-
-          return;
-        }
-
-        /*
-         * =====================================================
-         * ERRO DEPOIS QUE ALGUNS LOTES JÁ CHEGARAM
-         * =====================================================
-         */
-
-        if (
-          newPlaylistStarted
-        ) {
-          try {
-            const partialLive =
-              await getChannels(
-                'live',
-                VIEW_LIMITS.live,
-                0,
-              );
-
-            if (
-              partialLive.length >
-              0
-            ) {
-              setChannels(
-                partialLive,
-              );
-
-              phaseRef.current =
-                'ready';
-
-              setPhase(
-                'ready',
-              );
-
-              setView(
-                'home',
-              );
-
-              return;
-            }
-          } catch (
-            partialError
-          ) {
-            console.warn(
-              'Erro ao recuperar playlist parcial:',
-              partialError,
-            );
-          }
-        }
-
-        /*
-         * Não há nada utilizável.
-         *
-         * IMPORTANTE:
-         * não apagamos as credenciais.
-         */
         setPhase(
-          'login',
+          'access-error',
         );
       }
     })();
@@ -1657,6 +1603,50 @@ export default function App() {
 
   /*
 |--------------------------------------------------------------------------
+| FALHA DE ACESSO À LISTA
+|--------------------------------------------------------------------------
+*/
+
+  const handleRetryListAccess =
+    useCallback(
+      () => {
+        setLoadError('');
+        phaseRef.current = 'loading';
+        setPhase('loading');
+        setReloadKey((value) => value + 1);
+      },
+      [],
+    );
+
+  const handleChangeListCredentials =
+    useCallback(
+      () => {
+        connectControllerRef.current?.abort();
+        connectControllerRef.current = null;
+
+        storage.clearCredentials();
+
+        setLoadError('');
+        setActiveChannel(null);
+        setChannels([]);
+        setGroups([]);
+        setGroupsByCategory({
+          ...EMPTY_GROUPS,
+        });
+        setTotals({
+          ...EMPTY_TOTALS,
+        });
+        setStreamingDone(true);
+        setLoadProgress(null);
+
+        phaseRef.current = 'login';
+        setPhase('login');
+      },
+      [],
+    );
+
+  /*
+|--------------------------------------------------------------------------
 | ADMIN
 |--------------------------------------------------------------------------
 */
@@ -1783,6 +1773,74 @@ export default function App() {
             ?.groups
         }
       />
+    );
+  }
+
+  /*
+|--------------------------------------------------------------------------
+| FALHA AO CARREGAR A LISTA
+|--------------------------------------------------------------------------
+*/
+
+  if (
+    phase ===
+    'access-error'
+  ) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#091018] px-5 text-white">
+        <div className="w-full max-w-lg text-center">
+          {branding.logo_url ? (
+            <img
+              src={branding.logo_url}
+              alt={branding.app_name}
+              className="mx-auto mb-8 max-h-16 max-w-[12rem] object-contain"
+            />
+          ) : (
+            <div className="mb-3 text-sm font-semibold uppercase tracking-[.22em] text-white/35">
+              {branding.app_name}
+            </div>
+          )}
+
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/[.06] text-2xl text-white/55">
+            !
+          </div>
+
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight">
+            Falha ao carregar a lista
+          </h1>
+
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/50">
+            Não foi possível validar ou carregar sua lista neste momento.
+            Entre em contato com o provedor da lista para verificar seu acesso.
+          </p>
+
+          {loadError && (
+            <p className="mx-auto mt-4 max-w-md rounded-xl bg-white/[.045] px-4 py-3 text-xs leading-5 text-white/45">
+              {loadError}
+            </p>
+          )}
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleRetryListAccess}
+              autoFocus
+              className="min-h-12 rounded-xl px-5 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[#091018]"
+              style={{ backgroundColor: branding.primary_color }}
+            >
+              Recarregar
+            </button>
+
+            <button
+              type="button"
+              onClick={handleChangeListCredentials}
+              className="min-h-12 rounded-xl bg-white/[.08] px-5 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[.13] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[#091018]"
+            >
+              Alterar dados da lista
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

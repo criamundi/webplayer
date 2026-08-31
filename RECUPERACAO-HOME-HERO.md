@@ -34,3 +34,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Hero restaurado ao fundo anterior. Widget esportivo convertido em card flutuante compacto, quase sólido, sem blur/degradê de ligação com o Hero.
 
 - Widget sem contorno. Degradê lateral refeito com radiais nas pontas e menor intensidade no centro para eliminar o padrão vertical seco.
+
+- Segurança de acesso: cache local não abre mais o player sem validação atual da linha. Falha/bloqueio mostra tela própria com Recarregar e Alterar dados da lista.
