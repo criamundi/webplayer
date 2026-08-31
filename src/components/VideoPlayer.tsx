@@ -45,7 +45,7 @@ type PlayerStatus =
   | 'error';
 
 const START_TIMEOUT = 25000;
-const SWITCH_DELAY = 350;
+const SWITCH_DELAY = 700;
 
 function formatPlayerTime(value: number) {
   if (!Number.isFinite(value) || value < 0) return '00:00';

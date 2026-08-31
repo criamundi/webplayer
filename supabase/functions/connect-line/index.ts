@@ -42,6 +42,28 @@ const adminClient =
     },
   );
 
+type UpstreamAccountState = {
+  authenticated: boolean;
+  status: string;
+  expiresAt: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  activeConnections: number;
+  maxConnections: number | null;
+  allowed: boolean;
+};
+
+const upstreamAccountCache = new Map<string, {
+  expiresAt: number;
+  account: UpstreamAccountState;
+}>();
+
+const UPSTREAM_ACCOUNT_CACHE_MS = 60_000;
+
+function accountCacheKey(providerId: string, username: string) {
+  return `${providerId}:${username.toLowerCase()}`;
+}
+
 /*
 |--------------------------------------------------------------------------
 | JSON
@@ -167,7 +189,7 @@ function playerApiUrl(server: URL, username: string, password: string) {
   return url;
 }
 
-function upstreamState(raw: Record<string, unknown>) {
+function upstreamState(raw: Record<string, unknown>): UpstreamAccountState {
   const user = raw?.user_info && typeof raw.user_info === "object"
     ? raw.user_info as Record<string, unknown>
     : {};
@@ -501,22 +523,43 @@ Deno.serve(
         );
       }
 
-      /* A conta real do provedor é sempre a fonte de status e vencimento. */
-      let upstreamResponse: Response;
-      let upstreamPayload: Record<string, unknown>;
-      try {
-        upstreamResponse = await fetchProvider(playerApiUrl(serverUrl, username, password), {
-          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-          redirect: "follow",
-          signal: controller.signal,
-        });
-        if (!upstreamResponse.ok) throw new Error("provider status");
-        upstreamPayload = await upstreamResponse.json();
-      } catch {
-        return json({ error: "Não foi possível validar a conta no provedor agora." }, 502);
-      }
+      /* A conta real do provedor continua sendo a fonte de status.
+       * Porém, ações auxiliares não devem consultar player_api.php
+       * repetidamente em poucos segundos.
+       */
+      const cacheKey = accountCacheKey(providerRow.id, username);
+      const cachedAccount = upstreamAccountCache.get(cacheKey);
+      const requireFreshAccount = action === "account-status" || action === "playlist";
+      let account: UpstreamAccountState;
 
-      const account = upstreamState(upstreamPayload);
+      if (!requireFreshAccount && cachedAccount && cachedAccount.expiresAt > Date.now()) {
+        account = cachedAccount.account;
+      } else {
+        let upstreamResponse: Response;
+        let upstreamPayload: Record<string, unknown>;
+        try {
+          upstreamResponse = await fetchProvider(playerApiUrl(serverUrl, username, password), {
+            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+            redirect: "follow",
+            signal: controller.signal,
+          });
+          if (!upstreamResponse.ok) throw new Error("provider status");
+          upstreamPayload = await upstreamResponse.json();
+        } catch {
+          return json({ error: "Não foi possível validar a conta no provedor agora." }, 502);
+        }
+
+        account = upstreamState(upstreamPayload);
+
+        if (account.allowed) {
+          upstreamAccountCache.set(cacheKey, {
+            expiresAt: Date.now() + UPSTREAM_ACCOUNT_CACHE_MS,
+            account,
+          });
+        } else {
+          upstreamAccountCache.delete(cacheKey);
+        }
+      }
       if (!account.authenticated) {
         return json({ error: "Usuário ou senha inválidos no provedor." }, 401);
       }
