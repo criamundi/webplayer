@@ -28,3 +28,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Widget esportivo: VS centralizado e porcentagens exibidas dentro de cada faixa da barra de probabilidades.
 
 - Probabilidade: barra fina e percentuais ao lado dos nomes dos times e de Empate.
+
+- Cabeçalho do widget: dia da semana em uma linha e dia/mês em outra.

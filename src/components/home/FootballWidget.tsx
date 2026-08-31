@@ -98,14 +98,32 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
   const activeMatch = matches[activeIndex];
   const probabilities = activeMatch?.probabilities || { home: 40, draw: 30, away: 30 };
-  const currentDate = useMemo(() => new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long', day: '2-digit', month: 'short', timeZone: 'America/Sao_Paulo',
-  }).format(new Date()).replace('.', ''), []);
+  const currentDate = useMemo(() => {
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'long',
+      timeZone: 'America/Sao_Paulo',
+    }).format(now).replace('.', '').toUpperCase();
+
+    const dayMonth = new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      timeZone: 'America/Sao_Paulo',
+    }).format(now).replace('.', '').toUpperCase();
+
+    return { weekday, dayMonth };
+  }, []);
 
   return <div className="flex min-h-0 flex-1 flex-col">
     <header className="flex items-center justify-between px-5 py-4">
       <div className="min-w-0"><span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span><strong className="mt-0.5 block truncate text-sm font-semibold text-white">Partidas em destaque</strong></div>
-      <div className="flex items-center gap-3"><span className="text-right text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span><button type="button" onClick={onClose} className="rounded-lg p-2 text-white/35 transition hover:bg-white/[.07] hover:text-white" aria-label="Fechar partidas"><X className="h-4 w-4" /></button></div>
+      <div className="flex items-center gap-3">
+        <span className="min-w-[6.5rem] text-right uppercase leading-tight text-white/30">
+          <span className="block text-[8px] tracking-[.13em]">{currentDate.weekday}</span>
+          <span className="mt-1 block text-[10px] font-semibold tracking-[.08em] text-white/45">{currentDate.dayMonth}</span>
+        </span>
+        <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/35 transition hover:bg-white/[.07] hover:text-white" aria-label="Fechar partidas"><X className="h-4 w-4" /></button>
+      </div>
     </header>
 
     <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor }} /></div>
