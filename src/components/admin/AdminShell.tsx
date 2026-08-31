@@ -7,11 +7,13 @@ import { ProvidersView } from '@/components/admin/ProvidersView';
 import { DnsView } from '@/components/admin/DnsView';
 import { BrandingView } from '@/components/admin/BrandingView';
 import { ProviderAdminsView } from '@/components/admin/ProviderAdminsView';
+import { DevicesView } from '@/components/admin/DevicesView';
 
-type AdminTab = 'dashboard' | 'devices' | 'providers' | 'admins' | 'dns' | 'branding';
+type AdminTab = 'dashboard' | 'clients' | 'devices' | 'providers' | 'admins' | 'dns' | 'branding';
 
 const tabs: Array<{ id: AdminTab; label: string; icon: typeof LayoutGrid }> = [
   { id: 'dashboard', label: 'Visão geral', icon: LayoutGrid },
+  { id: 'clients', label: 'Clientes', icon: Radio },
   { id: 'devices', label: 'Dispositivos', icon: Monitor },
   { id: 'providers', label: 'Provedores', icon: Server },
   { id: 'admins', label: 'Administradores', icon: ShieldCheck },
@@ -25,7 +27,7 @@ interface AdminShellProps {
 }
 
 export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
-  const [tab, setTab] = useState<AdminTab>('devices');
+  const [tab, setTab] = useState<AdminTab>('clients');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
   const [panelBranding, setPanelBranding] = useState({ app_name: 'Nexus Play', logo_url: null as string | null, primary_color: '#bef264' });
@@ -100,7 +102,8 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
           </header>
 
           {tab === 'dashboard' && <DashboardView />}
-          {tab === 'devices' && <LinesView />}
+          {tab === 'clients' && <LinesView />}
+          {tab === 'devices' && <DevicesView />}
           {tab === 'providers' && <ProvidersView />}
           {tab === 'admins' && <ProviderAdminsView />}
           {tab === 'dns' && <DnsView />}

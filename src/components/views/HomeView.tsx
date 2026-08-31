@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, History, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Sparkles, Star, Tv, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Star, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, loadSeriesContentInfo, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
 import { storage } from '@/lib/storage';
-import { searchChannels } from '@/lib/playlistStore';
-import { VideoPlayer } from '@/components/VideoPlayer';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
+import { FootballWidget } from '@/components/home/FootballWidget';
 import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
-import { mediaImageValue, mediaText } from '@/components/media/mediaUtils';
+import { mediaDuration, mediaImageValue, mediaText } from '@/components/media/mediaUtils';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface HomeViewProps {
@@ -17,8 +16,7 @@ interface HomeViewProps {
   onToggleFavorite: (id: string, channel?: Channel) => void;
   onNavigate: (view: View) => void;
   onSelectSeries: (seriesId: string) => void;
-  recents: Channel[];
-  canManageSportsChannel: boolean;
+  branding: { primaryColor: string; secondaryColor: string };
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
@@ -111,6 +109,30 @@ function homeImageValue(value: unknown) {
   return /^http:\/\//i.test(highResolutionSource) ? getPlayableStreamUrl(highResolutionSource) : highResolutionSource;
 }
 
+function preloadHeroImage(source: string) {
+  if (!source) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+    const timeout = window.setTimeout(finish, 12_000);
+    image.decoding = 'async';
+    image.onload = () => {
+      if (typeof image.decode === 'function') void image.decode().catch(() => undefined).finally(finish);
+      else finish();
+    };
+    image.onerror = finish;
+    image.src = source;
+  });
+}
+
 function mergeHeroInfo(base: ContentInfo, detail: ContentInfo | null) {
   if (!detail) return base;
   const merged = { ...base };
@@ -153,6 +175,7 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
   add(item?.logo, true);
 
   const [index, setIndex] = useState(0);
+  const [readySource, setReadySource] = useState('');
   const signature = candidates.map((candidate) => candidate.source).join('|');
   useEffect(() => { setIndex(0); }, [signature]);
   const candidate = candidates[index];
@@ -160,19 +183,22 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
   if (!candidate) return null;
 
   return <img
-    key={`${item?.id}:${candidate.source}`}
     src={candidate.source}
     alt=""
-    onLoad={onReady}
+    onLoad={() => {
+      setReadySource(candidate.source);
+      onReady();
+    }}
     onError={() => {
+      setReadySource('');
       if (candidates[index + 1]) setIndex((current) => current + 1);
       else onReady();
     }}
-    className={`home-hero-image home-hero-image-enter ${candidate.poster ? 'home-hero-poster-fallback' : ''}`}
+    className={`home-hero-image ${readySource === candidate.source ? 'home-hero-image-ready' : 'home-hero-image-loading'} ${candidate.poster ? 'home-hero-poster-fallback' : ''}`}
   />;
 }
 
-export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, recents, canManageSportsChannel }: HomeViewProps) {
+export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, branding }: HomeViewProps) {
   const favoritesRef = useRef(favorites);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
@@ -182,11 +208,6 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
   const [infoPanelOpen, setInfoPanelOpen] = useState(true);
-  const [sportsChannel, setSportsChannel] = useState<Channel | null>(null);
-  const [choosingSportsChannel, setChoosingSportsChannel] = useState(false);
-  const [sportsChannelQuery, setSportsChannelQuery] = useState('');
-  const [sportsChannelResults, setSportsChannelResults] = useState<Channel[]>([]);
-  const [now, setNow] = useState(() => new Date());
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [renewalChecking, setRenewalChecking] = useState(false);
   const [renewalCompleted, setRenewalCompleted] = useState(false);
@@ -242,49 +263,6 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     return request;
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const timers: number[] = [];
-    const refreshSportsChannel = async () => {
-      const saved = storage.getSportsChannel();
-      const wantedName = saved?.name || 'Agenda esportiva';
-      const items = (await searchChannels(wantedName, 60)).filter((item) => item.category === 'live' && Boolean(item.url?.trim()));
-      if (!active) return;
-      const normalized = wantedName.trim().toLocaleLowerCase('pt-BR');
-      const channel = items.find((item) => item.name.trim().toLocaleLowerCase('pt-BR') === normalized)
-        || items.find((item) => item.name.toLocaleLowerCase('pt-BR').includes('agenda esportiva'))
-        || items[0];
-      if (channel) {
-        setSportsChannel(channel);
-        storage.saveSportsChannel(channel);
-        timers.forEach(window.clearTimeout);
-      }
-    };
-    void refreshSportsChannel();
-    timers.push(window.setTimeout(() => void refreshSportsChannel(), 2000));
-    timers.push(window.setTimeout(() => void refreshSportsChannel(), 5000));
-    return () => { active = false; timers.forEach(window.clearTimeout); };
-  }, []);
-
-  useEffect(() => {
-    if (!choosingSportsChannel || sportsChannelQuery.trim().length < 2) { setSportsChannelResults([]); return; }
-    let active = true;
-    const timer = window.setTimeout(() => {
-      void searchChannels(sportsChannelQuery, 24).then((items) => {
-        if (active) setSportsChannelResults(items.filter((item) => !/\/movie\/|\/series\//i.test(item.url)).slice(0, 8));
-      });
-    }, 250);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [choosingSportsChannel, sportsChannelQuery]);
-
-  const chooseSportsChannel = (channel: Channel) => {
-    setSportsChannel(channel);
-    storage.saveSportsChannel(channel);
-    setChoosingSportsChannel(false);
-    setSportsChannelQuery('');
-    setSportsChannelResults([]);
-  };
-
   const openRenewal = () => {
     if (!renewalUrl) return;
     renewalBaselineRef.current = { expiresAt: accountStatus?.expiresAt ? new Date(accountStatus.expiresAt).getTime() : 0, days: accountStatus?.daysRemaining ?? 0 };
@@ -311,11 +289,6 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     const timer = window.setInterval(() => { void verifyRenewal(); }, 15_000);
     return () => window.clearInterval(timer);
   }, [renewalCompleted, renewalOpen, verifyRenewal]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -377,49 +350,46 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   useEffect(() => {
     if (heroPool.length < 2 || trailerOpen) return;
     let active = true;
-    let preloader: HTMLImageElement | null = null;
-    const timer = window.setInterval(() => {
-      if (!active || document.visibilityState !== 'visible') return;
-      const nextIndex = (heroIndexRef.current + 1) % heroPool.length;
-      const next = heroPool[nextIndex];
-      const showNext = () => {
-        if (!active) return;
-        setHeroImageLoading(true);
-        heroIndexRef.current = nextIndex;
-        setHeroIndex(nextIndex);
-      };
-      if (!next) return;
+    let transitioning = false;
+    const prepare = async (index: number) => {
+      const item = heroPool[index];
+      if (!item) return null;
+      const info = await loadCompleteHeroInfo(item);
+      const backdrop = homeImageValue(info.backdrop || item.backdrop || info.cover || item.logo);
+      const titleLogo = homeImageValue(info.titleLogo);
+      await Promise.all([preloadHeroImage(backdrop), preloadHeroImage(titleLogo)]);
+      return { index, info };
+    };
 
-      void loadCompleteHeroInfo(next).then((nextInfo) => {
-        if (!active) return;
-        const imageSource = homeImageValue(nextInfo.backdrop || next.backdrop || nextInfo.cover || next.logo);
-        if (!imageSource) { showNext(); return; }
-        if (preloader) { preloader.onload = null; preloader.onerror = null; }
-        preloader = new Image();
-        preloader.decoding = 'async';
-        preloader.onload = showNext;
-        preloader.onerror = showNext;
-        preloader.src = imageSource;
-      });
+    let prepared = prepare((heroIndexRef.current + 1) % heroPool.length);
+    const timer = window.setInterval(() => {
+      if (!active || transitioning || document.visibilityState !== 'visible') return;
+      transitioning = true;
+      void prepared.then((next) => {
+        if (!active || !next) return;
+        heroInfoRequestRef.current += 1;
+        setHeroInfo(next.info);
+        setHeroImageLoading(true);
+        heroIndexRef.current = next.index;
+        setHeroIndex(next.index);
+        prepared = prepare((next.index + 1) % heroPool.length);
+      }).finally(() => { transitioning = false; });
     }, 60_000);
     return () => {
       active = false;
       window.clearInterval(timer);
-      if (preloader) { preloader.onload = null; preloader.onerror = null; }
     };
   }, [heroPool, trailerOpen, loadCompleteHeroInfo]);
 
   const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
   const rawHeroRating = heroInfo?.rating || heroItem?.rating;
   const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
-  const duration = heroInfo?.duration && !/^(?:0+:)+0+$/.test(heroInfo.duration.trim()) && !/^0+\s*(?:min|mins|minutos?)$/i.test(heroInfo.duration.trim()) ? heroInfo.duration : undefined;
+  const duration = heroItem?.contentType === 'series' ? '' : mediaDuration(heroInfo?.duration);
   const heroLanguage = heroInfo?.language?.trim().toUpperCase();
   const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
   const renewalUrl = (() => { try { const url = new URL(rawRenewalUrl || ''); return /^https?:$/.test(url.protocol) ? url.toString() : undefined; } catch { return undefined; } })();
   const trailerSource = heroInfo?.trailerKey;
-  const currentTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(now);
-  const currentDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).format(now).replace('.', '');
   const movies = catalogMovies.slice(0, 10);
   const series = catalogSeries.slice(0, 10);
 
@@ -427,12 +397,11 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
-        {heroImageLoading && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
-        <HomeHeroArtwork key={heroItem?.id || 'hero-artwork-empty'} item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
+        {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
+        <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
         <div className="home-hero-shade" />
-        {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl border border-white/10 bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:border-emerald-400/30 hover:text-white sm:right-8 lg:right-12" aria-label="Abrir informações"><PanelRightOpen className="h-4 w-4" /> Informações</button>}
-        <div key={heroItem?.id || 'hero-empty'} className="home-hero-content-enter relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
-          <span className="mb-4 flex w-fit items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" /> {heroItem?.contentType === 'series' ? 'Série recentemente adicionada' : 'Filme recentemente adicionado'}</span>
+        {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:text-white sm:right-8 lg:right-12" aria-label="Abrir jogos do dia"><PanelRightOpen className="h-4 w-4" /> Jogos do dia</button>}
+        <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
@@ -441,27 +410,31 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </div>
         </div>
         <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
-          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4"><div className="flex min-w-0 items-center gap-2"><Radio className="h-4 w-4 shrink-0 text-emerald-400" /><span className="truncate text-sm font-semibold text-white">{sportsChannel?.name || 'Agenda esportiva'}</span></div><div className="flex items-center gap-3"><div className="text-right"><strong className="block text-base font-semibold tabular-nums text-white">{currentTime}</strong><span className="block text-[9px] uppercase tracking-wider text-white/30">{currentDate}</span></div><button onClick={() => setInfoPanelOpen(false)} className="rounded-lg p-2 text-white/40 transition hover:bg-white/8 hover:text-white" aria-label="Fechar informações"><X className="h-4 w-4" /></button></div></div>
-          <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-none">
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/30">
-              <div className="aspect-video">{infoPanelOpen ? <VideoPlayer channel={sportsChannel} startMuted /> : null}</div>
-            </div>
-            <div className="mt-3 rounded-2xl bg-white/[0.025] p-3">
-              <div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-2">{sportsChannel?.logo ? <img src={sportsChannel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg bg-black/20 object-contain p-1" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-300"><Tv className="h-4 w-4" /></span>}<span className="min-w-0"><strong className="block truncate text-xs text-white">{sportsChannel?.name || 'Procurando Agenda esportiva...'}</strong><span className="block truncate text-[10px] text-white/35">{sportsChannel?.group || 'Canal ao vivo'}</span></span></div>{canManageSportsChannel && <button onClick={() => setChoosingSportsChannel((value) => !value)} className="shrink-0 rounded-lg border border-emerald-400/20 px-3 py-2 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-400/10">{choosingSportsChannel ? 'Cancelar' : 'Trocar canal'}</button>}</div>
-              {canManageSportsChannel && choosingSportsChannel && <div className="mt-3 border-t border-white/8 pt-3"><input autoFocus value={sportsChannelQuery} onChange={(event) => setSportsChannelQuery(event.target.value)} placeholder="Digite o nome do canal..." className="w-full rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-xs text-white outline-none placeholder:text-white/25 focus:border-emerald-400/40" />{sportsChannelResults.length > 0 && <div className="mt-2 max-h-48 space-y-1 overflow-y-auto scrollbar-none">{sportsChannelResults.map((channel) => <button key={channel.id} onClick={() => chooseSportsChannel(channel)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/7">{channel.logo ? <img src={channel.logo} alt="" className="h-7 w-7 rounded object-contain" /> : <Tv className="h-4 w-4 text-white/25" />}<span className="min-w-0 flex-1 truncate text-xs text-white/70">{channel.name}</span></button>)}</div>}{sportsChannelQuery.trim().length >= 2 && sportsChannelResults.length === 0 && <p className="pt-3 text-center text-[11px] text-white/30">Nenhum canal encontrado</p>}</div>}
-            </div>
-          </div>
-          <div className="space-y-3 border-t border-white/8 p-5">
-            {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 0 ? 'Sua assinatura vence hoje' : accountStatus.daysRemaining === 1 ? 'Sua assinatura vence em 1 dia' : `Sua assinatura vence em ${accountStatus.daysRemaining} dias`}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div>}
-            <button onClick={() => onNavigate('continue')} className="flex w-full items-center gap-3 rounded-xl bg-emerald-400 px-4 py-3 text-left text-slate-950 transition hover:bg-emerald-300"><History className="h-5 w-5" /><span className="min-w-0 flex-1"><strong className="block text-sm font-semibold">Continuar assistindo</strong><span className="block truncate text-[11px] text-slate-900/60">{recents.length ? `${recents.length} itens no seu histórico` : 'Seus últimos conteúdos'}</span></span><ChevronRight className="h-4 w-4" /></button>
-          </div>
+          <FootballWidget
+            primaryColor={branding.primaryColor}
+            secondaryColor={branding.secondaryColor}
+            onClose={() => setInfoPanelOpen(false)}
+            onSelectChannel={onSelectChannel}
+          />
+          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-t border-white/8 p-5"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[0.16em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 0 ? 'Sua assinatura vence hoje' : accountStatus.daysRemaining === 1 ? 'Sua assinatura vence em 1 dia' : `Sua assinatura vence em ${accountStatus.daysRemaining} dias`}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
         </aside>
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-32 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[{ id: 'live' as View, label: 'Canais ao Vivo', icon: Radio }, { id: 'movies' as View, label: 'Filmes', icon: Film }, { id: 'series' as View, label: 'Séries', icon: Tv }].map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => onNavigate(id)} className="home-shortcut group"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-400 transition group-hover:bg-emerald-400 group-hover:text-slate-950"><Icon className="h-5 w-5" /></span><span className="font-medium text-white/85">{label}</span><ChevronRight className="ml-auto h-4 w-4 text-white/20 transition group-hover:translate-x-1 group-hover:text-emerald-400" /></button>
+          {[
+            { id: 'live' as View, label: 'Canais ao Vivo', description: 'Assista à programação agora', icon: Radio },
+            { id: 'movies' as View, label: 'Filmes', description: 'Explore todos os filmes', icon: Film },
+            { id: 'series' as View, label: 'Séries', description: 'Encontre sua próxima série', icon: Tv },
+          ].map(({ id, label, description, icon: Icon }) => (
+            <button key={id} type="button" onClick={() => onNavigate(id)} className="home-shortcut group" aria-label={`${label}: ${description}`}>
+              <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
+              <span className="relative z-10 min-w-0 flex-1">
+                <strong className="home-shortcut-title">{label}</strong>
+                <span className="home-shortcut-description">{description}</span>
+              </span>
+              <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
+            </button>
           ))}
         </div>
         <div className="space-y-12 pb-16 pt-10">

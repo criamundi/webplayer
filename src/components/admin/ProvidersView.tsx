@@ -10,6 +10,7 @@ interface Provider {
   auto_registration: boolean;
   default_dns_id: string | null;
   renewal_url: string | null;
+  device_limit: number;
 }
 
 interface DnsEntry { id: string; name: string; host: string; provider_id: string | null; }
@@ -25,7 +26,7 @@ export function ProvidersView() {
   const load = async () => {
     setLoading(true);
     const [{ data }, { data: dns }, { data: auth }] = await Promise.all([
-      supabase.from('iptv_providers').select('id, name, server_url, active, auto_registration, default_dns_id, renewal_url').order('created_at', { ascending: false }),
+      supabase.from('iptv_providers').select('id, name, server_url, active, auto_registration, default_dns_id, renewal_url, device_limit').order('created_at', { ascending: false }),
       supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
       supabase.auth.getUser(),
     ]);
@@ -116,6 +117,7 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
   const [autoRegistration, setAutoRegistration] = useState(provider?.auto_registration ?? false);
   const [defaultDnsId, setDefaultDnsId] = useState(provider?.default_dns_id ?? '');
   const [renewalUrl, setRenewalUrl] = useState(provider?.renewal_url ?? '');
+  const [deviceLimit, setDeviceLimit] = useState(provider?.device_limit ?? 2);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -134,6 +136,16 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
     const result = superAdmin
       ? (provider ? await supabase.from('iptv_providers').update({ name: name.trim() }).eq('id', provider.id) : await supabase.from('iptv_providers').insert({ name: name.trim() }).select('id').single())
       : await supabase.rpc('update_own_provider_settings', { next_server_url: serverUrl.trim(), next_default_dns_id: defaultDnsId || null, next_renewal_url: renewalUrl.trim(), next_auto_registration: autoRegistration });
+
+    if (!superAdmin && !result.error) {
+      const deviceLimitResult = await supabase.rpc('update_own_device_limit', { next_device_limit: deviceLimit });
+      if (deviceLimitResult.error) {
+        setSaving(false);
+        setError('Os dados foram salvos, mas não foi possível atualizar o limite de dispositivos.');
+        return;
+      }
+    }
+
     setSaving(false);
     if (result.error) { setError('Erro ao salvar.'); return; }
     onSaved();
@@ -156,6 +168,7 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">DNS padrão para novos cadastros</span><select value={defaultDnsId} onChange={(e) => setDefaultDnsId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none"><option value="" className="bg-slate-900">Usar URL do servidor</option>{dnsList.filter((d) => !!provider && (!d.provider_id || d.provider_id === provider.id)).map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name}</option>)}</select>{!provider && <small className="mt-2 block text-white/35">Salve o provedor e depois cadastre o DNS.</small>}</label>
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Página de renovação</span><input value={renewalUrl} onChange={(e) => setRenewalUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none" placeholder="https://provedor.com/renovar" /></label>
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><span><span className="block text-sm font-semibold">Cadastro automático</span><span className="mt-1 block text-xs leading-5 text-white/40">Se a conta estiver ativa no provedor, o primeiro acesso cria o dispositivo automaticamente.</span></span><input type="checkbox" checked={autoRegistration} onChange={(e) => setAutoRegistration(e.target.checked)} className="h-5 w-5 accent-lime-300" /></label>
+          <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Dispositivos permitidos por cliente</span><input type="number" min={1} max={20} value={deviceLimit} onChange={(e) => setDeviceLimit(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" /><small className="mt-2 block text-white/35">Conta IPTV e dispositivo são controles separados. Este limite vale para TVs/navegadores autorizados no Web Player.</small></label>
           </>}
           {error && <p className="rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-xs text-red-200">{error}</p>}
           <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200 disabled:opacity-50">

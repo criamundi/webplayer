@@ -14,7 +14,7 @@ import {
   MediaRatingBadge,
   MediaSynopsis,
 } from '@/components/media/MediaDetailsUI';
-import { formatMediaDate, mediaCastList, mediaRating } from '@/components/media/mediaUtils';
+import { formatMediaDate, mediaCastList, mediaDuration, mediaRating } from '@/components/media/mediaUtils';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -172,7 +172,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   const plot = selectedInfo?.plot || selected.plot;
   const genre = selectedInfo?.genre || selected.genre;
   const release = selectedInfo?.releaseDate || selected.releaseDate;
-  const duration = selectedInfo?.duration && !/^(?:0+:)+0+$/.test(selectedInfo.duration) ? selectedInfo.duration : '';
+  const duration = mediaDuration(selectedInfo?.duration);
   const rating = mediaRating(selectedInfo?.rating || selected.rating);
   const director = selectedInfo?.director;
   const contentRating = selectedInfo?.contentRating;

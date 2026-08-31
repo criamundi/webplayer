@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Heart, Loader2, Radio, Search, Tag, Tv } from 'lucide-react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Heart, History, Loader2, Menu, Radio, Search, Tag, Tv, Wifi } from 'lucide-react';
 import type { Channel } from '@/types';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { getChannels } from '@/lib/playlistStore';
+import { getChannelGroupsInOrder, getChannels, getChannelsByIds, searchChannels } from '@/lib/playlistStore';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { loadLiveCatalog, loadLiveEpg, type LiveChannel, type LiveEpg, type LiveProgram } from '@/lib/provider';
 
 interface LiveViewProps {
   channels: Channel[];
@@ -11,81 +12,499 @@ interface LiveViewProps {
   activeChannel: Channel | null;
   favorites: Set<string>;
   recents: Channel[];
+  onMenuOpen: () => void;
+  onBack: () => void;
   onSelectChannel: (channel: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
 }
 
 const PAGE_SIZE = 100;
+const ALL_CHANNELS = '__all_live_channels__';
+const SEARCH_CHANNELS = '__search_live_channels__';
+const FAVORITE_CHANNELS = '__favorite_live_channels__';
+const RECENT_CHANNELS = '__recent_live_channels__';
+const CHANNEL_SELECTION_DELAY = 900;
+const cleanGroupName = (name: string) => name.trim() || 'Outros';
 const categoryInitial = (name: string) => name.replace(/^CANAIS\s*\|?\s*/i, '').trim().charAt(0).toUpperCase() || 'C';
+const groupLabel = (group: string) => {
+  if (group === ALL_CHANNELS) return 'Todos';
+  if (group === SEARCH_CHANNELS) return 'Procurar';
+  if (group === FAVORITE_CHANNELS) return 'Favoritos';
+  if (group === RECENT_CHANNELS) return 'Últimos assistidos';
+  return cleanGroupName(group);
+};
+const channelsForGroup = (channels: LiveChannel[], group: string) => group === ALL_CHANNELS ? channels : channels.filter((channel) => channel.group === group);
+const normalizeChannelText = (value = '') => value.trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
+const programTime = (value?: string) => {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+};
+const programSchedule = (program?: LiveProgram | null) => {
+  const start = programTime(program?.start);
+  const end = programTime(program?.end);
+  return start && end ? `${start} – ${end}` : start;
+};
+
+function streamIdFromUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.searchParams.get('stream_id') || url.pathname.match(/\/(\d+)(?:\.[a-z0-9]+)?\/?$/i)?.[1] || '';
+  } catch {
+    return value.match(/\/(\d+)(?:\.[a-z0-9]+)?(?:\?.*)?$/i)?.[1] || '';
+  }
+}
+
+function mergeOfficialChannels(official: LiveChannel[], stored: Channel[]): LiveChannel[] {
+  const byStreamId = new Map<string, Channel>();
+  const byNameAndGroup = new Map<string, Channel[]>();
+  const byName = new Map<string, Channel[]>();
+
+  stored.forEach((channel) => {
+    const streamId = streamIdFromUrl(channel.url);
+    if (streamId && !byStreamId.has(streamId)) byStreamId.set(streamId, channel);
+
+    const name = normalizeChannelText(channel.name);
+    const identity = `${name}\u0000${normalizeChannelText(channel.group)}`;
+    byNameAndGroup.set(identity, [...(byNameAndGroup.get(identity) || []), channel]);
+    byName.set(name, [...(byName.get(name) || []), channel]);
+  });
+
+  const used = new Set<string>();
+  const nextUnused = (matches?: Channel[]) => matches?.find((channel) => !used.has(channel.id));
+
+  return official.map((channel) => {
+    const identity = `${normalizeChannelText(channel.name)}\u0000${normalizeChannelText(channel.group)}`;
+    const byId = byStreamId.get(channel.streamId);
+    const match = (byId && !used.has(byId.id) ? byId : undefined)
+      || nextUnused(byNameAndGroup.get(identity))
+      || nextUnused(byName.get(normalizeChannelText(channel.name)));
+
+    if (!match) return channel;
+    used.add(match.id);
+    return {
+      ...channel,
+      id: match.id,
+      url: match.url,
+      logo: channel.logo || match.logo,
+      tvgId: channel.tvgId || match.tvgId,
+    };
+  });
+}
+
+function moveFocus(event: KeyboardEvent<HTMLElement>, container: HTMLElement | null, selector: string, direction: -1 | 1) {
+  if (!container) return;
+  const targets = Array.from(container.querySelectorAll<HTMLElement>(selector)).filter((item) => !item.hasAttribute('disabled'));
+  const current = targets.indexOf(event.currentTarget);
+  if (current < 0) return;
+  const next = targets[Math.min(Math.max(current + direction, 0), targets.length - 1)];
+  if (!next || next === event.currentTarget) return;
+  event.preventDefault();
+  next.focus();
+  next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
 
 function Logo({ channel, compact = false }: { channel: Channel; compact?: boolean }) {
   const [source, setSource] = useState(channel.logo);
   const [failed, setFailed] = useState(!channel.logo);
-  useEffect(() => { setSource(channel.logo); setFailed(!channel.logo); }, [channel.logo]);
-  if (!source || failed) return <Tv className={`${compact ? 'h-5 w-5' : 'h-8 w-8'} text-white/15`} />;
-  return <img src={source} alt="" loading="lazy" onError={() => { const proxy = getPlayableStreamUrl(channel.logo || ''); if (source !== proxy) setSource(proxy); else setFailed(true); }} className={`${compact ? 'h-8 w-10' : 'max-h-16 max-w-[75%]'} object-contain`} />;
+
+  useEffect(() => {
+    setSource(channel.logo);
+    setFailed(!channel.logo);
+  }, [channel.logo]);
+
+  if (!source || failed) return <Tv className={`${compact ? 'h-5 w-5' : 'h-8 w-8'} text-white/18`} />;
+
+  return <img
+    src={source}
+    alt=""
+    loading="lazy"
+    decoding="async"
+    onError={() => {
+      const proxy = getPlayableStreamUrl(channel.logo || '');
+      if (source !== proxy) setSource(proxy);
+      else setFailed(true);
+    }}
+    className={`${compact ? 'max-h-10 max-w-12' : 'max-h-16 max-w-[75%]'} object-contain`}
+  />;
 }
 
-export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, onSelectChannel, onToggleFavorite }: LiveViewProps) {
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, recents, onMenuOpen, onBack, onSelectChannel, onToggleFavorite }: LiveViewProps) {
+  const [activeGroup, setActiveGroup] = useState(ALL_CHANNELS);
+  const [orderedGroups, setOrderedGroups] = useState(groups);
+  const [officialChannels, setOfficialChannels] = useState<LiveChannel[] | null>(null);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [items, setItems] = useState<Channel[]>([]);
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [liveEpg, setLiveEpg] = useState<LiveEpg | null>(null);
+  const [epgLoading, setEpgLoading] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const categoryListRef = useRef<HTMLElement>(null);
+  const channelListRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const channelSelectionTimerRef = useRef<number | null>(null);
+  const onSelectChannelRef = useRef(onSelectChannel);
   const liveActive = activeChannel?.category === 'live' && Boolean(activeChannel.url) ? activeChannel : null;
+  const activeOfficialChannel = liveActive && officialChannels?.find((channel) => channel.id === liveActive.id || (
+    normalizeChannelText(channel.name) === normalizeChannelText(liveActive.name)
+    && normalizeChannelText(channel.group) === normalizeChannelText(liveActive.group)
+  ));
+  const activeStreamId = liveActive ? ((liveActive as LiveChannel).streamId || activeOfficialChannel?.streamId || streamIdFromUrl(liveActive.url)) : '';
 
   useEffect(() => {
-    if (!activeGroup) { setItems([]); return; }
+    onSelectChannelRef.current = onSelectChannel;
+  }, [onSelectChannel]);
+
+  useEffect(() => () => {
+    if (channelSelectionTimerRef.current !== null) {
+      window.clearTimeout(channelSelectionTimerRef.current);
+    }
+  }, []);
+
+  const selectChannelSafely = useCallback((channel: Channel) => {
+    if (channel.id === liveActive?.id) return;
+    if (channelSelectionTimerRef.current !== null) {
+      window.clearTimeout(channelSelectionTimerRef.current);
+    }
+    channelSelectionTimerRef.current = window.setTimeout(() => {
+      channelSelectionTimerRef.current = null;
+      onSelectChannelRef.current(channel);
+    }, liveActive ? CHANNEL_SELECTION_DELAY : 0);
+  }, [liveActive?.id]);
+
+  useEffect(() => {
+    let active = true;
+    setLiveEpg(null);
+    if (!activeStreamId) {
+      setEpgLoading(false);
+      return;
+    }
+    setEpgLoading(true);
+    const refresh = () => void loadLiveEpg(activeStreamId).then((result) => {
+      if (active) setLiveEpg(result);
+    }).finally(() => {
+      if (active) setEpgLoading(false);
+    });
+    refresh();
+    const interval = window.setInterval(refresh, 3 * 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [activeStreamId]);
+
+  useEffect(() => {
+    let active = true;
+    setCatalogReady(false);
+    void loadLiveCatalog().then(async (catalog) => {
+      if (!active) return;
+      if (catalog?.channels.length) {
+        const storedChannels = await getChannels('live', 1_000_000, 0);
+        if (!active) return;
+        setOfficialChannels(mergeOfficialChannels(catalog.channels, storedChannels));
+        setOrderedGroups(catalog.categories.map((category) => category.name));
+        return;
+      }
+      setOfficialChannels(null);
+      const result = await getChannelGroupsInOrder('live');
+      if (!active) return;
+      setOrderedGroups([...result, ...groups.filter((group) => !result.includes(group))]);
+    }).catch(() => {
+      if (active) {
+        setOfficialChannels(null);
+        setOrderedGroups(groups);
+      }
+    }).finally(() => {
+      if (active) setCatalogReady(true);
+    });
+    return () => { active = false; };
+  }, [groups]);
+
+  useEffect(() => {
+    if (!catalogReady || [SEARCH_CHANNELS, FAVORITE_CHANNELS, RECENT_CHANNELS].includes(activeGroup)) return;
     let active = true;
     setLoading(true);
-    void getChannels('live', PAGE_SIZE, 0, activeGroup).then((result) => {
+    setItems([]);
+    if (officialChannels) {
+      const source = channelsForGroup(officialChannels, activeGroup);
+      const result = source.slice(0, PAGE_SIZE);
+      setItems(result);
+      setOffset(result.length);
+      setHasMore(result.length < source.length);
+      setLoading(false);
+      return;
+    }
+    const group = activeGroup === ALL_CHANNELS ? undefined : activeGroup;
+    void getChannels('live', PAGE_SIZE, 0, group).then((result) => {
       if (!active) return;
-      setItems(result); setOffset(result.length); setHasMore(result.length === PAGE_SIZE);
-    }).finally(() => { if (active) setLoading(false); });
+      setItems(result);
+      setOffset(result.length);
+      setHasMore(result.length === PAGE_SIZE);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+
     return () => { active = false; };
+  }, [activeGroup, catalogReady, officialChannels]);
+
+  useEffect(() => {
+    if (activeGroup !== FAVORITE_CHANNELS) return;
+    let active = true;
+    setLoading(true);
+    void getChannelsByIds(Array.from(favorites), 500).then((stored) => {
+      if (!active) return;
+      if (officialChannels) {
+        const savedNames = new Set(stored.map((channel) => channel.name.trim().toLocaleLowerCase('pt-BR')));
+        setItems(officialChannels.filter((channel) => favorites.has(channel.id) || savedNames.has(channel.name.trim().toLocaleLowerCase('pt-BR'))));
+      } else {
+        setItems(stored.filter((channel) => channel.category === 'live'));
+      }
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    setHasMore(false);
+    return () => { active = false; };
+  }, [activeGroup, favorites, officialChannels]);
+
+  useEffect(() => {
+    if (activeGroup !== RECENT_CHANNELS) return;
+    setItems(recents.filter((channel) => channel.category === 'live'));
+    setHasMore(false);
+    setLoading(false);
+  }, [activeGroup, recents]);
+
+  useEffect(() => {
+    if (activeGroup !== SEARCH_CHANNELS) return;
+    setHasMore(false);
+    const value = query.trim();
+    if (value.length < 2) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    setLoading(true);
+    const timeout = window.setTimeout(() => {
+      const request = officialChannels
+        ? Promise.resolve(officialChannels.filter((channel) => channel.name.toLocaleLowerCase('pt-BR').includes(value.toLocaleLowerCase('pt-BR'))).slice(0, 120))
+        : searchChannels(value, 120, 'live');
+      void request.then((result) => {
+        if (active) setItems(result);
+      }).finally(() => {
+        if (active) setLoading(false);
+      });
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [activeGroup, officialChannels, query]);
+
+  useEffect(() => {
+    if (activeGroup !== SEARCH_CHANNELS) return;
+    window.requestAnimationFrame(() => searchRef.current?.focus());
   }, [activeGroup]);
 
-  const filtered = useMemo(() => {
-    const value = query.trim().toLocaleLowerCase('pt-BR');
-    return value ? items.filter((channel) => channel.name.toLocaleLowerCase('pt-BR').includes(value)) : items;
-  }, [items, query]);
+  const chooseGroup = useCallback((group: string) => {
+    setActiveGroup(group);
+    setQuery('');
+    setItems([]);
+    setHasMore(false);
+    setLoading(true);
+  }, []);
 
-  const loadMore = async () => {
-    if (!activeGroup || !hasMore || loadingMore) return;
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const result = await getChannels('live', PAGE_SIZE, offset, activeGroup);
+      if (officialChannels) {
+        const source = channelsForGroup(officialChannels, activeGroup);
+        const result = source.slice(offset, offset + PAGE_SIZE);
+        setItems((current) => [...current, ...result]);
+        setOffset((current) => current + result.length);
+        setHasMore(offset + result.length < source.length);
+        return;
+      }
+      const group = activeGroup === ALL_CHANNELS ? undefined : activeGroup;
+      const result = await getChannels('live', PAGE_SIZE, offset, group);
       setItems((current) => [...current, ...result]);
       setOffset((current) => current + result.length);
       setHasMore(result.length === PAGE_SIZE);
-    } finally { setLoadingMore(false); }
+    } catch {
+      setHasMore(false);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [activeGroup, hasMore, officialChannels, offset]);
+
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+    if (!trigger || !hasMore) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void loadMore();
+    }, { rootMargin: '320px 0px' });
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  const handleCategoryKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown') moveFocus(event, categoryListRef.current, '[data-live-category]', 1);
+    if (event.key === 'ArrowUp') moveFocus(event, categoryListRef.current, '[data-live-category]', -1);
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (activeGroup === SEARCH_CHANNELS) searchRef.current?.focus();
+      else channelListRef.current?.querySelector<HTMLElement>('[data-live-channel]')?.focus();
+    }
   };
 
-  if (!activeGroup) {
-    return <div className="-mx-5 -mt-6 min-h-screen bg-[#091018] p-5 sm:-mx-8 sm:p-8 lg:-mx-10 lg:-mt-8 lg:p-10">
-      <div className="mb-7"><p className="text-[10px] uppercase tracking-[.18em] text-emerald-400">Ao vivo</p><h1 className="mt-1 text-3xl font-semibold">Escolha uma categoria</h1></div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{groups.map((group) => <button key={group} onClick={() => setActiveGroup(group)} className="group flex min-h-24 items-center justify-between rounded-2xl bg-white/[0.045] px-5 text-left transition hover:bg-emerald-400/10"><span className="text-sm font-medium text-white/70 group-hover:text-white">{group}</span><span className="flex h-14 w-14 items-center justify-center rounded-xl bg-black/25 text-xl font-semibold text-emerald-300">{categoryInitial(group)}</span></button>)}</div>
-    </div>;
-  }
+  return <div className="live-page -mx-5 min-h-screen sm:-mx-8 lg:-mx-10 lg:-mt-8">
+    <header className="live-topbar">
+      <button type="button" onClick={onMenuOpen} className="live-mobile-back" aria-label="Abrir menu principal"><Menu className="h-5 w-5" /></button>
+      <span className="live-topbar-icon"><Radio className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[.17em] text-emerald-300/65">Canais ao Vivo</span><strong className="block truncate text-base text-white">{groupLabel(activeGroup)}</strong></span>
+      <span className="live-status"><span /> Ao vivo</span>
+    </header>
 
-  return <div className="-mx-5 -mt-6 min-h-screen bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
-    <div className="grid min-h-screen grid-cols-[3.5rem_minmax(15rem,22rem)_minmax(0,1fr)]">
-      <aside className="sticky top-0 h-screen overflow-y-auto border-r border-white/[0.04] bg-[#0b141b] p-2 scrollbar-none">
-        <button onClick={() => { setActiveGroup(null); setQuery(''); }} title="Voltar às categorias" className="mb-3 flex h-11 w-full items-center justify-center rounded-xl bg-white/[0.05] text-white/55 hover:text-emerald-300"><Tag className="h-4 w-4" /></button>
-        {groups.map((group) => <button key={group} title={group} onClick={() => setActiveGroup(group)} className={`mb-2 flex h-11 w-full items-center justify-center rounded-xl text-sm font-semibold transition ${activeGroup === group ? 'bg-emerald-400 text-slate-950' : 'bg-white/[0.035] text-white/45 hover:bg-white/[0.08]'}`}>{categoryInitial(group)}</button>)}
+    <div className="live-workspace">
+      <aside ref={categoryListRef} className="live-category-rail" aria-label="Categorias de canais">
+        <button type="button" data-live-category onClick={() => chooseGroup(SEARCH_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === SEARCH_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><Search className="h-4 w-4" /></span><span className="live-rail-label">Procurar</span></button>
+        <button type="button" data-live-category onClick={() => chooseGroup(FAVORITE_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === FAVORITE_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><Heart className="h-4 w-4" /></span><span className="live-rail-label">Favoritos</span></button>
+        <button type="button" data-live-category onClick={() => chooseGroup(RECENT_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === RECENT_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><History className="h-4 w-4" /></span><span className="live-rail-label">Últimos assistidos</span></button>
+        <button
+          type="button"
+          data-live-category
+          onClick={() => chooseGroup(ALL_CHANNELS)}
+          onKeyDown={handleCategoryKeyDown}
+          className={`live-rail-all ${activeGroup === ALL_CHANNELS ? 'live-rail-item-active' : ''}`}
+          title="Todos os canais"
+        ><span className="live-rail-icon"><Tag className="h-4 w-4" /></span><span className="live-rail-label">Todos</span></button>
+        <div className="live-rail-list">
+          {orderedGroups.map((group) => <button
+            key={group}
+            type="button"
+            data-live-category
+            title={cleanGroupName(group)}
+            onClick={() => chooseGroup(group)}
+            onKeyDown={handleCategoryKeyDown}
+            className={`live-rail-item ${activeGroup === group ? 'live-rail-item-active' : ''}`}
+          >
+            <span className="live-rail-initial">{categoryInitial(group)}</span>
+            <span className="live-rail-label">{cleanGroupName(group)}</span>
+          </button>)}
+        </div>
       </aside>
 
-      <aside className="sticky top-0 flex h-screen min-w-0 flex-col border-r border-white/[0.04] bg-[#0d161d] p-3">
-        <div className="mb-3 flex items-center gap-2"><button onClick={() => setActiveGroup(null)} className="rounded-lg p-2 text-white/45 hover:bg-white/[0.06]"><ArrowLeft className="h-4 w-4" /></button><span className="truncate text-sm font-semibold text-white">{activeGroup}</span></div>
-        <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar canal" className="w-full rounded-xl bg-white/[0.05] py-3 pl-9 pr-3 text-sm outline-none placeholder:text-white/25" /></div>
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">{loading ? Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />) : filtered.map((channel, index) => <button key={channel.id} onClick={() => onSelectChannel(channel)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${liveActive?.id === channel.id ? 'bg-emerald-400/12 ring-1 ring-emerald-400/45' : 'bg-white/[0.035] hover:bg-white/[0.07]'}`}><span className="w-5 text-center text-xs text-white/25">{index + 1}</span><span className="flex h-10 w-12 shrink-0 items-center justify-center"><Logo channel={channel} compact /></span><span className="min-w-0 flex-1 truncate text-sm text-white/70">{channel.name}</span><span role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onToggleFavorite(channel.id, channel); }} className="p-1 text-white/25 hover:text-emerald-300"><Heart className={`h-4 w-4 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></span></button>)}{hasMore && <button onClick={() => void loadMore()} disabled={loadingMore} className="flex w-full items-center justify-center gap-2 py-4 text-xs text-white/35">{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}Carregar mais canais</button>}</div>
-      </aside>
+      <section className="live-channel-panel" aria-label={`Canais de ${groupLabel(activeGroup)}`}>
+        <div className="live-channel-header">
+          <div className="flex min-w-0 items-center gap-3"><span className="live-channel-header-icon"><Wifi className="h-4 w-4" /></span><span className="min-w-0"><strong className="block truncate text-sm text-white">{groupLabel(activeGroup)}</strong><small className="block text-[11px] text-white/35">{loading ? 'Carregando canais...' : `${items.length} canais exibidos`}</small></span></div>
+          <select value={activeGroup} onChange={(event) => chooseGroup(event.target.value)} className="live-category-select" aria-label="Trocar categoria">
+            <option value={SEARCH_CHANNELS}>Procurar</option>
+            <option value={FAVORITE_CHANNELS}>Favoritos</option>
+            <option value={RECENT_CHANNELS}>Últimos assistidos</option>
+            <option value={ALL_CHANNELS}>Todos</option>
+            {orderedGroups.map((group) => <option key={group} value={group}>{cleanGroupName(group)}</option>)}
+          </select>
+        </div>
 
-      <main className="min-w-0 p-4 lg:p-6">
-        <div className="mb-4"><p className="text-[10px] uppercase tracking-[.18em] text-emerald-400">Ao vivo</p><h1 className="mt-1 truncate text-2xl font-semibold">{liveActive?.name || activeGroup}</h1></div>
-        <section className="overflow-hidden rounded-3xl bg-white/[0.035] p-3"><div className="aspect-video overflow-hidden rounded-2xl bg-black">{liveActive ? <VideoPlayer channel={liveActive} /> : <div className="flex h-full flex-col items-center justify-center text-center"><Radio className="mb-3 h-9 w-9 text-emerald-400/40" /><p className="text-sm text-white/55">Escolha um canal da lista</p></div>}</div>{liveActive && <div className="flex items-center gap-3 px-2 pb-1 pt-3"><span className="flex h-10 w-12 items-center justify-center"><Logo channel={liveActive} compact /></span><span><strong className="block text-sm">{liveActive.name}</strong><small className="text-white/35">{liveActive.group}</small></span></div>}</section>
+        {activeGroup === SEARCH_CHANNELS && <div className="live-search-wrap">
+          <Search className="h-4 w-4" />
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                channelListRef.current?.querySelector<HTMLElement>('[data-live-channel]')?.focus();
+              }
+              if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                categoryListRef.current?.querySelector<HTMLElement>('.live-rail-item-active')?.focus();
+              }
+            }}
+            placeholder="Procurar canal"
+            aria-label="Procurar canal"
+          />
+        </div>}
+
+        <div ref={channelListRef} className="live-channel-list">
+          {loading
+            ? Array.from({ length: 8 }).map((_, index) => <div key={index} className="live-channel-skeleton" />)
+            : items.map((channel, index) => <div key={channel.id} className={`live-channel-row ${liveActive?.id === channel.id ? 'live-channel-row-active' : ''}`}>
+              <button
+                type="button"
+                data-live-channel
+                onClick={() => selectChannelSafely(channel)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') moveFocus(event, channelListRef.current, '[data-live-channel]', 1);
+                  if (event.key === 'ArrowUp') moveFocus(event, channelListRef.current, '[data-live-channel]', -1);
+                  if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    categoryListRef.current?.querySelector<HTMLElement>('.live-rail-item-active')?.focus();
+                  }
+                }}
+                className="live-channel-main"
+              >
+                <span className="live-channel-position">{index + 1}</span>
+                <span className="live-channel-logo"><Logo channel={channel} compact /></span>
+                <span className="min-w-0 flex-1"><strong>{channel.name}</strong><small>{cleanGroupName(channel.group || 'Canais ao Vivo')}</small></span>
+                {liveActive?.id === channel.id && <span className="live-playing-dot" title="Reproduzindo"><span /></span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleFavorite(channel.id, channel)}
+                className="live-channel-favorite"
+                aria-label={favorites.has(channel.id) ? `Remover ${channel.name} dos favoritos` : `Adicionar ${channel.name} aos favoritos`}
+              ><Heart className={`h-4 w-4 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>
+            </div>)}
+
+          {!loading && !items.length && <div className="live-list-empty"><Search className="h-7 w-7" /><strong>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Procure um canal' : 'Nenhum canal encontrado'}</strong><span>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Digite pelo menos duas letras.' : activeGroup === FAVORITE_CHANNELS ? 'Você ainda não favoritou canais.' : activeGroup === RECENT_CHANNELS ? 'Os canais assistidos aparecerão aqui.' : 'Não há canais disponíveis nesta categoria.'}</span></div>}
+
+          {hasMore && <div ref={loadMoreTriggerRef} className="live-auto-loader"><Loader2 className={`h-4 w-4 ${loadingMore ? 'animate-spin' : ''}`} /><span>{loadingMore ? 'Carregando mais canais...' : 'Preparando mais canais...'}</span></div>}
+        </div>
+      </section>
+
+      <main className="live-player-panel">
+        <section className="live-player-card">
+          <div className="live-player-heading">
+            <span className="live-player-logo">{liveActive ? <Logo channel={liveActive} compact /> : <Radio className="h-5 w-5 text-emerald-300/55" />}</span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.17em] text-emerald-300/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Ao vivo agora</span>
+              <strong className="mt-1 block truncate text-base text-white sm:text-lg">{liveActive?.name || 'Selecione um canal'}</strong>
+              <small className="block truncate text-xs text-white/35">{liveActive ? cleanGroupName(liveActive.group || 'Canais ao Vivo') : groupLabel(activeGroup)}</small>
+            </span>
+            {liveActive && <button type="button" onClick={() => onToggleFavorite(liveActive.id, liveActive)} className="live-player-favorite" aria-label={favorites.has(liveActive.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}><Heart className={`h-5 w-5 ${favorites.has(liveActive.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>}
+          </div>
+
+          <div className="live-video-frame">
+            {liveActive
+              ? <VideoPlayer
+                channel={liveActive}
+                onClose={onBack}
+                liveProgram={liveEpg?.current ? { title: liveEpg.current.title, schedule: programSchedule(liveEpg.current) } : null}
+                liveNextProgram={liveEpg?.next ? { title: liveEpg.next.title, schedule: programSchedule(liveEpg.next) } : null}
+              />
+              : <div className="live-player-empty"><span><Radio className="h-9 w-9" /></span><strong>Pronto para assistir</strong><p>Escolha um canal na lista para iniciar a transmissão.</p></div>}
+          </div>
+
+          <div className="live-program-guide">
+            <div className="live-program-current">
+              <span>Agora</span>
+              <strong>{epgLoading ? 'Carregando programação...' : liveEpg?.current?.title || 'Programação não informada'}</strong>
+              {liveEpg?.current && programSchedule(liveEpg.current) && <small>{programSchedule(liveEpg.current)}</small>}
+            </div>
+            {liveEpg?.next && <div className="live-program-next"><span>A seguir</span><strong>{liveEpg.next.title}</strong>{programSchedule(liveEpg.next) && <small>{programSchedule(liveEpg.next)}</small>}</div>}
+          </div>
+          <div className="live-player-footer"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /><span>Duplo clique abre a tela cheia</span><span className="ml-auto hidden text-white/25 sm:block">Voltar retorna à tela de canais</span></div>
+        </section>
       </main>
     </div>
   </div>;

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { fetchProvider } from "../_shared/provider-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-    const upstream = await fetch(playlistUrl, {
+    const upstream = await fetchProvider(playlistUrl, {
       headers: { Accept: "application/x-mpegURL, application/vnd.apple.mpegurl, text/plain, */*" },
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));

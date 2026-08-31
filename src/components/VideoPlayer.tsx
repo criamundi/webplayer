@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 import type { Channel } from '@/types';
-import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { resolvePlayableStreamUrl } from '@/lib/streamProxy';
 import { storage } from '@/lib/storage';
 
 interface VideoPlayerProps {
@@ -34,6 +34,8 @@ interface VideoPlayerProps {
   startMuted?: boolean;
   immersive?: boolean;
   onClose?: () => void;
+  liveProgram?: { title: string; schedule: string } | null;
+  liveNextProgram?: { title: string; schedule: string } | null;
 }
 
 type PlayerStatus =
@@ -331,29 +333,29 @@ export function VideoPlayer({
 
             lowLatencyMode: false,
 
-            maxBufferLength: 15,
+            maxBufferLength: 30,
 
-            maxMaxBufferLength: 25,
+            maxMaxBufferLength: 60,
 
-            backBufferLength: 5,
+            backBufferLength: 15,
 
             manifestLoadingTimeOut:
-              10000,
+              15000,
 
             levelLoadingTimeOut:
-              10000,
+              15000,
 
             fragLoadingTimeOut:
-              12000,
+              20000,
 
             /*
-             * Sem retry automático.
+             * Pequenas oscilações do provedor não devem encerrar o canal.
              */
-            manifestLoadingMaxRetry: 0,
+            manifestLoadingMaxRetry: 2,
 
-            levelLoadingMaxRetry: 0,
+            levelLoadingMaxRetry: 3,
 
-            fragLoadingMaxRetry: 0,
+            fragLoadingMaxRetry: 4,
           });
 
         hlsRef.current =
@@ -490,7 +492,10 @@ export function VideoPlayer({
                   true,
 
                 enableStashBuffer:
-                  false,
+                  true,
+
+                stashInitialSize:
+                  1024 * 1024,
 
                 lazyLoad:
                   false,
@@ -499,19 +504,19 @@ export function VideoPlayer({
                   true,
 
                 autoCleanupMaxBackwardDuration:
-                  15,
+                  60,
 
                 autoCleanupMinBackwardDuration:
-                  5,
+                  20,
 
                 liveBufferLatencyChasing:
-                  true,
+                  false,
 
                 liveBufferLatencyMaxLatency:
-                  3,
+                  10,
 
                 liveBufferLatencyMinRemain:
-                  0.5,
+                  2,
               },
             );
 
@@ -731,23 +736,6 @@ export function VideoPlayer({
      * NÃO troca DNS.
      * NÃO troca hostname.
      */
-    const playableUrl =
-      getPlayableStreamUrl(
-        originalUrl,
-      );
-
-    console.log(
-      'PLAYER STREAM:',
-      {
-        channel:
-          channel.name,
-
-        originalUrl,
-
-        playableUrl,
-      },
-    );
-
     const generation =
       generationRef.current;
 
@@ -766,9 +754,17 @@ export function VideoPlayer({
      * garantir que a conexão
      * anterior encerrou.
      */
-    startTimerRef.current =
-      window.setTimeout(
-        () => {
+    void resolvePlayableStreamUrl(originalUrl)
+      .then((playableUrl) => {
+        if (generation !== generationRef.current) return;
+
+        console.log('PLAYER STREAM:', {
+          channel: channel.name,
+          originalUrl,
+          playableUrl,
+        });
+
+        startTimerRef.current = window.setTimeout(() => {
           if (
             generation !==
             generationRef.current
@@ -804,9 +800,12 @@ export function VideoPlayer({
             generation,
             channel.category,
           );
-        },
-        SWITCH_DELAY,
-      );
+        }, SWITCH_DELAY);
+      })
+      .catch(() => {
+        if (generation !== generationRef.current) return;
+        fail(generation, 'Não foi possível preparar a conexão segura do canal.');
+      });
 
     const onPlaying =
       () => {
@@ -1038,20 +1037,17 @@ export function VideoPlayer({
       /*
        * Retry usa o mesmo proxy.
        */
-      const playableUrl =
-        getPlayableStreamUrl(
-          originalUrl,
-        );
-
       const generation =
         generationRef.current;
 
       setStatus('loading');
       setErrorMsg('');
 
-      startTimerRef.current =
-        window.setTimeout(
-          () => {
+      void resolvePlayableStreamUrl(originalUrl)
+        .then((playableUrl) => {
+          if (generation !== generationRef.current) return;
+
+          startTimerRef.current = window.setTimeout(() => {
             if (
               generation !==
               generationRef.current
@@ -1084,9 +1080,12 @@ export function VideoPlayer({
               generation,
               channel.category,
             );
-          },
-          SWITCH_DELAY,
-        );
+          }, SWITCH_DELAY);
+        })
+        .catch(() => {
+          if (generation !== generationRef.current) return;
+          fail(generation, 'Não foi possível preparar a conexão segura do canal.');
+        });
     }, [
       channel,
       destroyPlayback,

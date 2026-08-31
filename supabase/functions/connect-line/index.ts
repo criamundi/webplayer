@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   createClient,
 } from "npm:@supabase/supabase-js@2.57.4";
+import { fetchProvider } from "../_shared/provider-fetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -290,8 +291,23 @@ Deno.serve(
           ? body.provider.trim()
           : "";
 
+      const deviceId =
+        typeof body.deviceId === "string"
+          ? body.deviceId.trim().slice(0, 160)
+          : "";
+
+      const deviceName =
+        typeof body.deviceName === "string"
+          ? body.deviceName.trim().slice(0, 120)
+          : "Dispositivo";
+
+      const deviceType =
+        body.deviceType === "tv" || body.deviceType === "mobile" || body.deviceType === "browser"
+          ? body.deviceType
+          : "browser";
+
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
+        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -357,7 +373,7 @@ Deno.serve(
             "iptv_providers",
           )
           .select(
-            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url",
+            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url, device_limit",
           )
           .ilike(
             "name",
@@ -494,7 +510,7 @@ Deno.serve(
       let upstreamResponse: Response;
       let upstreamPayload: Record<string, unknown>;
       try {
-        upstreamResponse = await fetch(playerApiUrl(serverUrl, username, password), {
+        upstreamResponse = await fetchProvider(playerApiUrl(serverUrl, username, password), {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
           redirect: "follow",
           signal: controller.signal,
@@ -544,10 +560,212 @@ Deno.serve(
         await adminClient.from("iptv_lines").update(synchronized).eq("id", line.id);
       }
 
+
+      /*
+      |--------------------------------------------------------------------------
+      | DISPOSITIVO REAL
+      |--------------------------------------------------------------------------
+      |
+      | A linha representa a conta IPTV. A tabela client_devices representa
+      | TVs/navegadores autorizados para usar essa linha.
+      */
+      if (!deviceId) {
+        return json({ error: "Este dispositivo não pôde ser identificado. Reabra o aplicativo e tente novamente." }, 400);
+      }
+
+      const { data: registeredDevice, error: deviceLookupError } = await adminClient
+        .from("client_devices")
+        .select("id, active")
+        .eq("line_id", line.id)
+        .eq("device_id", deviceId)
+        .maybeSingle();
+
+      if (deviceLookupError) {
+        return json({ error: "Não foi possível validar este dispositivo." }, 500);
+      }
+
+      if (registeredDevice?.active === false) {
+        return json({ error: "Este dispositivo foi bloqueado pelo administrador." }, 403);
+      }
+
+      if (!registeredDevice) {
+        const { count: activeDeviceCount, error: deviceCountError } = await adminClient
+          .from("client_devices")
+          .select("id", { count: "exact", head: true })
+          .eq("line_id", line.id)
+          .eq("active", true);
+
+        if (deviceCountError) {
+          return json({ error: "Não foi possível verificar o limite de dispositivos." }, 500);
+        }
+
+        const limit = Math.max(1, Math.min(Number(providerRow.device_limit ?? 2), 20));
+        if ((activeDeviceCount ?? 0) >= limit) {
+          return json({
+            error: `Limite de ${limit} dispositivo${limit === 1 ? "" : "s"} atingido. Remova um dispositivo antigo no painel para continuar.`,
+          }, 403);
+        }
+
+        const { error: deviceInsertError } = await adminClient
+          .from("client_devices")
+          .insert({
+            provider_id: providerRow.id,
+            line_id: line.id,
+            device_id: deviceId,
+            device_name: deviceName || "Dispositivo",
+            device_type: deviceType,
+            user_agent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
+            active: true,
+            first_seen_at: new Date().toISOString(),
+            last_seen_at: new Date().toISOString(),
+          });
+
+        if (deviceInsertError) {
+          return json({ error: "A conta foi validada, mas não foi possível registrar este dispositivo." }, 500);
+        }
+      } else {
+        await adminClient
+          .from("client_devices")
+          .update({
+            device_name: deviceName || "Dispositivo",
+            device_type: deviceType,
+            user_agent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
+            last_seen_at: new Date().toISOString(),
+          })
+          .eq("id", registeredDevice.id);
+      }
+
       if (action === "account-status") {
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
         return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
+      }
+
+      if (action === "live-catalog") {
+        const makeLiveApiUrl = (apiAction: string) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php") ? url.pathname.slice(0, url.pathname.lastIndexOf("/")) : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({ username, password, action: apiAction }).toString();
+          return url;
+        };
+        const liveController = new AbortController();
+        const liveTimeout = setTimeout(() => liveController.abort(), 30000);
+        try {
+          const [categoriesResponse, streamsResponse] = await Promise.all([
+            fetchProvider(makeLiveApiUrl("get_live_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+            fetchProvider(makeLiveApiUrl("get_live_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: liveController.signal }),
+          ]);
+          if (!categoriesResponse.ok || !streamsResponse.ok) return json({ error: "Catálogo de canais indisponível." }, 502);
+          const categoriesRaw = await categoriesResponse.json();
+          const streamsRaw = await streamsResponse.json();
+          const categories = (Array.isArray(categoriesRaw) ? categoriesRaw : []).map((item: Record<string, unknown>) => ({
+            id: String(item.category_id ?? ""),
+            name: String(item.category_name ?? "Sem categoria"),
+          })).filter((item: { id: string }) => item.id);
+          const categoryNames = new Map(categories.map((item: { id: string; name: string }) => [item.id, item.name]));
+          const categoryOrder = new Map(categories.map((item: { id: string }, index: number) => [item.id, index]));
+          const root = new URL(serverUrl.toString());
+          const rootPath = root.pathname.toLowerCase().endsWith(".php") ? root.pathname.slice(0, root.pathname.lastIndexOf("/")) : root.pathname.replace(/\/$/, "");
+          const streams = (Array.isArray(streamsRaw) ? streamsRaw : [])
+            .map((item: Record<string, unknown>, sourceIndex: number) => {
+              const streamId = String(item.stream_id ?? "");
+              const categoryId = String(item.category_id ?? "");
+              const channelNumber = Number(item.num ?? 0);
+              const extension = String(item.container_extension ?? "ts").replace(/[^a-z0-9]/gi, "") || "ts";
+              return {
+                id: `live:${streamId}`,
+                streamId,
+                categoryId,
+                channelNumber: Number.isFinite(channelNumber) && channelNumber > 0 ? channelNumber : null,
+                sourceIndex,
+                name: String(item.name ?? "Sem nome"),
+                url: `${root.origin}${rootPath}/live/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamId}.${extension}`,
+                logo: String(item.stream_icon ?? ""),
+                group: categoryNames.get(categoryId) ?? "Outros",
+                tvgId: String(item.epg_channel_id ?? ""),
+                category: "live",
+              };
+            })
+            .filter((item: { streamId: string }) => item.streamId)
+            .sort((a: { categoryId: string; sourceIndex: number }, b: { categoryId: string; sourceIndex: number }) => {
+              const aCategory = categoryOrder.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER;
+              const bCategory = categoryOrder.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER;
+              return aCategory - bCategory || a.sourceIndex - b.sourceIndex;
+            })
+            .map((item: { sourceIndex: number; [key: string]: unknown }) => {
+              const result: Record<string, unknown> = { ...item };
+              delete result.sourceIndex;
+              return result;
+            });
+          return json({ categories, channels: streams });
+        } catch {
+          return json({ error: "Não foi possível carregar os canais ao vivo." }, 502);
+        } finally {
+          clearTimeout(liveTimeout);
+        }
+      }
+
+      if (action === "live-epg") {
+        if (!streamId) return json({ error: "Canal inválido." }, 400);
+        const epgUrl = new URL(serverUrl.toString());
+        const basePath = epgUrl.pathname.toLowerCase().endsWith(".php") ? epgUrl.pathname.slice(0, epgUrl.pathname.lastIndexOf("/")) : epgUrl.pathname.replace(/\/$/, "");
+        epgUrl.pathname = `${basePath}/player_api.php`;
+        epgUrl.search = new URLSearchParams({ username, password, action: "get_short_epg", stream_id: streamId, limit: "4" }).toString();
+
+        const epgController = new AbortController();
+        const epgTimeout = setTimeout(() => epgController.abort(), 12000);
+        try {
+          const response = await fetchProvider(epgUrl, {
+            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+            signal: epgController.signal,
+          });
+          if (!response.ok) return json({ current: null, next: null });
+          const payload = await response.json();
+          const listings = Array.isArray(payload?.epg_listings) ? payload.epg_listings : [];
+          const decodeText = (value: unknown) => {
+            const raw = String(value ?? "").trim();
+            if (!raw || raw.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
+            try {
+              const bytes = Uint8Array.from(atob(raw), (character) => character.charCodeAt(0));
+              const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
+              const hasControlCharacter = Array.from(decoded).some((character) => {
+                const code = character.charCodeAt(0);
+                return code < 32 && code !== 9 && code !== 10 && code !== 13;
+              });
+              return decoded && !hasControlCharacter ? decoded : raw;
+            } catch {
+              return raw;
+            }
+          };
+          const toIso = (timestamp: unknown, date: unknown) => {
+            const seconds = Number(timestamp ?? 0);
+            if (Number.isFinite(seconds) && seconds > 0) return new Date(seconds * 1000).toISOString();
+            const parsed = Date.parse(String(date ?? ""));
+            return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+          };
+          const programs = listings.map((item: Record<string, unknown>) => ({
+            title: decodeText(item.title),
+            description: decodeText(item.description),
+            start: toIso(item.start_timestamp, item.start),
+            end: toIso(item.stop_timestamp, item.end),
+          })).filter((item: { title: string }) => item.title);
+          const now = Date.now();
+          const currentIndex = programs.findIndex((item: { start: string; end: string }) => {
+            const start = Date.parse(item.start);
+            const end = Date.parse(item.end);
+            return Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end;
+          });
+          const selectedIndex = currentIndex >= 0 ? currentIndex : 0;
+          return json({
+            current: programs[selectedIndex] ?? null,
+            next: programs[selectedIndex + 1] ?? null,
+          });
+        } catch {
+          return json({ current: null, next: null });
+        } finally {
+          clearTimeout(epgTimeout);
+        }
       }
 
       if (action === "movie-catalog") {
@@ -562,8 +780,8 @@ Deno.serve(
         const movieTimeout = setTimeout(() => movieController.abort(), 45000);
         try {
           const [categoriesResponse, moviesResponse] = await Promise.all([
-            fetch(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
-            fetch(makeMovieApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+            fetchProvider(makeMovieApiUrl("get_vod_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
+            fetchProvider(makeMovieApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: movieController.signal }),
           ]);
           if (!categoriesResponse.ok || !moviesResponse.ok) return json({ error: "Catálogo de filmes indisponível." }, 502);
           const categoriesRaw = await categoriesResponse.json();
@@ -620,8 +838,8 @@ Deno.serve(
 
           if (action === "series-catalog") {
             const [categoriesResponse, showsResponse] = await Promise.all([
-              fetch(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
-              fetch(makeSeriesApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+              fetchProvider(makeSeriesApiUrl("get_series_categories"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
+              fetchProvider(makeSeriesApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal }),
             ]);
             if (!categoriesResponse.ok || !showsResponse.ok) return json({ error: "Catálogo de séries indisponível." }, 502);
             const categoriesRaw = await categoriesResponse.json();
@@ -637,7 +855,7 @@ Deno.serve(
             return json({ categories, shows });
           }
           if (!streamId) return json({ error: "Série inválida." }, 400);
-          const response = await fetch(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
+          const response = await fetchProvider(makeSeriesApiUrl("get_series_info", { series_id: streamId }), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: seriesController.signal });
           if (!response.ok) return json({ error: "Informações da série indisponíveis." }, 502);
           const raw = await response.json();
           const info = raw?.info && typeof raw.info === "object" ? raw.info as Record<string, unknown> : {};
@@ -770,8 +988,8 @@ Deno.serve(
         const catalogTimeout = setTimeout(() => catalogController.abort(), 15000);
         try {
           const [vodResponse, seriesResponse] = await Promise.all([
-            fetch(makeApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
-            fetch(makeApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+            fetchProvider(makeApiUrl("get_vod_streams"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
+            fetchProvider(makeApiUrl("get_series"), { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, signal: catalogController.signal }),
           ]);
           if (!vodResponse.ok || !seriesResponse.ok) return json({ error: "Catálogo indisponível." }, 502);
           const vodRaw = await vodResponse.json();
@@ -837,7 +1055,7 @@ Deno.serve(
         const infoController = new AbortController();
         const infoTimeout = setTimeout(() => infoController.abort(), 12000);
         try {
-          const infoResponse = await fetch(infoUrl, {
+          const infoResponse = await fetchProvider(infoUrl, {
             headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
             redirect: "follow",
             signal: infoController.signal,
@@ -1073,7 +1291,7 @@ Deno.serve(
 
       try {
         upstream =
-          await fetch(
+          await fetchProvider(
             playlistUrl,
             {
               method:

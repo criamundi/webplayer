@@ -18,3 +18,30 @@ export function getPlayableStreamUrl(
     encodeURIComponent(url)
   );
 }
+
+export async function resolvePlayableStreamUrl(
+  originalUrl: string,
+): Promise<string> {
+  const proxyUrl = getPlayableStreamUrl(originalUrl);
+
+  if (!proxyUrl) {
+    return '';
+  }
+
+  const response = await fetch(`${proxyUrl}&resolve=1`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao preparar o stream (${response.status}).`);
+  }
+
+  const payload = await response.json() as { url?: unknown };
+  if (typeof payload.url !== 'string' || !payload.url.startsWith('https://')) {
+    throw new Error('O proxy retornou um endereço de stream inválido.');
+  }
+
+  return payload.url;
+}

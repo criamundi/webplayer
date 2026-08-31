@@ -78,7 +78,7 @@ export function LinesView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este dispositivo permanentemente?')) return;
+    if (!confirm('Excluir este cliente permanentemente?')) return;
     await supabase.from('iptv_lines').delete().eq('id', id);
     load();
   };
@@ -103,7 +103,7 @@ export function LinesView() {
     }
     setMigrating(false);
     if (done > 0) {
-      setMigrateMsg(`${done} dispositivo(s) migrado(s) para ${dnsList.find((d) => d.id === migrateDnsId)?.name || 'DNS'}.`);
+      setMigrateMsg(`${done} cliente(s) migrado(s) para ${dnsList.find((d) => d.id === migrateDnsId)?.name || 'DNS'}.`);
       load();
     }
   };
@@ -112,8 +112,8 @@ export function LinesView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Dispositivos</h1>
-          <p className="mt-2 text-sm text-white/45">Gerencie os dispositivos e credenciais de acesso dos seus clientes.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Clientes</h1>
+          <p className="mt-2 text-sm text-white/45">Gerencie as contas IPTV, credenciais, DNS e status dos seus clientes.</p>
         </div>
         <div className="flex items-center gap-2">
           {dnsList.length > 0 && (
@@ -130,7 +130,7 @@ export function LinesView() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por dispositivo…" className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-lime-300/50" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por cliente…" className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-lime-300/50" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none focus:border-lime-300/50">
           <option value="all" className="bg-slate-900">Todos</option>

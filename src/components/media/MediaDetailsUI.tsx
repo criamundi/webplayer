@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Loader2, Star, Tv, UserRound } from 'lucide-react';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 import type { SeriesCastMember } from '@/lib/provider';
@@ -57,18 +57,36 @@ export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false }:
 export function MediaHeroTitle({ logo, name }: { logo?: string; name: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [logo]);
-  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{name}</h1>;
-  return <img src={logo} alt={name} onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
+  const displayName = name.replace(/\s*(?:\[\s*l\s*\]|\(\s*l\s*\))\s*$/i, '').trim() || name;
+  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{displayName}</h1>;
+  return <img src={logo} alt={displayName} decoding="async" fetchPriority="high" onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
 }
 
 export function MediaSynopsis({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => { setExpanded(false); }, [text]);
+  const [canExpand, setCanExpand] = useState(false);
+  const paragraphRef = useRef<HTMLParagraphElement>(null);
 
-  const canExpand = text.trim().length > 180;
+  useEffect(() => {
+    setExpanded(false);
+    setCanExpand(false);
+  }, [text]);
+
+  useLayoutEffect(() => {
+    if (expanded) return;
+    const paragraph = paragraphRef.current;
+    if (!paragraph) return;
+
+    const measureOverflow = () => setCanExpand(paragraph.scrollHeight > paragraph.clientHeight + 1);
+    measureOverflow();
+
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(paragraph);
+    return () => observer.disconnect();
+  }, [expanded, text]);
 
   return <div className="mt-4 max-w-2xl">
-    <p className={`${expanded ? '' : 'line-clamp-3'} text-sm leading-6 text-white/55`}>{text}</p>
+    <p ref={paragraphRef} className={`${expanded ? '' : 'line-clamp-3'} text-sm leading-6 text-white/55`}>{text}</p>
     {canExpand && <button
       type="button"
       onClick={() => setExpanded((current) => !current)}
