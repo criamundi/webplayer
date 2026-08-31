@@ -10,7 +10,7 @@ interface FootballWidgetProps {
   onSelectChannel: (channel: Channel) => void;
 }
 
-const ROTATION_MS = 9_000;
+const ROTATION_MS = 15_000;
 
 function teamInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
@@ -117,11 +117,11 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
       {!loading && activeMatch && <>
         <section className="rounded-2xl bg-white/[.045] p-4">
-          <div className="flex items-center justify-between gap-3"><span className="truncate text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-md bg-black/25 px-2 py-1 text-[10px] font-semibold tabular-nums text-white/70">{activeMatch.time}</span></div>
-          <div className="mt-4 grid grid-cols-[auto_auto_auto] items-center justify-center gap-5">
-            <div className="flex min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.home}</strong></div>
+          <div className="flex items-center justify-between gap-3"><span className="truncate text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.08] px-3 py-2 text-xs font-bold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
+          <div className="mt-4 grid grid-cols-[7.5rem_3.25rem_7.5rem] items-center justify-center gap-3">
+            <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.home}</strong></div>
             <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-white/45">VS</span>
-            <div className="flex min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.away}</strong></div>
+            <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.away}</strong></div>
           </div>
 
           <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[9px] text-white/40"><span>Probabilidade estimada</span><span>{probabilities.home}% · {probabilities.draw}% · {probabilities.away}%</span></div><div className="flex h-2.5 overflow-hidden rounded-full bg-white/5"><span style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }} /><span className="bg-white/25" style={{ width: `${probabilities.draw}%` }} /><span style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }} /></div><div className="mt-1.5 flex justify-between text-[8px] uppercase tracking-wider text-white/25"><span>{activeMatch.home}</span><span>Empate</span><span>{activeMatch.away}</span></div></div>
@@ -131,8 +131,19 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
         <section className="mt-5"><h3 className="mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-white/30">Jogos do dia</h3><div className="space-y-1.5">{matches.map((match, index) => <div
           key={match.id}
-          className={`rounded-xl px-3 py-3 transition ${index === activeIndex ? 'bg-white/[.075]' : 'bg-white/[.025] hover:bg-white/[.055]'}`}
-        ><button type="button" onClick={() => { setActiveIndex(index); setRotationKey((value) => value + 1); }} className="flex w-full items-center gap-2.5 text-left"><span className="w-9 shrink-0 text-[10px] font-semibold tabular-nums text-white/45">{match.time}</span><TeamLogo compact source={match.homeLogo} name={match.home} /><span className="min-w-0 flex-1"><strong className="block truncate text-[10px] font-semibold text-white/75">{match.home}</strong><strong className="mt-0.5 block truncate text-[10px] font-semibold text-white/55">{match.away}</strong></span><TeamLogo compact source={match.awayLogo} name={match.away} /></button>{broadcasts[match.id]?.length ? <div className="mt-2.5 pl-11"><ChannelButtons compact channels={broadcasts[match.id]} color={primaryColor} onSelectChannel={onSelectChannel} /></div> : null}</div>)}</div></section>
+          className={`rounded-xl px-2.5 py-2.5 transition ${index === activeIndex ? 'bg-white/[.08]' : 'bg-white/[.025] hover:bg-white/[.055]'}`}
+        ><button
+          type="button"
+          onClick={() => { setActiveIndex(index); setRotationKey((value) => value + 1); }}
+          className="grid w-full grid-cols-[3.2rem_2.25rem_minmax(0,1fr)_2.75rem_minmax(0,1fr)_2.25rem] items-center gap-2 text-left"
+        >
+          <span className="rounded-lg bg-white/[.07] px-2 py-2 text-center text-[10px] font-bold tabular-nums text-white/80">{match.time}</span>
+          <span className="flex justify-center"><TeamLogo compact source={match.homeLogo} name={match.home} /></span>
+          <strong className="truncate text-[10px] font-semibold text-white/78">{match.home}</strong>
+          <span className="justify-self-center rounded-full bg-white/[.06] px-2 py-1 text-[9px] font-bold uppercase tracking-[.12em] text-white/40">VS</span>
+          <strong className="truncate text-right text-[10px] font-semibold text-white/78">{match.away}</strong>
+          <span className="flex justify-center"><TeamLogo compact source={match.awayLogo} name={match.away} /></span>
+        </button>{broadcasts[match.id]?.length ? <div className="mt-2.5 pl-11"><ChannelButtons compact channels={broadcasts[match.id]} color={primaryColor} onSelectChannel={onSelectChannel} /></div> : null}</div>)}</div></section>
       </>}
     </div>
   </div>;
