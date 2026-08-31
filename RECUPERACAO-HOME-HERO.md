@@ -32,3 +32,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Cabeçalho do widget: dia da semana em uma linha e dia/mês em outra.
 
 - Hero restaurado ao fundo anterior. Widget esportivo convertido em card flutuante compacto, quase sólido, sem blur/degradê de ligação com o Hero.
+
+- Widget sem contorno. Degradê lateral refeito com radiais nas pontas e menor intensidade no centro para eliminar o padrão vertical seco.
