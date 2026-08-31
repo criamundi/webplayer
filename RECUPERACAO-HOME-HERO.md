@@ -26,3 +26,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Widget esportivo: rotação aumentada para 15s, horário destacado, lista inferior refeita com linha única e VS, e larguras fixas para evitar deslocamento visual na troca de times.
 
 - Widget esportivo: VS centralizado e porcentagens exibidas dentro de cada faixa da barra de probabilidades.
+
+- Probabilidade: barra fina e percentuais ao lado dos nomes dos times e de Empate.

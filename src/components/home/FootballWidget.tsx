@@ -126,12 +126,16 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
           <div className="mt-5">
             <div className="mb-2 text-[9px] text-white/40"><span>Probabilidade estimada</span></div>
-            <div className="flex h-6 overflow-hidden rounded-full bg-white/5 text-[9px] font-bold leading-none text-white">
-              <span className="flex items-center justify-center whitespace-nowrap" style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }}>{probabilities.home}%</span>
-              <span className="flex items-center justify-center whitespace-nowrap bg-white/25" style={{ width: `${probabilities.draw}%` }}>{probabilities.draw}%</span>
-              <span className="flex items-center justify-center whitespace-nowrap" style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }}>{probabilities.away}%</span>
+            <div className="flex h-2 overflow-hidden rounded-full bg-white/5">
+              <span style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }} />
+              <span className="bg-white/25" style={{ width: `${probabilities.draw}%` }} />
+              <span style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }} />
             </div>
-            <div className="mt-1.5 flex justify-between text-[8px] uppercase tracking-wider text-white/25"><span>{activeMatch.home}</span><span>Empate</span><span>{activeMatch.away}</span></div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[9px] font-semibold text-white/38">
+              <span className="truncate text-left">{activeMatch.home} · {probabilities.home}%</span>
+              <span className="text-center">Empate · {probabilities.draw}%</span>
+              <span className="truncate text-right">{activeMatch.away} · {probabilities.away}%</span>
+            </div>
           </div>
 
           <div className="mt-5"><span className="mb-2 block text-[9px] font-semibold uppercase tracking-[.15em] text-white/35">Onde assistir</span>{broadcasts[activeMatch.id]?.length ? <ChannelButtons channels={broadcasts[activeMatch.id]} color={primaryColor} onSelectChannel={onSelectChannel} /> : <p className="text-[10px] leading-4 text-white/30">Buscando o canal disponível na sua lista…</p>}</div>
