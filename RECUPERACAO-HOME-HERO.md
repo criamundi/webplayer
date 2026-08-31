@@ -32,3 +32,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Cabeçalho do widget: dia da semana em uma linha e dia/mês em outra.
 
 - Transição entre Hero e painel lateral suavizada: degradê mais largo, com progressão gradual e menor contraste na borda.
+
+- Hero agora permanece em 100% da largura; widget esportivo sobreposto com fundo translúcido e blur, sem degradê lateral.
