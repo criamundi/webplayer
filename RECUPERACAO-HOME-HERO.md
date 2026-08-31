@@ -20,3 +20,5 @@ Esta atualização foi aplicada diretamente sobre o ZIP original enviado como ba
 - src/home.css
 
 Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação parte do ZIP original enviado.
+
+- Removida a referência ao secret `SPORTSDB_API_KEY`; TheSportsDB usa a chave pública de desenvolvimento já prevista pelo código.

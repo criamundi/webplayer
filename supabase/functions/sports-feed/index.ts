@@ -277,8 +277,7 @@ Deno.serve(async (request: Request) => {
   const sorted = [...deduplicated.values()].sort((left, right) =>
     left.competitionPriority - right.competitionPriority || left.kickoff.localeCompare(right.kickoff)
   );
-  const sportsDbApiKey = Deno.env.get("SPORTSDB_API_KEY")?.trim() || "123";
-  const matches = await enrichInBatches(sorted, sportsDbApiKey);
+  const matches = await enrichInBatches(sorted, "123");
   const payload = {
     date: requestedDate,
     updatedAt: new Date().toISOString(),
