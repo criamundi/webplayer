@@ -30,3 +30,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Probabilidade: barra fina e percentuais ao lado dos nomes dos times e de Empate.
 
 - Cabeçalho do widget: dia da semana em uma linha e dia/mês em outra.
+
+- Transição entre Hero e painel lateral suavizada: degradê mais largo, com progressão gradual e menor contraste na borda.
