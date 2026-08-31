@@ -35,8 +35,8 @@ export function LoadingScreen({ message, branding, onCancel, channelCount, group
   const showStats = channelCount !== undefined && groupCount !== undefined;
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-5 text-white" style={{ backgroundColor: visualBranding.secondary_color }}>
-      <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${visualBranding.primary_color}33, transparent 42%)` }} />
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#091018] px-5 text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(46,72,86,.28),transparent_42%)]" />
       <div className="relative flex flex-col items-center">
         <div className="mb-6 animate-pulse">{logo}</div>
         <h1 className="mb-2 text-xl font-semibold tracking-tight">{visualBranding.app_name}</h1>
