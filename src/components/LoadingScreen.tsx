@@ -32,8 +32,6 @@ export function LoadingScreen({ message, branding, onCancel, channelCount, group
     </div>
   );
 
-  const showStats = channelCount !== undefined && groupCount !== undefined;
-
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#091018] px-5 text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(46,72,86,.28),transparent_42%)]" />
@@ -44,20 +42,6 @@ export function LoadingScreen({ message, branding, onCancel, channelCount, group
           <Loader2 className="h-4 w-4 animate-spin" style={{ color: visualBranding.primary_color }} />
           {message}
         </div>
-
-        {showStats && (
-          <div className="mt-6 flex items-center gap-6 rounded-2xl border border-white/10 bg-white/5 px-6 py-4 backdrop-blur-md">
-            <div className="text-center">
-              <p className="text-2xl font-bold tabular-nums" style={{ color: visualBranding.primary_color }}>{channelCount}</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-white/40">Canais</p>
-            </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-center">
-              <p className="text-2xl font-bold tabular-nums" style={{ color: visualBranding.primary_color }}>{groupCount}</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wider text-white/40">Categorias</p>
-            </div>
-          </div>
-        )}
 
         <p className="mt-3 text-center text-xs text-white/30">Sua lista está sendo preparada. Isso pode levar alguns instantes.</p>
         {onCancel && (
