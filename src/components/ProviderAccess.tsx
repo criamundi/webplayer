@@ -76,8 +76,8 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
     : <div className="flex items-center gap-3"><span className="flex h-14 w-14 items-center justify-center rounded-2xl text-slate-950 shadow-lg" style={buttonStyle}><Tv className="h-7 w-7" /></span><h1 className="text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1></div>;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-cover bg-center text-white" style={{ backgroundColor: visualBranding.secondary_color, backgroundImage: visualBranding.login_background_url ? `linear-gradient(90deg, rgba(9,16,24,.92), rgba(9,16,24,.55)), url(${visualBranding.login_background_url})` : undefined }}>
-      <div className="absolute inset-0 opacity-50" style={{ background: `radial-gradient(circle at 14% 15%, ${visualBranding.primary_color}22, transparent 35%), radial-gradient(circle at 85% 80%, ${visualBranding.primary_color}12, transparent 30%)` }} />
+    <main className="relative min-h-screen overflow-hidden bg-[#091018] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_15%,rgba(46,72,86,.24),transparent_35%),radial-gradient(circle_at_85%_80%,rgba(61,104,85,.12),transparent_30%)]" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-8 sm:px-8 lg:px-12">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1fr_440px] lg:gap-20">
           <section className="hidden max-w-xl lg:block">
