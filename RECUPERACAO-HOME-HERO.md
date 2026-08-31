@@ -24,3 +24,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Removida a referência ao secret `SPORTSDB_API_KEY`; TheSportsDB usa a chave pública de desenvolvimento já prevista pelo código.
 
 - Widget esportivo: rotação aumentada para 15s, horário destacado, lista inferior refeita com linha única e VS, e larguras fixas para evitar deslocamento visual na troca de times.
+
+- Widget esportivo: VS centralizado e porcentagens exibidas dentro de cada faixa da barra de probabilidades.

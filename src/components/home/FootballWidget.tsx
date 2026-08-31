@@ -120,11 +120,19 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
           <div className="flex items-center justify-between gap-3"><span className="truncate text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.08] px-3 py-2 text-xs font-bold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
           <div className="mt-4 grid grid-cols-[7.5rem_3.25rem_7.5rem] items-center justify-center gap-3">
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.home}</strong></div>
-            <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-white/45">VS</span>
+            <span className="mx-auto flex h-9 w-14 items-center justify-center rounded-full bg-white/[.06] text-[10px] font-bold uppercase tracking-[.12em] text-white/45">VS</span>
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.away}</strong></div>
           </div>
 
-          <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[9px] text-white/40"><span>Probabilidade estimada</span><span>{probabilities.home}% · {probabilities.draw}% · {probabilities.away}%</span></div><div className="flex h-2.5 overflow-hidden rounded-full bg-white/5"><span style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }} /><span className="bg-white/25" style={{ width: `${probabilities.draw}%` }} /><span style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }} /></div><div className="mt-1.5 flex justify-between text-[8px] uppercase tracking-wider text-white/25"><span>{activeMatch.home}</span><span>Empate</span><span>{activeMatch.away}</span></div></div>
+          <div className="mt-5">
+            <div className="mb-2 text-[9px] text-white/40"><span>Probabilidade estimada</span></div>
+            <div className="flex h-6 overflow-hidden rounded-full bg-white/5 text-[9px] font-bold leading-none text-white">
+              <span className="flex items-center justify-center whitespace-nowrap" style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }}>{probabilities.home}%</span>
+              <span className="flex items-center justify-center whitespace-nowrap bg-white/25" style={{ width: `${probabilities.draw}%` }}>{probabilities.draw}%</span>
+              <span className="flex items-center justify-center whitespace-nowrap" style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }}>{probabilities.away}%</span>
+            </div>
+            <div className="mt-1.5 flex justify-between text-[8px] uppercase tracking-wider text-white/25"><span>{activeMatch.home}</span><span>Empate</span><span>{activeMatch.away}</span></div>
+          </div>
 
           <div className="mt-5"><span className="mb-2 block text-[9px] font-semibold uppercase tracking-[.15em] text-white/35">Onde assistir</span>{broadcasts[activeMatch.id]?.length ? <ChannelButtons channels={broadcasts[activeMatch.id]} color={primaryColor} onSelectChannel={onSelectChannel} /> : <p className="text-[10px] leading-4 text-white/30">Buscando o canal disponível na sua lista…</p>}</div>
         </section>
