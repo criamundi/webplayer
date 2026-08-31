@@ -177,10 +177,20 @@ function upstreamState(raw: Record<string, unknown>) {
   const expiresAt = Number.isFinite(expSeconds) && expSeconds > 0
     ? new Date(expSeconds * 1000).toISOString()
     : null;
+  const upstreamUsername = String(user.username ?? "").trim();
+  const displayName = String(
+    user.name ??
+    user.full_name ??
+    user.display_name ??
+    upstreamUsername
+  ).trim();
+
   return {
     authenticated,
     status,
     expiresAt,
+    username: upstreamUsername || null,
+    displayName: displayName || null,
     activeConnections: Number(user.active_cons ?? 0) || 0,
     maxConnections: Number(user.max_connections ?? 0) || null,
     allowed: authenticated && status.toLowerCase() === "active" && (!expiresAt || new Date(expiresAt) > new Date()),
@@ -548,7 +558,14 @@ Deno.serve(
       if (action === "account-status") {
         const expiresAt = account.expiresAt ? new Date(account.expiresAt) : null;
         const daysRemaining = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 86400000)) : null;
-        return json({ expiresAt: account.expiresAt, daysRemaining, status: account.status, renewalUrl: providerRow.renewal_url ?? null });
+        return json({
+          expiresAt: account.expiresAt,
+          daysRemaining,
+          status: account.status,
+          username: account.username ?? username,
+          displayName: account.displayName ?? account.username ?? username,
+          renewalUrl: providerRow.renewal_url ?? null,
+        });
       }
 
       if (action === "live-catalog") {

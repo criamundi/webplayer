@@ -38,6 +38,9 @@ export interface AccountStatus {
   expiresAt: string | null;
   daysRemaining: number | null;
   renewalUrl?: string | null;
+  status?: string | null;
+  username?: string | null;
+  displayName?: string | null;
 }
 
 export interface LiveCategory { id: string; name: string; }

@@ -1,14 +1,13 @@
-import { Clapperboard, Film, Heart, History, Home, Radio, Search, Settings, Tv } from 'lucide-react';
+import { Clapperboard, Film, Heart, Home, Radio, Settings, Tv } from 'lucide-react';
 
 export type View = 'home' | 'live' | 'movies' | 'series' | 'player' | 'favorites' | 'continue' | 'search' | 'settings';
 const navItems: Array<{ id: View; label: string; icon: typeof Home }> = [
   { id: 'home', label: 'Início', icon: Home }, { id: 'live', label: 'Canais ao Vivo', icon: Radio },
   { id: 'movies', label: 'Filmes', icon: Film }, { id: 'series', label: 'Séries', icon: Clapperboard },
   { id: 'favorites', label: 'Favoritos', icon: Heart },
-  { id: 'continue', label: 'Continuar assistindo', icon: History },
 ];
 const secondaryItems: Array<{ id: View; label: string; icon: typeof Home }> = [
-  { id: 'search', label: 'Buscar', icon: Search }, { id: 'settings', label: 'Configurações', icon: Settings },
+  { id: 'settings', label: 'Configurações', icon: Settings },
 ];
 interface SidebarProps { view: View; setView: (v: View) => void; open: boolean; onClose: () => void; branding?: { app_name: string; logo_url: string | null; primary_color: string }; }
 

@@ -36,3 +36,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Widget sem contorno. Degradê lateral refeito com radiais nas pontas e menor intensidade no centro para eliminar o padrão vertical seco.
 
 - Segurança de acesso: cache local não abre mais o player sem validação atual da linha. Falha/bloqueio mostra tela própria com Recarregar e Alterar dados da lista.
+
+- Menu: Busca e Continuar assistindo removidos. Configurações sem TopBar e com dados da conta (login, status, usuário, senha e validade).

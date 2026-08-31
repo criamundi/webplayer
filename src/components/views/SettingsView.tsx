@@ -1,56 +1,126 @@
-import { Clock3, LogOut, Radio, Star } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, CircleUserRound, KeyRound, LoaderCircle, LogOut, ShieldCheck, UserRound } from 'lucide-react';
+import { loadAccountStatus, type AccountStatus } from '@/lib/provider';
+import { storage } from '@/lib/storage';
 
 interface SettingsViewProps {
-  channelCount: number;
-  favoriteCount: number;
   onSignOut: () => void;
 }
 
-export function SettingsView({ channelCount, favoriteCount, onSignOut }: SettingsViewProps) {
+function formatExpiry(value: string | null | undefined) {
+  if (!value) return 'Não informada';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Não informada';
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  }).format(date);
+}
+
+function statusLabel(status: string | null | undefined) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'active') return 'Ativo';
+  if (normalized === 'expired') return 'Vencido';
+  if (normalized === 'disabled') return 'Desativado';
+  if (normalized === 'banned') return 'Bloqueado';
+  return status || 'Ativo';
+}
+
+export function SettingsView({ onSignOut }: SettingsViewProps) {
+  const credentials = useMemo(() => storage.getCredentials(), []);
+  const [account, setAccount] = useState<AccountStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void loadAccountStatus()
+      .then((result) => {
+        if (mounted) setAccount(result);
+      })
+      .catch(() => {
+        if (mounted) setAccount(null);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const fields = [
+    {
+      label: 'Login',
+      value: credentials?.username || 'Não informado',
+      icon: UserRound,
+    },
+    {
+      label: 'Status',
+      value: loading ? 'Verificando...' : statusLabel(account?.status),
+      icon: ShieldCheck,
+    },
+    {
+      label: 'Nome do usuário',
+      value: account?.displayName || account?.username || credentials?.username || 'Não informado',
+      icon: CircleUserRound,
+    },
+    {
+      label: 'Senha',
+      value: credentials?.password || 'Não informada',
+      icon: KeyRound,
+    },
+    {
+      label: 'Data de validade da lista de reprodução',
+      value: loading ? 'Verificando...' : formatExpiry(account?.expiresAt),
+      icon: CalendarDays,
+    },
+  ];
+
   return (
-    <div className="mt-8 max-w-2xl space-y-8">
-      <div>
+    <div className="mx-auto max-w-3xl py-4 sm:py-8">
+      <div className="mb-7">
         <p className="mb-2 text-sm font-medium text-lime-300">Sua conta</p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Configuracoes</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Configurações</h1>
         <p className="mt-3 text-sm leading-6 text-white/45">
-          Gerencie seu acesso e preferencias de reproducao.
+          Informações do acesso atual à sua lista.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <Clock3 className="mb-4 h-5 w-5 text-lime-300" />
-          <p className="text-xs text-white/40">Canais carregados</p>
-          <p className="mt-1 text-lg font-semibold">{channelCount}</p>
-          <p className="mt-1 text-xs text-emerald-300">Lista ativa</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <Star className="mb-4 h-5 w-5 text-lime-300" />
-          <p className="text-xs text-white/40">Favoritos</p>
-          <p className="mt-1 text-lg font-semibold">{favoriteCount}</p>
-          <p className="mt-1 text-xs text-white/40">Canais marcados</p>
-        </div>
-      </div>
+      <section className="overflow-hidden rounded-3xl bg-white/[0.035]">
+        {fields.map(({ label, value, icon: Icon }, index) => (
+          <div
+            key={label}
+            className={`flex min-h-[4.8rem] items-center gap-4 px-5 py-4 sm:px-6 ${
+              index > 0 ? 'border-t border-white/[0.055]' : ''
+            }`}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.055] text-lime-300">
+              {loading && label === 'Status'
+                ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                : <Icon className="h-4 w-4" />}
+            </span>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="rounded-xl bg-lime-300/15 p-3 text-lime-300">
-            <Radio className="h-5 w-5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-white/30">{label}</p>
+              <p className="mt-1 break-all text-sm font-medium text-white/80">{value}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold">Acesso</h2>
-            <p className="text-xs text-white/40">Voce esta conectado com suas credenciais.</p>
-          </div>
-        </div>
-        <button
-          onClick={onSignOut}
-          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" /> Desconectar e trocar credenciais
-        </button>
-      </div>
+        ))}
+      </section>
 
-      <p className="text-[11px] leading-5 text-white/25">
+      <button
+        onClick={onSignOut}
+        className="mt-6 flex min-h-12 items-center gap-2 rounded-xl bg-white/[.07] px-4 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/[.11] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+      >
+        <LogOut className="h-4 w-4" />
+        Desconectar e trocar credenciais
+      </button>
+
+      <p className="mt-8 text-[11px] leading-5 text-white/25">
         Este produto utiliza a API do TMDB, mas não é endossado ou certificado pelo TMDB.
       </p>
     </div>
