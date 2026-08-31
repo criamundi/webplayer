@@ -1931,9 +1931,6 @@ export default function App() {
                 setSeriesResumeId(seriesId);
                 handleNavigate('series');
               }}
-              recents={
-                recents
-              }
               branding={{
                 primaryColor: branding.primary_color,
                 secondaryColor: branding.secondary_color,
