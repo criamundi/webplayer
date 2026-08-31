@@ -20,12 +20,12 @@ interface HomeViewProps {
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
-function PosterImage({ channel }: { channel: CatalogItem }) {
+function PosterImage({ channel, priority = false }: { channel: CatalogItem; priority?: boolean }) {
   const [loading, setLoading] = useState(Boolean(channel.logo));
   const [failed, setFailed] = useState(false);
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
-    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading="lazy" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
+    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
   </>;
 }
 
@@ -51,10 +51,10 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
       </div>
       <div className="relative">
         <div ref={trackRef} className="poster-track scrollbar-none">
-          {items.map((channel) => (
+          {items.map((channel, index) => (
             <button key={channel.id} onClick={() => onSelect(channel)} className="poster-card group">
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#111a20] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-emerald-400/40">
-                <PosterImage channel={channel} />
+                <PosterImage channel={channel} priority={index < 5} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/0 to-black/10" />
                 {validRating(channel.rating) && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
                 <span className="absolute inset-0 bg-emerald-300/0 transition duration-500 group-hover:bg-emerald-300/[0.04]" />
@@ -212,6 +212,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [renewalChecking, setRenewalChecking] = useState(false);
   const [renewalCompleted, setRenewalCompleted] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const renewalBaselineRef = useRef<{ expiresAt: number; days: number } | null>(null);
   const catalogRequestRef = useRef(false);
   const heroInfoCacheRef = useRef(new Map<string, ContentInfo>());
@@ -223,6 +224,11 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
   useEffect(() => { heroIndexRef.current = heroIndex; }, [heroIndex]);
+  useEffect(() => {
+    const syncClock = () => setNow(new Date());
+    const timer = window.setInterval(syncClock, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadCompleteHeroInfo = useCallback((item: CatalogItem) => {
     const cached = heroInfoCacheRef.current.get(item.id);
@@ -250,13 +256,13 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         completeInfo.backdrop = homeImageValue(completeInfo.backdrop);
         completeInfo.cover = homeImageValue(completeInfo.cover);
         completeInfo.titleLogo = homeImageValue(completeInfo.titleLogo);
-        heroInfoCacheRef.current.set(item.id, completeInfo);
+
+        // Só fixa o resultado no cache quando a consulta detalhada respondeu.
+        // Assim uma falha temporária não deixa o Hero sem logo durante toda a sessão.
+        if (info) heroInfoCacheRef.current.set(item.id, completeInfo);
         return completeInfo;
       })
-      .catch(() => {
-        heroInfoCacheRef.current.set(item.id, basicInfo);
-        return basicInfo;
-      })
+      .catch(() => basicInfo)
       .finally(() => heroInfoPendingRef.current.delete(item.id));
 
     heroInfoPendingRef.current.set(item.id, request);
@@ -400,6 +406,13 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
         <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
         <div className="home-hero-shade" />
+        <div className="absolute left-5 top-6 z-20 flex items-center gap-3 rounded-xl bg-[#091018]/65 px-3.5 py-2.5 text-white backdrop-blur-xl sm:left-8 lg:left-12">
+          <Clock3 className="h-4 w-4 text-emerald-400" />
+          <div className="leading-none">
+            <strong className="block text-sm font-semibold tabular-nums">{now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>
+            <span className="mt-1 block text-[9px] uppercase tracking-[.12em] text-white/40">{now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')}</span>
+          </div>
+        </div>
         {!infoPanelOpen && <button onClick={() => setInfoPanelOpen(true)} className="absolute right-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-[#091018]/75 px-3 py-2 text-xs font-medium text-white/70 backdrop-blur-xl transition hover:text-white sm:right-8 lg:right-12" aria-label="Abrir jogos do dia"><PanelRightOpen className="h-4 w-4" /> Jogos do dia</button>}
         <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Bell, CalendarDays, Menu, Search, Tv, UserRound } from 'lucide-react';
 
 interface TopBarProps {
@@ -9,7 +10,14 @@ interface TopBarProps {
 }
 
 export function TopBar({ query, setQuery, onMenuOpen, onSignOut, home = false }: TopBarProps) {
-  const now = new Date();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const sync = () => setNow(new Date());
+    sync();
+    const timer = window.setInterval(sync, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const formattedDate = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
   const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 

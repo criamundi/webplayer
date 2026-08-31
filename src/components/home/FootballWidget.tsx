@@ -67,8 +67,17 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
       setRotationKey((value) => value + 1);
       setBroadcasts({});
       setLoading(false);
-      const resolved = await resolveMatchesBroadcasts(nextMatches).catch(() => ({}));
-      setBroadcasts(resolved);
+      const resolveBroadcasts = async () => {
+        const resolved = await resolveMatchesBroadcasts(nextMatches).catch(() => ({}));
+        setBroadcasts(resolved);
+        return resolved;
+      };
+      const firstResolved = await resolveBroadcasts();
+      const hasAnyBroadcast = Object.values(firstResolved).some((items) => items.length > 0);
+      if (!hasAnyBroadcast) {
+        window.setTimeout(() => { void resolveBroadcasts(); }, 3_000);
+        window.setTimeout(() => { void resolveBroadcasts(); }, 10_000);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Não foi possível carregar os jogos de hoje.');
     } finally {
@@ -109,15 +118,15 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
       {!loading && activeMatch && <>
         <section className="rounded-2xl bg-white/[.045] p-4">
           <div className="flex items-center justify-between gap-3"><span className="truncate text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-md bg-black/25 px-2 py-1 text-[10px] font-semibold tabular-nums text-white/70">{activeMatch.time}</span></div>
-          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="mt-4 grid grid-cols-[auto_auto_auto] items-center justify-center gap-5">
             <div className="flex min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.home}</strong></div>
-            <span className="text-[10px] font-bold uppercase tracking-[.2em] text-white/20">x</span>
+            <span className="rounded-full bg-white/[.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-white/45">VS</span>
             <div className="flex min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-white">{activeMatch.away}</strong></div>
           </div>
 
           <div className="mt-5"><div className="mb-2 flex items-center justify-between text-[9px] text-white/40"><span>Probabilidade estimada</span><span>{probabilities.home}% · {probabilities.draw}% · {probabilities.away}%</span></div><div className="flex h-2.5 overflow-hidden rounded-full bg-white/5"><span style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }} /><span className="bg-white/25" style={{ width: `${probabilities.draw}%` }} /><span style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }} /></div><div className="mt-1.5 flex justify-between text-[8px] uppercase tracking-wider text-white/25"><span>{activeMatch.home}</span><span>Empate</span><span>{activeMatch.away}</span></div></div>
 
-          <div className="mt-5"><span className="mb-2 block text-[9px] font-semibold uppercase tracking-[.15em] text-white/35">Onde assistir</span>{broadcasts[activeMatch.id]?.length ? <ChannelButtons channels={broadcasts[activeMatch.id]} color={primaryColor} onSelectChannel={onSelectChannel} /> : <p className="text-[10px] leading-4 text-white/30">Transmissão ainda não localizada nos seus canais.</p>}</div>
+          <div className="mt-5"><span className="mb-2 block text-[9px] font-semibold uppercase tracking-[.15em] text-white/35">Onde assistir</span>{broadcasts[activeMatch.id]?.length ? <ChannelButtons channels={broadcasts[activeMatch.id]} color={primaryColor} onSelectChannel={onSelectChannel} /> : <p className="text-[10px] leading-4 text-white/30">Buscando o canal disponível na sua lista…</p>}</div>
         </section>
 
         <section className="mt-5"><h3 className="mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-white/30">Jogos do dia</h3><div className="space-y-1.5">{matches.map((match, index) => <div

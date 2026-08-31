@@ -291,21 +291,6 @@ Deno.serve(
           ? body.provider.trim()
           : "";
 
-      const deviceId =
-        typeof body.deviceId === "string"
-          ? body.deviceId.trim().slice(0, 160)
-          : "";
-
-      const deviceName =
-        typeof body.deviceName === "string"
-          ? body.deviceName.trim().slice(0, 120)
-          : "Dispositivo";
-
-      const deviceType =
-        body.deviceType === "tv" || body.deviceType === "mobile" || body.deviceType === "browser"
-          ? body.deviceType
-          : "browser";
-
       const action =
         body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
@@ -373,7 +358,7 @@ Deno.serve(
             "iptv_providers",
           )
           .select(
-            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url, device_limit",
+            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url",
           )
           .ilike(
             "name",
@@ -558,81 +543,6 @@ Deno.serve(
         line = created;
       } else {
         await adminClient.from("iptv_lines").update(synchronized).eq("id", line.id);
-      }
-
-
-      /*
-      |--------------------------------------------------------------------------
-      | DISPOSITIVO REAL
-      |--------------------------------------------------------------------------
-      |
-      | A linha representa a conta IPTV. A tabela client_devices representa
-      | TVs/navegadores autorizados para usar essa linha.
-      */
-      if (!deviceId) {
-        return json({ error: "Este dispositivo não pôde ser identificado. Reabra o aplicativo e tente novamente." }, 400);
-      }
-
-      const { data: registeredDevice, error: deviceLookupError } = await adminClient
-        .from("client_devices")
-        .select("id, active")
-        .eq("line_id", line.id)
-        .eq("device_id", deviceId)
-        .maybeSingle();
-
-      if (deviceLookupError) {
-        return json({ error: "Não foi possível validar este dispositivo." }, 500);
-      }
-
-      if (registeredDevice?.active === false) {
-        return json({ error: "Este dispositivo foi bloqueado pelo administrador." }, 403);
-      }
-
-      if (!registeredDevice) {
-        const { count: activeDeviceCount, error: deviceCountError } = await adminClient
-          .from("client_devices")
-          .select("id", { count: "exact", head: true })
-          .eq("line_id", line.id)
-          .eq("active", true);
-
-        if (deviceCountError) {
-          return json({ error: "Não foi possível verificar o limite de dispositivos." }, 500);
-        }
-
-        const limit = Math.max(1, Math.min(Number(providerRow.device_limit ?? 2), 20));
-        if ((activeDeviceCount ?? 0) >= limit) {
-          return json({
-            error: `Limite de ${limit} dispositivo${limit === 1 ? "" : "s"} atingido. Remova um dispositivo antigo no painel para continuar.`,
-          }, 403);
-        }
-
-        const { error: deviceInsertError } = await adminClient
-          .from("client_devices")
-          .insert({
-            provider_id: providerRow.id,
-            line_id: line.id,
-            device_id: deviceId,
-            device_name: deviceName || "Dispositivo",
-            device_type: deviceType,
-            user_agent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
-            active: true,
-            first_seen_at: new Date().toISOString(),
-            last_seen_at: new Date().toISOString(),
-          });
-
-        if (deviceInsertError) {
-          return json({ error: "A conta foi validada, mas não foi possível registrar este dispositivo." }, 500);
-        }
-      } else {
-        await adminClient
-          .from("client_devices")
-          .update({
-            device_name: deviceName || "Dispositivo",
-            device_type: deviceType,
-            user_agent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
-            last_seen_at: new Date().toISOString(),
-          })
-          .eq("id", registeredDevice.id);
       }
 
       if (action === "account-status") {

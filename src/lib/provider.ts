@@ -76,42 +76,13 @@ function cacheKey(dataset: string) {
   return `${credentialScope()}:${dataset}`;
 }
 
-
-function getDeviceIdentity() {
-  const key = 'iptv:device-id';
-  let deviceId = '';
-  try {
-    deviceId = localStorage.getItem(key) || '';
-    if (!deviceId) {
-      deviceId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `web-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-      localStorage.setItem(key, deviceId);
-    }
-  } catch {
-    deviceId = `web-${Math.random().toString(36).slice(2, 14)}`;
-  }
-
-  const ua = navigator.userAgent || '';
-  const isTv = /SmartTV|SMART-TV|Tizen|Web0S|WebOS|BRAVIA|NetCast|HbbTV|TV/i.test(ua);
-  const isMobile = /Android|iPhone|iPad|Mobile/i.test(ua);
-  const deviceType = isTv ? 'tv' : isMobile ? 'mobile' : 'browser';
-  const deviceName = isTv
-    ? 'Smart TV'
-    : isMobile
-      ? 'Dispositivo móvel'
-      : (navigator.platform || 'Navegador');
-
-  return { deviceId, deviceName: deviceName.slice(0, 120), deviceType };
-}
-
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
   const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
   if (!credentials?.provider || !credentials.username || !credentials.password) return null;
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ ...credentials, ...getDeviceIdentity(), action, ...extra }),
+    body: JSON.stringify({ ...credentials, action, ...extra }),
   });
   return response.ok ? response : null;
 }
@@ -506,7 +477,6 @@ async function connectLine(
             provider,
             username,
             password,
-            ...getDeviceIdentity(),
           }),
 
           signal:
