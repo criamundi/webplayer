@@ -46,7 +46,7 @@ export interface AccountStatus {
 export interface LiveCategory { id: string; name: string; }
 export interface LiveChannel extends Channel { streamId: string; categoryId: string; channelNumber?: number | null; }
 export interface LiveProgram { title: string; description?: string; start?: string; end?: string; }
-export interface LiveEpg { current: LiveProgram | null; next: LiveProgram | null; }
+export interface LiveEpg { current: LiveProgram | null; next: LiveProgram | null; programs: LiveProgram[]; }
 export interface SeriesCategory { id: string; name: string; }
 export interface SeriesShow extends Channel { seriesId: string; categoryId: string; backdrop?: string; plot?: string; genre?: string; rating?: string; releaseDate?: string; added?: string; }
 export interface SeriesEpisode extends Channel { season: number; episode: number; duration?: string; plot?: string; }
@@ -167,9 +167,13 @@ export async function loadLiveEpg(streamId: string): Promise<LiveEpg | null> {
   const response = await authenticatedAction('live-epg', { streamId });
   if (!response) return null;
   const result = await response.json() as Partial<LiveEpg>;
+  const programs = Array.isArray(result.programs)
+    ? result.programs.filter((program): program is LiveProgram => Boolean(program?.title))
+    : [];
   const value: LiveEpg = {
     current: result.current?.title ? result.current : null,
     next: result.next?.title ? result.next : null,
+    programs,
   };
   liveEpgCache.set(key, { savedAt: Date.now(), value });
   return value;

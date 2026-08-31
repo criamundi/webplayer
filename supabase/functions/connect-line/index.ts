@@ -635,61 +635,118 @@ Deno.serve(
 
       if (action === "live-epg") {
         if (!streamId) return json({ error: "Canal inválido." }, 400);
-        const epgUrl = new URL(serverUrl.toString());
-        const basePath = epgUrl.pathname.toLowerCase().endsWith(".php") ? epgUrl.pathname.slice(0, epgUrl.pathname.lastIndexOf("/")) : epgUrl.pathname.replace(/\/$/, "");
-        epgUrl.pathname = `${basePath}/player_api.php`;
-        epgUrl.search = new URLSearchParams({ username, password, action: "get_short_epg", stream_id: streamId, limit: "4" }).toString();
+
+        const makeEpgUrl = (apiAction: string, extra: Record<string, string> = {}) => {
+          const url = new URL(serverUrl.toString());
+          const basePath = url.pathname.toLowerCase().endsWith(".php")
+            ? url.pathname.slice(0, url.pathname.lastIndexOf("/"))
+            : url.pathname.replace(/\/$/, "");
+          url.pathname = `${basePath}/player_api.php`;
+          url.search = new URLSearchParams({
+            username,
+            password,
+            action: apiAction,
+            stream_id: streamId,
+            ...extra,
+          }).toString();
+          return url;
+        };
+
+        const decodeText = (value: unknown) => {
+          const raw = String(value ?? "").trim();
+          if (!raw || raw.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
+          try {
+            const bytes = Uint8Array.from(atob(raw), (character) => character.charCodeAt(0));
+            const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
+            const hasControlCharacter = Array.from(decoded).some((character) => {
+              const code = character.charCodeAt(0);
+              return code < 32 && code !== 9 && code !== 10 && code !== 13;
+            });
+            return decoded && !hasControlCharacter ? decoded : raw;
+          } catch {
+            return raw;
+          }
+        };
+
+        const toIso = (timestamp: unknown, date: unknown) => {
+          const seconds = Number(timestamp ?? 0);
+          if (Number.isFinite(seconds) && seconds > 0) return new Date(seconds * 1000).toISOString();
+          const parsed = Date.parse(String(date ?? ""));
+          return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+        };
+
+        const normalizeListings = (payload: Record<string, unknown>) => {
+          const listings = Array.isArray(payload?.epg_listings) ? payload.epg_listings : [];
+          return listings
+            .map((item: Record<string, unknown>) => ({
+              title: decodeText(item.title),
+              description: decodeText(item.description),
+              start: toIso(item.start_timestamp, item.start),
+              end: toIso(item.stop_timestamp, item.end),
+            }))
+            .filter((item: { title: string; start: string }) => item.title && item.start)
+            .sort((left: { start: string }, right: { start: string }) => left.start.localeCompare(right.start));
+        };
 
         const epgController = new AbortController();
-        const epgTimeout = setTimeout(() => epgController.abort(), 12000);
+        const epgTimeout = setTimeout(() => epgController.abort(), 15000);
+
         try {
-          const response = await fetchProvider(epgUrl, {
-            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-            signal: epgController.signal,
-          });
-          if (!response.ok) return json({ current: null, next: null });
-          const payload = await response.json();
-          const listings = Array.isArray(payload?.epg_listings) ? payload.epg_listings : [];
-          const decodeText = (value: unknown) => {
-            const raw = String(value ?? "").trim();
-            if (!raw || raw.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
-            try {
-              const bytes = Uint8Array.from(atob(raw), (character) => character.charCodeAt(0));
-              const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
-              const hasControlCharacter = Array.from(decoded).some((character) => {
-                const code = character.charCodeAt(0);
-                return code < 32 && code !== 9 && code !== 10 && code !== 13;
-              });
-              return decoded && !hasControlCharacter ? decoded : raw;
-            } catch {
-              return raw;
+          let programs: Array<{ title: string; description?: string; start?: string; end?: string }> = [];
+
+          /* Primeiro tenta a grade ampla do canal. */
+          try {
+            const response = await fetchProvider(makeEpgUrl("get_simple_data_table"), {
+              headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+              signal: epgController.signal,
+            });
+            if (response.ok) {
+              const payload = await response.json();
+              programs = normalizeListings(payload);
             }
-          };
-          const toIso = (timestamp: unknown, date: unknown) => {
-            const seconds = Number(timestamp ?? 0);
-            if (Number.isFinite(seconds) && seconds > 0) return new Date(seconds * 1000).toISOString();
-            const parsed = Date.parse(String(date ?? ""));
-            return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
-          };
-          const programs = listings.map((item: Record<string, unknown>) => ({
-            title: decodeText(item.title),
-            description: decodeText(item.description),
-            start: toIso(item.start_timestamp, item.start),
-            end: toIso(item.stop_timestamp, item.end),
-          })).filter((item: { title: string }) => item.title);
+          } catch {
+            /* fallback abaixo */
+          }
+
+          /* Alguns servidores não oferecem get_simple_data_table. */
+          if (!programs.length) {
+            const response = await fetchProvider(makeEpgUrl("get_short_epg", { limit: "96" }), {
+              headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+              signal: epgController.signal,
+            });
+            if (response.ok) {
+              const payload = await response.json();
+              programs = normalizeListings(payload);
+            }
+          }
+
+          const brazilDateKey = (value: string | Date) => new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Sao_Paulo",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(typeof value === "string" ? new Date(value) : value);
+
+          const todayKey = brazilDateKey(new Date());
+          const dayPrograms = programs.filter((item) => item.start && brazilDateKey(item.start) === todayKey);
+          const visiblePrograms = dayPrograms.length ? dayPrograms : programs;
+
           const now = Date.now();
-          const currentIndex = programs.findIndex((item: { start: string; end: string }) => {
-            const start = Date.parse(item.start);
-            const end = Date.parse(item.end);
-            return Number.isFinite(start) && Number.isFinite(end) && start <= now && now < end;
+          const currentIndex = visiblePrograms.findIndex((item) => {
+            const startAt = Date.parse(item.start || "");
+            const endAt = Date.parse(item.end || "");
+            return Number.isFinite(startAt) && Number.isFinite(endAt) && startAt <= now && now < endAt;
           });
+
           const selectedIndex = currentIndex >= 0 ? currentIndex : 0;
+
           return json({
-            current: programs[selectedIndex] ?? null,
-            next: programs[selectedIndex + 1] ?? null,
+            current: visiblePrograms[selectedIndex] ?? null,
+            next: visiblePrograms[selectedIndex + 1] ?? null,
+            programs: visiblePrograms,
           });
         } catch {
-          return json({ current: null, next: null });
+          return json({ current: null, next: null, programs: [] });
         } finally {
           clearTimeout(epgTimeout);
         }

@@ -2009,9 +2009,6 @@ export default function App() {
               favorites={
                 favorites
               }
-              recents={
-                recents
-              }
               onMenuOpen={() =>
                 setSidebarOpen(
                   true,

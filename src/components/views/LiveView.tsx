@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Heart, History, Loader2, Menu, Radio, Search, Tag, Tv, Wifi } from 'lucide-react';
+import { Heart, Loader2, Menu, Radio, Search, Tag, Tv, Wifi } from 'lucide-react';
 import type { Channel } from '@/types';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { getChannelGroupsInOrder, getChannels, getChannelsByIds, searchChannels } from '@/lib/playlistStore';
@@ -11,7 +11,6 @@ interface LiveViewProps {
   groups: string[];
   activeChannel: Channel | null;
   favorites: Set<string>;
-  recents: Channel[];
   onMenuOpen: () => void;
   onBack: () => void;
   onSelectChannel: (channel: Channel) => void;
@@ -22,7 +21,6 @@ const PAGE_SIZE = 100;
 const ALL_CHANNELS = '__all_live_channels__';
 const SEARCH_CHANNELS = '__search_live_channels__';
 const FAVORITE_CHANNELS = '__favorite_live_channels__';
-const RECENT_CHANNELS = '__recent_live_channels__';
 const CHANNEL_SELECTION_DELAY = 900;
 const cleanGroupName = (name: string) => name.trim() || 'Outros';
 const categoryInitial = (name: string) => name.replace(/^CANAIS\s*\|?\s*/i, '').trim().charAt(0).toUpperCase() || 'C';
@@ -30,7 +28,6 @@ const groupLabel = (group: string) => {
   if (group === ALL_CHANNELS) return 'Todos';
   if (group === SEARCH_CHANNELS) return 'Procurar';
   if (group === FAVORITE_CHANNELS) return 'Favoritos';
-  if (group === RECENT_CHANNELS) return 'Últimos assistidos';
   return cleanGroupName(group);
 };
 const channelsForGroup = (channels: LiveChannel[], group: string) => group === ALL_CHANNELS ? channels : channels.filter((channel) => channel.group === group);
@@ -128,7 +125,7 @@ function Logo({ channel, compact = false }: { channel: Channel; compact?: boolea
   />;
 }
 
-export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, recents, onMenuOpen, onBack, onSelectChannel, onToggleFavorite }: LiveViewProps) {
+export const LiveView = memo(function LiveView({ groups, activeChannel, favorites, onMenuOpen, onBack, onSelectChannel, onToggleFavorite }: LiveViewProps) {
   const [activeGroup, setActiveGroup] = useState(ALL_CHANNELS);
   const [orderedGroups, setOrderedGroups] = useState(groups);
   const [officialChannels, setOfficialChannels] = useState<LiveChannel[] | null>(null);
@@ -225,7 +222,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   }, [groups]);
 
   useEffect(() => {
-    if (!catalogReady || [SEARCH_CHANNELS, FAVORITE_CHANNELS, RECENT_CHANNELS].includes(activeGroup)) return;
+    if (!catalogReady || [SEARCH_CHANNELS, FAVORITE_CHANNELS].includes(activeGroup)) return;
     let active = true;
     setLoading(true);
     setItems([]);
@@ -270,12 +267,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     return () => { active = false; };
   }, [activeGroup, favorites, officialChannels]);
 
-  useEffect(() => {
-    if (activeGroup !== RECENT_CHANNELS) return;
-    setItems(recents.filter((channel) => channel.category === 'live'));
-    setHasMore(false);
-    setLoading(false);
-  }, [activeGroup, recents]);
 
   useEffect(() => {
     if (activeGroup !== SEARCH_CHANNELS) return;
@@ -377,7 +368,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
       <aside ref={categoryListRef} className="live-category-rail" aria-label="Categorias de canais">
         <button type="button" data-live-category onClick={() => chooseGroup(SEARCH_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === SEARCH_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><Search className="h-4 w-4" /></span><span className="live-rail-label">Procurar</span></button>
         <button type="button" data-live-category onClick={() => chooseGroup(FAVORITE_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === FAVORITE_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><Heart className="h-4 w-4" /></span><span className="live-rail-label">Favoritos</span></button>
-        <button type="button" data-live-category onClick={() => chooseGroup(RECENT_CHANNELS)} onKeyDown={handleCategoryKeyDown} className={`live-rail-action ${activeGroup === RECENT_CHANNELS ? 'live-rail-item-active' : ''}`}><span className="live-rail-icon"><History className="h-4 w-4" /></span><span className="live-rail-label">Últimos assistidos</span></button>
         <button
           type="button"
           data-live-category
@@ -408,7 +398,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
           <select value={activeGroup} onChange={(event) => chooseGroup(event.target.value)} className="live-category-select" aria-label="Trocar categoria">
             <option value={SEARCH_CHANNELS}>Procurar</option>
             <option value={FAVORITE_CHANNELS}>Favoritos</option>
-            <option value={RECENT_CHANNELS}>Últimos assistidos</option>
             <option value={ALL_CHANNELS}>Todos</option>
             {orderedGroups.map((group) => <option key={group} value={group}>{cleanGroupName(group)}</option>)}
           </select>
@@ -466,7 +455,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
               ><Heart className={`h-4 w-4 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>
             </div>)}
 
-          {!loading && !items.length && <div className="live-list-empty"><Search className="h-7 w-7" /><strong>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Procure um canal' : 'Nenhum canal encontrado'}</strong><span>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Digite pelo menos duas letras.' : activeGroup === FAVORITE_CHANNELS ? 'Você ainda não favoritou canais.' : activeGroup === RECENT_CHANNELS ? 'Os canais assistidos aparecerão aqui.' : 'Não há canais disponíveis nesta categoria.'}</span></div>}
+          {!loading && !items.length && <div className="live-list-empty"><Search className="h-7 w-7" /><strong>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Procure um canal' : 'Nenhum canal encontrado'}</strong><span>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Digite pelo menos duas letras.' : activeGroup === FAVORITE_CHANNELS ? 'Você ainda não favoritou canais.' : 'Não há canais disponíveis nesta categoria.'}</span></div>}
 
           {hasMore && <div ref={loadMoreTriggerRef} className="live-auto-loader"><Loader2 className={`h-4 w-4 ${loadingMore ? 'animate-spin' : ''}`} /><span>{loadingMore ? 'Carregando mais canais...' : 'Preparando mais canais...'}</span></div>}
         </div>
@@ -474,16 +463,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
 
       <main className="live-player-panel">
         <section className="live-player-card">
-          <div className="live-player-heading">
-            <span className="live-player-logo">{liveActive ? <Logo channel={liveActive} compact /> : <Radio className="h-5 w-5 text-emerald-300/55" />}</span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.17em] text-emerald-300/70"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Ao vivo agora</span>
-              <strong className="mt-1 block truncate text-base text-white sm:text-lg">{liveActive?.name || 'Selecione um canal'}</strong>
-              <small className="block truncate text-xs text-white/35">{liveActive ? cleanGroupName(liveActive.group || 'Canais ao Vivo') : groupLabel(activeGroup)}</small>
-            </span>
-            {liveActive && <button type="button" onClick={() => onToggleFavorite(liveActive.id, liveActive)} className="live-player-favorite" aria-label={favorites.has(liveActive.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}><Heart className={`h-5 w-5 ${favorites.has(liveActive.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>}
-          </div>
-
           <div className="live-video-frame">
             {liveActive
               ? <VideoPlayer
@@ -495,15 +474,43 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
               : <div className="live-player-empty"><span><Radio className="h-9 w-9" /></span><strong>Pronto para assistir</strong><p>Escolha um canal na lista para iniciar a transmissão.</p></div>}
           </div>
 
-          <div className="live-program-guide">
-            <div className="live-program-current">
-              <span>Agora</span>
-              <strong>{epgLoading ? 'Carregando programação...' : liveEpg?.current?.title || 'Programação não informada'}</strong>
-              {liveEpg?.current && programSchedule(liveEpg.current) && <small>{programSchedule(liveEpg.current)}</small>}
+          <section className="live-day-guide" aria-label="Programação do dia">
+            <div className="live-day-guide-title">
+              <span>Programação do dia</span>
+              {liveActive && <strong>{liveActive.name}</strong>}
             </div>
-            {liveEpg?.next && <div className="live-program-next"><span>A seguir</span><strong>{liveEpg.next.title}</strong>{programSchedule(liveEpg.next) && <small>{programSchedule(liveEpg.next)}</small>}</div>}
-          </div>
-          <div className="live-player-footer"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /><span>Duplo clique abre a tela cheia</span><span className="ml-auto hidden text-white/25 sm:block">Voltar retorna à tela de canais</span></div>
+
+            {epgLoading && (
+              <div className="live-day-guide-state">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando programação...
+              </div>
+            )}
+
+            {!epgLoading && !liveEpg?.programs?.length && (
+              <div className="live-day-guide-state">
+                Programação não informada para este canal.
+              </div>
+            )}
+
+            {!epgLoading && Boolean(liveEpg?.programs?.length) && (
+              <div className="live-day-program-list">
+                {liveEpg!.programs.map((program, index) => {
+                  const isCurrent = liveEpg?.current?.start === program.start && liveEpg?.current?.title === program.title;
+                  return (
+                    <div key={`${program.start || index}-${program.title}`} className={`live-day-program ${isCurrent ? 'live-day-program-current' : ''}`}>
+                      <span className="live-day-program-time">{programSchedule(program) || '--:--'}</span>
+                      <span className="min-w-0 flex-1">
+                        <strong>{program.title}</strong>
+                        {program.description && <small>{program.description}</small>}
+                      </span>
+                      {isCurrent && <span className="live-day-program-now">Agora</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </section>
       </main>
     </div>
