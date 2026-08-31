@@ -34,6 +34,8 @@ interface VideoPlayerProps {
   startMuted?: boolean;
   immersive?: boolean;
   onClose?: () => void;
+  liveProgram?: { title: string; schedule: string } | null;
+  liveNextProgram?: { title: string; schedule: string } | null;
 }
 
 type PlayerStatus =
