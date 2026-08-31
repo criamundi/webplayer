@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Play, RefreshCw } from 'lucide-react';
+import { LoaderCircle, Play, RefreshCw, X} from 'lucide-react';
 import { loadTodayMatches, resolveMatchesBroadcasts, type ResolvedBroadcast, type TodayMatch } from '@/lib/sports';
 import type { Channel } from '@/types';
 
@@ -116,13 +116,25 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose: _onClose
 
   return <div className="flex min-h-0 flex-1 flex-col">
     <header className="flex items-center justify-between px-5 py-4">
-      <div className="min-w-0"><span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span><strong className="mt-0.5 block truncate text-sm font-semibold text-white">Partidas em destaque</strong></div>
-      <div className="flex items-center gap-3">
-        <span className="min-w-[6.5rem] text-right uppercase leading-tight text-white/30">
-          <span className="block text-[8px] tracking-[.13em]">{currentDate.weekday}</span>
-          <span className="mt-1 block text-[10px] font-semibold tracking-[.08em] text-white/45">{currentDate.dayMonth}</span>
-        </span>
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="sports-widget-close-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[.07] text-white/45 transition hover:bg-white/[.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1319]"
+          aria-label="Fechar Jogos do Dia"
+          title="Fechar Jogos do Dia"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="min-w-0">
+          <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span>
+          <strong className="mt-0.5 block truncate text-sm font-semibold text-white">Partidas em destaque</strong>
+        </div>
       </div>
+      <span className="min-w-[6.5rem] text-right uppercase leading-tight text-white/30">
+        <span className="block text-[8px] tracking-[.13em]">{currentDate.weekday}</span>
+        <span className="mt-1 block text-[10px] font-semibold tracking-[.08em] text-white/45">{currentDate.dayMonth}</span>
+      </span>
     </header>
 
     <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor }} /></div>
