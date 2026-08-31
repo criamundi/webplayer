@@ -245,37 +245,3 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 @media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:8rem; bottom:8rem; width:min(22rem,calc(100vw - 2.5rem)); } .sports-panel-tab { top:4.4rem; right:1.25rem; } .sports-panel-tab-open { width:min(22rem,calc(100vw - 2.5rem)); } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
 @media (min-width:768px) and (max-width:1279px) { .poster-card { min-width:calc((100% - 3rem)/4); flex-basis:calc((100% - 3rem)/4); } }
-
-
-.sports-widget-close-button { box-shadow:0 8px 22px rgba(0,0,0,.18); }
-.sports-panel-tab-closed {
-  position:absolute;
-  z-index:22;
-  top:50%;
-  right:0;
-  display:flex;
-  min-height:3.25rem;
-  align-items:center;
-  gap:.65rem;
-  padding:.75rem 1rem .75rem 1.15rem;
-  border:0;
-  border-radius:1rem 0 0 1rem;
-  background:rgba(11,19,25,.92);
-  box-shadow:0 14px 38px rgba(0,0,0,.24);
-  color:rgba(255,255,255,.72);
-  font-size:.72rem;
-  font-weight:700;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  transform:translateY(-50%);
-  transition:background-color .2s ease,color .2s ease,transform .2s ease;
-}
-.sports-panel-tab-closed:hover { background:rgba(16,27,35,.97); color:#fff; }
-.sports-panel-tab-closed:focus-visible {
-  outline:2px solid rgba(255,255,255,.9);
-  outline-offset:3px;
-  color:#fff;
-}
-@media (min-width:1024px) {
-  .sports-panel-tab-closed { min-width:10rem; justify-content:space-between; }
-}

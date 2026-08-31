@@ -413,18 +413,20 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
             <span className="mt-1 block text-[9px] uppercase tracking-[.12em] text-white/40">{now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setInfoPanelOpen((open) => !open)}
-          className={`sports-panel-tab ${infoPanelOpen ? 'sports-panel-tab-open' : 'sports-panel-tab-closed'}`}
-          aria-expanded={infoPanelOpen}
-          aria-controls="home-sports-panel"
-          aria-label={infoPanelOpen ? 'Fechar jogos do dia' : 'Abrir jogos do dia'}
-        >
-          <span className="sports-panel-tab-title">Jogos do Dia</span>
-          <span className="sports-panel-tab-hint">{infoPanelOpen ? 'Fechar' : 'Abrir'}</span>
-          {infoPanelOpen ? <ChevronRight className="h-5 w-5" aria-hidden="true" /> : <ChevronLeft className="h-5 w-5" aria-hidden="true" />}
-        </button>
+        {!infoPanelOpen && (
+          <button
+            type="button"
+            onClick={() => setInfoPanelOpen(true)}
+            className="sports-panel-tab sports-panel-tab-closed"
+            aria-expanded="false"
+            aria-controls="home-sports-panel"
+            aria-label="Abrir jogos do dia"
+          >
+            <span className="sports-panel-tab-title">Jogos do Dia</span>
+            <span className="sports-panel-tab-hint">Abrir</span>
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
         <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}

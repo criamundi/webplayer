@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Play, RefreshCw, X } from 'lucide-react';
+import { LoaderCircle, Play, RefreshCw } from 'lucide-react';
 import { loadTodayMatches, resolveMatchesBroadcasts, type ResolvedBroadcast, type TodayMatch } from '@/lib/sports';
 import type { Channel } from '@/types';
 
@@ -120,11 +120,11 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose: _onClose
         <button
           type="button"
           onClick={onClose}
-          className="sports-widget-close-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[.07] text-white/45 transition hover:bg-white/[.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1319]"
-          aria-label="Fechar Jogos do Dia"
-          title="Fechar Jogos do Dia"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[.08] text-lg font-light leading-none text-white/55 transition hover:bg-white/[.14] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1319]"
+          aria-label="Fechar jogos do dia"
+          title="Fechar jogos do dia"
         >
-          <X className="h-4 w-4" />
+          <span aria-hidden="true">×</span>
         </button>
         <div className="min-w-0">
           <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span>
