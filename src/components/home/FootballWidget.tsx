@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Play, RefreshCw } from 'lucide-react';
+import { LoaderCircle, Play, RefreshCw, X } from 'lucide-react';
 import { loadTodayMatches, resolveMatchesBroadcasts, type ResolvedBroadcast, type TodayMatch } from '@/lib/sports';
 import type { Channel } from '@/types';
 
@@ -49,7 +49,7 @@ function ChannelButtons({ channels, color, onSelectChannel, compact = false }: {
   </div>;
 }
 
-export function FootballWidget({ primaryColor, secondaryColor, onClose: _onClose, onSelectChannel }: FootballWidgetProps) {
+export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [broadcasts, setBroadcasts] = useState<Record<string, ResolvedBroadcast[]>>({});
   const [activeIndex, setActiveIndex] = useState(0);
@@ -115,16 +115,16 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose: _onClose
   }, []);
 
   return <div className="flex min-h-0 flex-1 flex-col">
-    <header className="flex items-center justify-between px-5 py-4">
+    <header className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onClose}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[.08] text-lg font-light leading-none text-white/55 transition hover:bg-white/[.14] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1319]"
-          aria-label="Fechar jogos do dia"
-          title="Fechar jogos do dia"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[.08] text-white/50 transition hover:bg-white/[.14] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1319]"
+          aria-label="Fechar Jogos do Dia"
+          title="Fechar Jogos do Dia"
         >
-          <span aria-hidden="true">×</span>
+          <X className="h-4 w-4" />
         </button>
         <div className="min-w-0">
           <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, LoaderCircle, Play, Radio, RefreshCw, Star, Tv, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Film, Heart, LoaderCircle, PanelRightOpen, Play, Radio, RefreshCw, Star, Tv, X } from 'lucide-react';
 import type { Channel } from '@/types';
 import { loadAccountStatus, loadContentInfo, loadHomeCatalog, loadSeriesContentInfo, readCachedHomeCatalog, type AccountStatus, type CatalogItem, type ContentInfo } from '@/lib/provider';
 import type { View } from '@/components/layout/Sidebar';
@@ -413,20 +413,13 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
             <span className="mt-1 block text-[9px] uppercase tracking-[.12em] text-white/40">{now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')}</span>
           </div>
         </div>
-        {!infoPanelOpen && (
-          <button
-            type="button"
-            onClick={() => setInfoPanelOpen(true)}
-            className="sports-panel-tab sports-panel-tab-closed"
-            aria-expanded="false"
-            aria-controls="home-sports-panel"
-            aria-label="Abrir jogos do dia"
-          >
-            <span className="sports-panel-tab-title">Jogos do Dia</span>
-            <span className="sports-panel-tab-hint">Abrir</span>
-            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-        )}
+        {!infoPanelOpen && <button
+          type="button"
+          onClick={() => setInfoPanelOpen(true)}
+          className="absolute right-5 top-6 z-20 flex min-h-12 items-center gap-3 rounded-xl bg-[#091018]/90 px-4 py-3 text-xs font-semibold uppercase tracking-[.08em] text-white/75 shadow-lg shadow-black/20 transition hover:bg-[#101a21] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#091018] sm:right-8 lg:right-12"
+          aria-label="Abrir Jogos do Dia"
+          title="Abrir Jogos do Dia"
+        ><PanelRightOpen className="h-4 w-4" /> Jogos do Dia</button>}
         <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={heroInfo?.name || heroItem?.name || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
@@ -435,7 +428,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
         </div>
         </div>
-        <aside id="home-sports-panel" className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
+        <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
           <FootballWidget
             primaryColor={branding.primaryColor}
             secondaryColor={branding.secondaryColor}
