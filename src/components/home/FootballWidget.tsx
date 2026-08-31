@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Play, RefreshCw, X } from 'lucide-react';
+import { LoaderCircle, Play, RefreshCw } from 'lucide-react';
 import { loadTodayMatches, resolveMatchesBroadcasts, type ResolvedBroadcast, type TodayMatch } from '@/lib/sports';
 import type { Channel } from '@/types';
 
@@ -49,7 +49,7 @@ function ChannelButtons({ channels, color, onSelectChannel, compact = false }: {
   </div>;
 }
 
-export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
+export function FootballWidget({ primaryColor, secondaryColor, onClose: _onClose, onSelectChannel }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [broadcasts, setBroadcasts] = useState<Record<string, ResolvedBroadcast[]>>({});
   const [activeIndex, setActiveIndex] = useState(0);
@@ -122,7 +122,6 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
           <span className="block text-[8px] tracking-[.13em]">{currentDate.weekday}</span>
           <span className="mt-1 block text-[10px] font-semibold tracking-[.08em] text-white/45">{currentDate.dayMonth}</span>
         </span>
-        <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/35 transition hover:bg-white/[.07] hover:text-white" aria-label="Fechar partidas"><X className="h-4 w-4" /></button>
       </div>
     </header>
 

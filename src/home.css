@@ -33,12 +33,9 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   position:absolute;
   z-index:6;
   inset:0 -1px 0 auto;
-  width:13rem;
+  width:18rem;
   pointer-events:none;
-  background:
-    radial-gradient(ellipse at 100% 0%,rgba(9,16,24,.72) 0%,rgba(9,16,24,.34) 32%,transparent 68%),
-    radial-gradient(ellipse at 100% 100%,rgba(9,16,24,.78) 0%,rgba(9,16,24,.38) 34%,transparent 70%),
-    linear-gradient(90deg,transparent 0%,rgba(9,16,24,.05) 44%,rgba(9,16,24,.14) 70%,rgba(9,16,24,.30) 100%);
+  background:linear-gradient(270deg,#091018 0%,rgba(9,16,24,.88) 24%,rgba(9,16,24,.18) 66%,transparent 100%);
 }
 .home-hero-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; image-rendering:auto; opacity:0; transition:opacity .55s ease; }
 .home-hero-image-ready { opacity:1; }
@@ -209,10 +206,17 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .player-progress-range::-moz-range-thumb { width:.9rem; height:.9rem; border:2px solid #071017; border-radius:999px; background:#34d399; opacity:0; }
 .group\/progress:hover .player-progress-range::-moz-range-thumb,.player-progress-range:focus::-moz-range-thumb { opacity:1; }
 .subscription-card { display:flex; align-items:center; gap:.75rem; max-width:calc(100vw - 2.5rem); border:1px solid rgba(255,255,255,.1); border-radius:1rem; background:rgba(8,15,20,.68); padding:.65rem .75rem; box-shadow:0 16px 40px rgba(0,0,0,.25); backdrop-filter:blur(18px); }
+.sports-panel-tab { position:absolute; z-index:22; top:1.5rem; right:1.5rem; display:flex; min-height:3.15rem; align-items:center; justify-content:flex-end; gap:.7rem; border:0; border-radius:1rem; padding:.65rem .9rem .65rem 1rem; color:rgba(255,255,255,.78); background:rgba(9,16,24,.90); box-shadow:0 10px 28px rgba(0,0,0,.18); transition:width .45s cubic-bezier(.22,1,.36,1),background-color .2s ease,color .2s ease,transform .2s ease; }
+.sports-panel-tab-open { width:min(23rem,calc(100% - 3rem)); }
+.sports-panel-tab-closed { width:12.5rem; }
+.sports-panel-tab-title { margin-right:auto; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.sports-panel-tab-hint { font-size:.58rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.30); }
+.sports-panel-tab:hover { color:#fff; background:rgba(12,22,29,.96); }
+.sports-panel-tab:focus-visible { outline:3px solid rgba(52,211,153,.72); outline-offset:3px; color:#fff; background:rgba(12,22,29,.98); transform:scale(1.015); }
 .hero-info-panel {
   position:absolute;
   z-index:20;
-  top:1.5rem;
+  top:4.9rem;
   right:1.5rem;
   bottom:9rem;
   display:flex;
@@ -238,6 +242,6 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } .sidebar-shell:not(:hover) .sidebar-brand-logo { width:3rem; height:3rem; justify-content:center; } .sidebar-shell:not(:hover) .sidebar-brand-logo img { max-width:3rem; max-height:3rem; } }
 @media (min-width:1024px) { [data-series-catalog] aside { position:fixed!important; z-index:35; inset:0 auto 0 5rem; width:17rem; height:100vh; } [data-series-catalog] main { grid-column:2; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
-@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:8rem; width:min(22rem,calc(100vw - 2.5rem)); } }
+@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:8rem; bottom:8rem; width:min(22rem,calc(100vw - 2.5rem)); } .sports-panel-tab { top:4.4rem; right:1.25rem; } .sports-panel-tab-open { width:min(22rem,calc(100vw - 2.5rem)); } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
 @media (min-width:768px) and (max-width:1279px) { .poster-card { min-width:calc((100% - 3rem)/4); flex-basis:calc((100% - 3rem)/4); } }

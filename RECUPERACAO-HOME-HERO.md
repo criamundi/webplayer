@@ -34,3 +34,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Hero restaurado ao fundo anterior. Widget esportivo convertido em card flutuante compacto, quase sólido, sem blur/degradê de ligação com o Hero.
 
 - Widget sem contorno. Degradê lateral refeito com radiais nas pontas e menor intensidade no centro para eliminar o padrão vertical seco.
+
+- Painel de jogos: degradê direito espelhado do tratamento esquerdo do Hero; botão X removido; nova barra horizontal “Jogos do Dia” abre/fecha o painel com setas laterais e foco destacado para navegação por controle remoto/TV.
