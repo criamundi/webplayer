@@ -35,7 +35,7 @@ export function ProvidersView() {
   };
 
   useEffect(() => { load(); }, []);
-  const isAdmin = role === 'super_admin' || role === 'provider_admin' || role === 'admin';
+  const isSuper = role === 'super_admin' || role === 'admin';
 
   const handleToggle = async (provider: Provider) => {
     await supabase.from('iptv_providers').update({ active: !provider.active }).eq('id', provider.id);
@@ -61,10 +61,10 @@ export function ProvidersView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{'Provedores'}</h1>
-          <p className="mt-2 text-sm text-white/45">{'Cadastre, edite ou remova provedores e configure o cadastro automático.'}</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{isSuper ? 'Provedores' : 'Meu provedor'}</h1>
+          <p className="mt-2 text-sm text-white/45">{isSuper ? 'Cadastre o nome de cada provedor e atribua seu administrador.' : 'Configure a conexão, renovação e cadastro automático do seu provedor.'}</p>
         </div>
-        {isAdmin && <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
+        {isSuper && <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
           <Plus className="h-4 w-4" /> Novo provedor
         </button>}
       </div>
@@ -89,31 +89,31 @@ export function ProvidersView() {
                 <p className="truncate text-xs text-white/40">DNS identificado automaticamente conforme a lista</p>
                 <p className={`mt-1 text-[10px] font-semibold ${provider.auto_registration ? 'text-lime-300' : 'text-white/30'}`}>Cadastro automático {provider.auto_registration ? 'ativado' : 'desativado'}</p>
               </div>
-              {isAdmin && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
+              {isSuper && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
                 {provider.active ? 'Ativo' : 'Inativo'}
               </button>}
               <button onClick={() => { setEditing(provider); setShowForm(true); }} className="rounded-lg p-2 text-white/50 transition hover:bg-white/10 hover:text-white"><Pencil className="h-4 w-4" /></button>
-              {isAdmin && <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>}
+              {isSuper && <button onClick={() => handleDelete(provider.id)} className="rounded-lg p-2 text-white/40 transition hover:bg-red-500/10 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>}
             </div>
           ))}
         </div>
       )}
 
       {showForm && (
-        <ProviderForm provider={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+        <ProviderForm provider={editing} superAdmin={isSuper} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
       )}
     </div>
   );
 }
 
-function ProviderForm({ provider, onClose, onSaved }: {
+function ProviderForm({ provider, superAdmin, onClose, onSaved }: {
   provider: Provider | null;
+  superAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(provider?.name ?? '');
   const [autoRegistration, setAutoRegistration] = useState(provider?.auto_registration ?? false);
-  const [renewalUrl, setRenewalUrl] = useState(provider?.renewal_url ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -124,18 +124,20 @@ function ProviderForm({ provider, onClose, onSaved }: {
       setError('Informe um nome válido para o provedor.');
       return;
     }
-    const { data: duplicate } = await supabase.from('iptv_providers').select('id').ilike('name', name.trim()).limit(1).maybeSingle();
-    if (duplicate && duplicate.id !== provider?.id) { setError('Já existe um provedor com esse nome.'); return; }
+    if (superAdmin) {
+      const { data: duplicate } = await supabase.from('iptv_providers').select('id').ilike('name', name.trim()).limit(1).maybeSingle();
+      if (duplicate && duplicate.id !== provider?.id) { setError('Já existe um provedor com esse nome.'); return; }
+    }
     setSaving(true);
-    const payload = {
-      name: name.trim(),
-      renewal_url: renewalUrl.trim() || null,
-      auto_registration: autoRegistration,
-    };
-
-    const result = provider
-      ? await supabase.from('iptv_providers').update(payload).eq('id', provider.id)
-      : await supabase.from('iptv_providers').insert(payload).select('id').single();
+    const result = superAdmin
+      ? (
+          provider
+            ? await supabase.from('iptv_providers').update({ name: name.trim() }).eq('id', provider.id)
+            : await supabase.from('iptv_providers').insert({ name: name.trim() }).select('id').single()
+        )
+      : await supabase.rpc('update_own_provider_auto_registration', {
+          next_auto_registration: autoRegistration,
+        });
     setSaving(false);
     if (result.error) { setError('Erro ao salvar.'); return; }
     onSaved();
@@ -145,18 +147,43 @@ function ProviderForm({ provider, onClose, onSaved }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#101b25] p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{provider ? 'Editar provedor' : 'Novo provedor'}</h3>
+          <h3 className="text-lg font-semibold">{superAdmin ? (provider ? 'Editar provedor' : 'Novo provedor') : 'Cadastro automático'}</h3>
           <button onClick={onClose} className="rounded-xl p-2 text-white/40 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-2 block text-xs font-medium text-white/60">Nome do provedor</span>
-            <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="Ex.: Provedor Premium" />
-          </label>
-          <>
-          <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Página de renovação</span><input value={renewalUrl} onChange={(e) => setRenewalUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none" placeholder="https://provedor.com/renovar" /></label>
-          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><span><span className="block text-sm font-semibold">Cadastro automático</span><span className="mt-1 block text-xs leading-5 text-white/40">Se a conta estiver ativa no provedor, o primeiro acesso cria o dispositivo automaticamente.</span></span><input type="checkbox" checked={autoRegistration} onChange={(e) => setAutoRegistration(e.target.checked)} className="h-5 w-5 accent-lime-300" /></label>
-          </>
+          {superAdmin ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-medium text-white/60">Nome do provedor</span>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50"
+                placeholder="Ex.: Provedor Premium"
+              />
+            </label>
+          ) : (
+            <div className="rounded-xl bg-white/[0.04] px-4 py-3">
+              <span className="block text-[10px] font-semibold uppercase tracking-[.14em] text-white/35">Provedor</span>
+              <strong className="mt-1 block text-sm text-white/85">{provider?.name || name}</strong>
+            </div>
+          )}
+          {!superAdmin && (
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4">
+              <span>
+                <span className="block text-sm font-semibold">Cadastro automático</span>
+                <span className="mt-1 block text-xs leading-5 text-white/40">
+                  Se a conta estiver ativa no provedor, o primeiro acesso cria o usuário automaticamente.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={autoRegistration}
+                onChange={(e) => setAutoRegistration(e.target.checked)}
+                className="h-5 w-5 accent-lime-300"
+              />
+            </label>
+          )}
           {error && <p className="rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-xs text-red-200">{error}</p>}
           <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200 disabled:opacity-50">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Salvar

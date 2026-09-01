@@ -46,3 +46,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - DNS: removida a configuração de DNS padrão do provedor. connect-line agora testa os DNS ativos vinculados ao provedor, identifica automaticamente qual autentica a lista e grava esse dns_id na linha. server_url/default_dns_id deixaram de participar da conexão.
 
 - Admin provedor: removidos definitivamente DNS padrão/URL de servidor da edição; nova RPC de configurações sem parâmetros legados; exclusão de provedor passa por RPC Super Admin que limpa linhas, bouquets, branding, DNS e vínculos de perfis.
+
+- Permissões finais de provedores: Super Admin cria/edita/ativa/exclui; Provider Admin altera somente Cadastro automático do próprio provedor.
