@@ -60,8 +60,8 @@ const upstreamAccountCache = new Map<string, {
 
 const UPSTREAM_ACCOUNT_CACHE_MS = 60_000;
 
-function accountCacheKey(providerId: string, username: string) {
-  return `${providerId}:${username.toLowerCase()}`;
+function accountCacheKey(providerId: string, dnsId: string, username: string) {
+  return `${providerId}:${dnsId}:${username.toLowerCase()}`;
 }
 
 /*
@@ -104,9 +104,14 @@ function validServerUrl(
   value: string,
 ): URL | null {
   try {
+    const raw = value.trim();
+    const normalized = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+      ? raw
+      : `http://${raw}`;
+
     const url =
       new URL(
-        value.trim(),
+        normalized,
       );
 
     if (
@@ -390,7 +395,7 @@ Deno.serve(
             "iptv_providers",
           )
           .select(
-            "id, name, active, auto_registration, default_dns_id, server_url, renewal_url",
+            "id, name, active, auto_registration, renewal_url",
           )
           .ilike(
             "name",
@@ -425,7 +430,7 @@ Deno.serve(
 
       /*
       |--------------------------------------------------------------------------
-      | LINHA
+      | LINHA JÁ CONHECIDA
       |--------------------------------------------------------------------------
       */
 
@@ -442,13 +447,7 @@ Deno.serve(
             dns_id,
             local_enabled,
             upstream_expires_at,
-            status,
-            iptv_dns(
-              id,
-              name,
-              host,
-              active
-            )
+            status
           `)
           .eq(
             "username",
@@ -473,129 +472,277 @@ Deno.serve(
         return json({ error: "Este dispositivo foi desativado pelo administrador." }, 403);
       }
 
-      let dns = existingLine?.iptv_dns as {
-          id: string;
-          name: string;
-          host: string;
-          active: boolean;
-        } | null | undefined;
+      /*
+      |--------------------------------------------------------------------------
+      | DESCOBERTA AUTOMÁTICA DO DNS
+      |--------------------------------------------------------------------------
+      |
+      | Não existe DNS padrão.
+      |
+      | 1. Carrega todos os DNS ativos do provedor.
+      | 2. Se a linha já conhece um DNS, testa esse primeiro.
+      | 3. Se não autenticar, testa os demais.
+      | 4. O DNS que aceitar usuário + senha fica vinculado à linha.
+      |--------------------------------------------------------------------------
+      */
 
-      if (!dns && providerRow.default_dns_id) {
-        const { data: defaultDns } = await adminClient.from("iptv_dns")
+      const { data: dnsRows, error: dnsError } =
+        await adminClient
+          .from("iptv_dns")
           .select("id, name, host, active")
-          .eq("id", providerRow.default_dns_id)
-          .maybeSingle();
-        dns = defaultDns ?? undefined;
-      }
+          .eq("provider_id", providerRow.id)
+          .eq("active", true)
+          .order("created_at", { ascending: true });
 
-      const rawHost = dns?.host || providerRow.server_url || "";
-      if (!rawHost) {
+      if (dnsError) {
         return json(
           {
-            error: "O provedor ainda não possui um DNS padrão configurado.",
+            error: "Não foi possível consultar os DNS cadastrados.",
+          },
+          500,
+        );
+      }
+
+      type DnsCandidate = {
+        id: string;
+        name: string;
+        host: string;
+        active: boolean;
+      };
+
+      const activeDns = (dnsRows ?? []) as DnsCandidate[];
+
+      if (!activeDns.length) {
+        return json(
+          {
+            error: "Nenhum DNS ativo está cadastrado para este provedor.",
           },
           502,
         );
       }
 
-      if (dns && !dns.active) {
-        return json(
-          {
-            error:
-              "O DNS vinculado a esta linha está desativado.",
-          },
-          502,
+      const preferredDnsId = existingLine?.dns_id
+        ? String(existingLine.dns_id)
+        : "";
+
+      const candidates = [...activeDns].sort((left, right) => {
+        if (left.id === preferredDnsId) return -1;
+        if (right.id === preferredDnsId) return 1;
+        return 0;
+      });
+
+      const requireFreshAccount =
+        action === "account-status" ||
+        action === "playlist";
+
+      let dns: DnsCandidate | null = null;
+      let serverUrl: URL | null = null;
+      let account: UpstreamAccountState | null = null;
+      let reachedAnyDns = false;
+
+      for (const candidate of candidates) {
+        const candidateUrl = validServerUrl(candidate.host);
+        if (!candidateUrl) {
+          continue;
+        }
+
+        const cacheKey = accountCacheKey(
+          providerRow.id,
+          candidate.id,
+          username,
         );
-      }
 
-      const serverUrl =
-        validServerUrl(
-          rawHost,
-        );
+        const cachedAccount =
+          upstreamAccountCache.get(cacheKey);
 
-      if (!serverUrl) {
-        return json(
-          {
-            error:
-              "O DNS configurado no Admin é inválido.",
-          },
-          502,
-        );
-      }
+        if (
+          !requireFreshAccount &&
+          cachedAccount &&
+          cachedAccount.expiresAt > Date.now()
+        ) {
+          if (cachedAccount.account.authenticated) {
+            dns = candidate;
+            serverUrl = candidateUrl;
+            account = cachedAccount.account;
+            break;
+          }
 
-      /* A conta real do provedor continua sendo a fonte de status.
-       * Porém, ações auxiliares não devem consultar player_api.php
-       * repetidamente em poucos segundos.
-       */
-      const cacheKey = accountCacheKey(providerRow.id, username);
-      const cachedAccount = upstreamAccountCache.get(cacheKey);
-      const requireFreshAccount = action === "account-status" || action === "playlist";
-      let account: UpstreamAccountState;
+          continue;
+        }
 
-      if (!requireFreshAccount && cachedAccount && cachedAccount.expiresAt > Date.now()) {
-        account = cachedAccount.account;
-      } else {
-        let upstreamResponse: Response;
-        let upstreamPayload: Record<string, unknown>;
         try {
-          upstreamResponse = await fetchProvider(playerApiUrl(serverUrl, username, password), {
-            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-            redirect: "follow",
-            signal: controller.signal,
-          });
-          if (!upstreamResponse.ok) throw new Error("provider status");
-          upstreamPayload = await upstreamResponse.json();
-        } catch {
-          return json({ error: "Não foi possível validar a conta no provedor agora." }, 502);
-        }
+          const upstreamResponse =
+            await fetchProvider(
+              playerApiUrl(
+                candidateUrl,
+                username,
+                password,
+              ),
+              {
+                headers: {
+                  Accept: "application/json",
+                  "User-Agent": "Mozilla/5.0",
+                },
+                redirect: "follow",
+                signal: controller.signal,
+              },
+            );
 
-        account = upstreamState(upstreamPayload);
+          if (!upstreamResponse.ok) {
+            continue;
+          }
 
-        if (account.allowed) {
-          upstreamAccountCache.set(cacheKey, {
-            expiresAt: Date.now() + UPSTREAM_ACCOUNT_CACHE_MS,
-            account,
-          });
-        } else {
-          upstreamAccountCache.delete(cacheKey);
+          reachedAnyDns = true;
+
+          const upstreamPayload =
+            await upstreamResponse.json();
+
+          const candidateAccount =
+            upstreamState(
+              upstreamPayload,
+            );
+
+          if (!candidateAccount.authenticated) {
+            upstreamAccountCache.delete(cacheKey);
+            continue;
+          }
+
+          dns = candidate;
+          serverUrl = candidateUrl;
+          account = candidateAccount;
+
+          if (candidateAccount.allowed) {
+            upstreamAccountCache.set(cacheKey, {
+              expiresAt:
+                Date.now() +
+                UPSTREAM_ACCOUNT_CACHE_MS,
+              account:
+                candidateAccount,
+            });
+          } else {
+            upstreamAccountCache.delete(cacheKey);
+          }
+
+          break;
+        } catch (error) {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            throw error;
+          }
+
+          continue;
         }
       }
-      if (!account.authenticated) {
-        return json({ error: "Usuário ou senha inválidos no provedor." }, 401);
+
+      if (!dns || !serverUrl || !account) {
+        return json(
+          {
+            error: reachedAnyDns
+              ? "Esta lista não foi localizada nos DNS cadastrados para o provedor."
+              : "Não foi possível validar a lista nos DNS cadastrados.",
+          },
+          reachedAnyDns ? 401 : 502,
+        );
       }
+
       if (!account.allowed) {
-        const expired = account.expiresAt && new Date(account.expiresAt) <= new Date();
-        return json({ error: expired ? "Esta conta está vencida no provedor." : `Esta conta está ${account.status || "inativa"} no provedor.` }, 403);
+        const expired =
+          account.expiresAt &&
+          new Date(account.expiresAt) <=
+            new Date();
+
+        return json(
+          {
+            error: expired
+              ? "Esta conta está vencida no provedor."
+              : `Esta conta está ${account.status || "inativa"} no provedor.`,
+          },
+          403,
+        );
       }
+
+      /*
+      |--------------------------------------------------------------------------
+      | SINCRONIZA A LINHA COM O DNS DESCOBERTO
+      |--------------------------------------------------------------------------
+      */
 
       let line = existingLine;
+
       const synchronized = {
         password,
+        dns_id: dns.id,
         status: "active",
-        upstream_status: account.status,
-        upstream_expires_at: account.expiresAt,
-        expires_at: account.expiresAt,
-        upstream_active_connections: account.activeConnections,
-        upstream_max_connections: account.maxConnections,
-        last_synced_at: new Date().toISOString(),
+        upstream_status:
+          account.status,
+        upstream_expires_at:
+          account.expiresAt,
+        expires_at:
+          account.expiresAt,
+        upstream_active_connections:
+          account.activeConnections,
+        upstream_max_connections:
+          account.maxConnections,
+        last_synced_at:
+          new Date().toISOString(),
       };
 
       if (!line) {
         if (!providerRow.auto_registration) {
-          return json({ error: "A conta existe no provedor, mas o cadastro automático está desativado. Solicite a liberação ao administrador." }, 403);
+          return json(
+            {
+              error: "A conta existe no provedor, mas o cadastro automático está desativado. Solicite a liberação ao administrador.",
+            },
+            403,
+          );
         }
-        const { data: created, error: createError } = await adminClient.from("iptv_lines").insert({
-          username,
-          provider_id: providerRow.id,
-          dns_id: dns?.id ?? providerRow.default_dns_id ?? null,
-          local_enabled: true,
-          registration_source: "automatic",
-          ...synchronized,
-        }).select("id, username, password, provider_id, dns_id, local_enabled, upstream_expires_at, status").single();
-        if (createError || !created) return json({ error: "A conta foi validada, mas não foi possível concluir o cadastro automático." }, 500);
+
+        const {
+          data: created,
+          error: createError,
+        } =
+          await adminClient
+            .from("iptv_lines")
+            .insert({
+              username,
+              provider_id:
+                providerRow.id,
+              dns_id:
+                dns.id,
+              local_enabled:
+                true,
+              registration_source:
+                "automatic",
+              ...synchronized,
+            })
+            .select("id, username, password, provider_id, dns_id, local_enabled, upstream_expires_at, status")
+            .single();
+
+        if (
+          createError ||
+          !created
+        ) {
+          return json(
+            {
+              error: "A conta foi validada, mas não foi possível concluir o cadastro automático.",
+            },
+            500,
+          );
+        }
+
         line = created;
       } else {
-        await adminClient.from("iptv_lines").update(synchronized).eq("id", line.id);
+        await adminClient
+          .from("iptv_lines")
+          .update(
+            synchronized,
+          )
+          .eq(
+            "id",
+            line.id,
+          );
       }
 
       if (action === "account-status") {

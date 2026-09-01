@@ -42,3 +42,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Canais ao Vivo: Últimos assistidos removido; cabeçalho/rodapé do player removidos; player com cantos retos; programação completa do dia listada abaixo do vídeo.
 
 - Proteção contra desconexões: validações upstream auxiliares cacheadas por 60s; account-status/playlist continuam sempre frescos; EPG reduzido de 3 para 10 min; troca de canal ganhou intervalo maior para liberar a conexão anterior.
+
+- DNS: removida a configuração de DNS padrão do provedor. connect-line agora testa os DNS ativos vinculados ao provedor, identifica automaticamente qual autentica a lista e grava esse dns_id na linha. server_url/default_dns_id deixaram de participar da conexão.

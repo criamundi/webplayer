@@ -54,7 +54,7 @@ export function DnsView() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">DNS</h1>
-          <p className="mt-2 text-sm text-white/45">Gerencie domínios para balanceamento e conexão do app.</p>
+          <p className="mt-2 text-sm text-white/45">Cadastre os DNS do provedor. O sistema identifica automaticamente em qual DNS cada lista autentica.</p>
         </div>
         <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
           <Plus className="h-4 w-4" /> Novo DNS

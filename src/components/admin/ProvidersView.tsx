@@ -5,28 +5,22 @@ import { supabase } from '@/lib/supabase';
 interface Provider {
   id: string;
   name: string;
-  server_url: string | null;
   active: boolean;
   auto_registration: boolean;
-  default_dns_id: string | null;
   renewal_url: string | null;
 }
-
-interface DnsEntry { id: string; name: string; host: string; provider_id: string | null; }
 
 export function ProvidersView() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [dnsList, setDnsList] = useState<DnsEntry[]>([]);
   const [role, setRole] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data }, { data: dns }, { data: auth }] = await Promise.all([
-      supabase.from('iptv_providers').select('id, name, server_url, active, auto_registration, default_dns_id, renewal_url').order('created_at', { ascending: false }),
-      supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
+    const [{ data }, { data: auth }] = await Promise.all([
+      supabase.from('iptv_providers').select('id, name, active, auto_registration, renewal_url').order('created_at', { ascending: false }),
       supabase.auth.getUser(),
     ]);
     if (auth.user) {
@@ -37,7 +31,6 @@ export function ProvidersView() {
       setRole(superAccess ? 'super_admin' : profile?.role || 'provider_admin');
     }
     setProviders(data || []);
-    setDnsList(dns || []);
     setLoading(false);
   };
 
@@ -84,7 +77,7 @@ export function ProvidersView() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white/90">{provider.name}</p>
-                <p className="truncate text-xs text-white/40">{provider.server_url || 'Sem URL — usa DNS das linhas'}</p>
+                <p className="truncate text-xs text-white/40">DNS identificado automaticamente conforme a lista</p>
                 <p className={`mt-1 text-[10px] font-semibold ${provider.auto_registration ? 'text-lime-300' : 'text-white/30'}`}>Cadastro automático {provider.auto_registration ? 'ativado' : 'desativado'}</p>
               </div>
               {isSuper && <button onClick={() => handleToggle(provider)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${provider.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
@@ -98,23 +91,20 @@ export function ProvidersView() {
       )}
 
       {showForm && (
-        <ProviderForm provider={editing} dnsList={dnsList} superAdmin={isSuper} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
+        <ProviderForm provider={editing} superAdmin={isSuper} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
       )}
     </div>
   );
 }
 
-function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
+function ProviderForm({ provider, superAdmin, onClose, onSaved }: {
   provider: Provider | null;
-  dnsList: DnsEntry[];
   superAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(provider?.name ?? '');
-  const [serverUrl, setServerUrl] = useState(provider?.server_url ?? '');
   const [autoRegistration, setAutoRegistration] = useState(provider?.auto_registration ?? false);
-  const [defaultDnsId, setDefaultDnsId] = useState(provider?.default_dns_id ?? '');
   const [renewalUrl, setRenewalUrl] = useState(provider?.renewal_url ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -133,7 +123,12 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
     setSaving(true);
     const result = superAdmin
       ? (provider ? await supabase.from('iptv_providers').update({ name: name.trim() }).eq('id', provider.id) : await supabase.from('iptv_providers').insert({ name: name.trim() }).select('id').single())
-      : await supabase.rpc('update_own_provider_settings', { next_server_url: serverUrl.trim(), next_default_dns_id: defaultDnsId || null, next_renewal_url: renewalUrl.trim(), next_auto_registration: autoRegistration });
+      : await supabase.rpc('update_own_provider_settings', {
+          next_server_url: '',
+          next_default_dns_id: null,
+          next_renewal_url: renewalUrl.trim(),
+          next_auto_registration: autoRegistration,
+        });
     setSaving(false);
     if (result.error) { setError('Erro ao salvar.'); return; }
     onSaved();
@@ -152,8 +147,6 @@ function ProviderForm({ provider, dnsList, superAdmin, onClose, onSaved }: {
             <input required disabled={!superAdmin} value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none disabled:opacity-60 focus:border-lime-300/50" placeholder="Ex.: Provedor Premium" />
           </label>
           {!superAdmin && <>
-          <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">URL do servidor (alternativa ao DNS)</span><input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="https://servidor.exemplo" /></label>
-          <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">DNS padrão para novos cadastros</span><select value={defaultDnsId} onChange={(e) => setDefaultDnsId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none"><option value="" className="bg-slate-900">Usar URL do servidor</option>{dnsList.filter((d) => !!provider && (!d.provider_id || d.provider_id === provider.id)).map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name}</option>)}</select>{!provider && <small className="mt-2 block text-white/35">Salve o provedor e depois cadastre o DNS.</small>}</label>
           <label className="block"><span className="mb-2 block text-xs font-medium text-white/60">Página de renovação</span><input value={renewalUrl} onChange={(e) => setRenewalUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none" placeholder="https://provedor.com/renovar" /></label>
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><span><span className="block text-sm font-semibold">Cadastro automático</span><span className="mt-1 block text-xs leading-5 text-white/40">Se a conta estiver ativa no provedor, o primeiro acesso cria o dispositivo automaticamente.</span></span><input type="checkbox" checked={autoRegistration} onChange={(e) => setAutoRegistration(e.target.checked)} className="h-5 w-5 accent-lime-300" /></label>
           </>}
