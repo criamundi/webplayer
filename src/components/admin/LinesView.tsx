@@ -17,6 +17,7 @@ interface Line {
   local_enabled: boolean;
   status: string;
   notes: string | null;
+  renewal_url: string | null;
   created_at: string;
   iptv_providers: { name: string; server_url: string | null } | null;
   iptv_dns: { name: string; host: string } | null;
@@ -42,7 +43,7 @@ export function LinesView() {
   const load = async () => {
     setLoading(true);
     const [{ data: lineData }, { data: provData }, { data: dnsData }] = await Promise.all([
-      supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
+      supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, renewal_url, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
       supabase.from('iptv_providers').select('id, name, server_url').order('name'),
       supabase.from('iptv_dns').select('id, name, host').order('name'),
     ]);
@@ -247,6 +248,7 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
   const [providerId, setProviderId] = useState(line?.provider_id ?? '');
   const [dnsId, setDnsId] = useState(line?.dns_id ?? '');
   const [notes, setNotes] = useState(line?.notes ?? '');
+  const [renewalUrl, setRenewalUrl] = useState(line?.renewal_url ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -273,6 +275,7 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
       dns_id: dnsId || null,
       local_enabled: true,
       notes: notes.trim() || null,
+      renewal_url: renewalUrl.trim() || null,
     };
     const result = line
       ? await supabase.from('iptv_lines').update(payload).eq('id', line.id)
@@ -326,6 +329,20 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
               </div>
             </div>
           )}
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium text-white/60">Link de renovação</span>
+            <input
+              type="url"
+              value={renewalUrl}
+              onChange={(e) => setRenewalUrl(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50"
+              placeholder="https://dezpila.net.br/#/checkout/..."
+            />
+            <small className="mt-2 block text-[11px] leading-5 text-white/35">
+              Link individual de pagamento/renovação desta lista.
+            </small>
+          </label>
+
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-white/60">Notas (opcional)</span>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50" placeholder="Informações internas sobre o cliente…" />

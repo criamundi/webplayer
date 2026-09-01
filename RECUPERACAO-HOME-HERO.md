@@ -48,3 +48,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Admin provedor: removidos definitivamente DNS padrão/URL de servidor da edição; nova RPC de configurações sem parâmetros legados; exclusão de provedor passa por RPC Super Admin que limpa linhas, bouquets, branding, DNS e vínculos de perfis.
 
 - Permissões finais de provedores: Super Admin cria/edita/ativa/exclui; Provider Admin altera somente Cadastro automático do próprio provedor.
+
+- Renovação individual: iptv_lines ganhou renewal_url; Admin Dispositivos permite salvar o checkout por lista; account-status retorna primeiro o link da linha e usa o link do provedor apenas como fallback.

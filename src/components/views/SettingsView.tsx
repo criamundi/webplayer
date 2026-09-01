@@ -54,14 +54,14 @@ export function SettingsView({ onSignOut }: SettingsViewProps) {
 
   const fields = [
     {
-      label: 'Login',
-      value: credentials?.username || 'Não informado',
-      icon: UserRound,
-    },
-    {
       label: 'Status',
       value: loading ? 'Verificando...' : statusLabel(account?.status),
       icon: ShieldCheck,
+    },
+    {
+      label: 'Login',
+      value: credentials?.username || 'Não informado',
+      icon: UserRound,
     },
     {
       label: 'Nome do usuário',

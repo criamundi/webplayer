@@ -447,7 +447,8 @@ Deno.serve(
             dns_id,
             local_enabled,
             upstream_expires_at,
-            status
+            status,
+            renewal_url
           `)
           .eq(
             "username",
@@ -754,7 +755,7 @@ Deno.serve(
           status: account.status,
           username: account.username ?? username,
           displayName: account.displayName ?? account.username ?? username,
-          renewalUrl: providerRow.renewal_url ?? null,
+          renewalUrl: line?.renewal_url ?? providerRow.renewal_url ?? null,
         });
       }
 
