@@ -43,8 +43,17 @@ export function ProvidersView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este provedor?')) return;
-    await supabase.from('iptv_providers').delete().eq('id', id);
+    if (!confirm('Excluir este provedor e todos os dados vinculados a ele?')) return;
+
+    const { error } = await supabase.rpc('delete_provider_cascade', {
+      target_provider_id: id,
+    });
+
+    if (error) {
+      alert(`Não foi possível excluir o provedor: ${error.message}`);
+      return;
+    }
+
     load();
   };
 
@@ -123,9 +132,7 @@ function ProviderForm({ provider, superAdmin, onClose, onSaved }: {
     setSaving(true);
     const result = superAdmin
       ? (provider ? await supabase.from('iptv_providers').update({ name: name.trim() }).eq('id', provider.id) : await supabase.from('iptv_providers').insert({ name: name.trim() }).select('id').single())
-      : await supabase.rpc('update_own_provider_settings', {
-          next_server_url: '',
-          next_default_dns_id: null,
+      : await supabase.rpc('update_own_provider_settings_v2', {
           next_renewal_url: renewalUrl.trim(),
           next_auto_registration: autoRegistration,
         });
