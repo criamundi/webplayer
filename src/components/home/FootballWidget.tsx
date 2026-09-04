@@ -35,6 +35,23 @@ function TeamLogo({ source, name, compact = false }: { source?: string; name: st
   return <span className={`flex ${size} items-center justify-center rounded-full bg-white/[.07] font-bold text-white/45`}>{teamInitials(name)}</span>;
 }
 
+
+function groupMatchesByCompetition(matches: TodayMatch[]) {
+  const groups = new Map<string, TodayMatch[]>();
+
+  for (const match of matches) {
+    const competition = match.competition?.trim() || 'Outros';
+    const current = groups.get(competition) || [];
+    current.push(match);
+    groups.set(competition, current);
+  }
+
+  return Array.from(groups.entries()).map(([competition, items]) => ({
+    competition,
+    matches: items,
+  }));
+}
+
 export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -95,6 +112,11 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
     return { weekday, dayMonth };
   }, []);
 
+  const competitionGroups = useMemo(
+    () => groupMatchesByCompetition(matches),
+    [matches],
+  );
+
   return <div className="flex min-h-0 flex-1 flex-col">
     <header className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -149,21 +171,58 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
           </div>
         </section>
 
-        <section className="mt-5"><h3 className="mb-2 text-[9px] font-semibold uppercase tracking-[.18em] text-white/30">Jogos do dia</h3><div className="space-y-1.5">{matches.map((match, index) => <div
-          key={match.id}
-          className={`rounded-xl px-2.5 py-2.5 transition ${index === activeIndex ? 'bg-white/[.08]' : 'bg-white/[.025] hover:bg-white/[.055]'}`}
-        ><button
-          type="button"
-          onClick={() => { setActiveIndex(index); setRotationKey((value) => value + 1); }}
-          className="grid w-full grid-cols-[3.2rem_2.25rem_minmax(0,1fr)_2.75rem_minmax(0,1fr)_2.25rem] items-center gap-2 text-left"
-        >
-          <span className="rounded-lg bg-white/[.07] px-2 py-2 text-center text-[10px] font-bold tabular-nums text-white/80">{match.time}</span>
-          <span className="flex justify-center"><TeamLogo compact source={match.homeLogo} name={match.home} /></span>
-          <strong className="truncate text-[10px] font-semibold text-white/78">{match.home}</strong>
-          <span className="justify-self-center rounded-full bg-white/[.06] px-2 py-1 text-[9px] font-bold uppercase tracking-[.12em] text-white/40">VS</span>
-          <strong className="truncate text-right text-[10px] font-semibold text-white/78">{match.away}</strong>
-          <span className="flex justify-center"><TeamLogo compact source={match.awayLogo} name={match.away} /></span>
-        </button></div>)}</div></section>
+        <section className="mt-5">
+          <h3 className="mb-3 text-[9px] font-semibold uppercase tracking-[.18em] text-white/30">Jogos por campeonato</h3>
+          <div className="space-y-5">
+            {competitionGroups.map((group) => (
+              <section key={group.competition}>
+                <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/[.06] pb-2">
+                  <strong className="truncate text-[10px] font-semibold uppercase tracking-[.13em]" style={{ color: primaryColor }}>
+                    {group.competition}
+                  </strong>
+                  <span className="shrink-0 text-[9px] text-white/25">
+                    {group.matches.length} {group.matches.length === 1 ? 'jogo' : 'jogos'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {group.matches.map((match) => {
+                    const index = matches.findIndex((item) => item.id === match.id);
+
+                    return (
+                      <div
+                        key={match.id}
+                        className={`rounded-xl px-2.5 py-2.5 transition ${index === activeIndex ? 'bg-white/[.08]' : 'bg-white/[.025] hover:bg-white/[.055]'}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveIndex(index);
+                            setRotationKey((value) => value + 1);
+                          }}
+                          className="grid w-full grid-cols-[3.2rem_2.25rem_minmax(0,1fr)_2.75rem_minmax(0,1fr)_2.25rem] items-center gap-2 text-left"
+                        >
+                          <span className="rounded-lg bg-white/[.07] px-2 py-2 text-center text-[10px] font-bold tabular-nums text-white/80">
+                            {match.time}
+                          </span>
+                          <span className="flex justify-center">
+                            <TeamLogo compact source={match.homeLogo} name={match.home} />
+                          </span>
+                          <strong className="truncate text-[10px] font-semibold text-white/78">{match.home}</strong>
+                          <span className="justify-self-center rounded-full bg-white/[.06] px-2 py-1 text-[9px] font-bold uppercase tracking-[.12em] text-white/40">VS</span>
+                          <strong className="truncate text-right text-[10px] font-semibold text-white/78">{match.away}</strong>
+                          <span className="flex justify-center">
+                            <TeamLogo compact source={match.awayLogo} name={match.away} />
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
       </>}
     </div>
   </div>;
