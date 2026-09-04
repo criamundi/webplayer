@@ -24,7 +24,7 @@ interface Line {
 }
 
 interface Provider { id: string; name: string; server_url: string | null; }
-interface DnsEntry { id: string; name: string; host: string; }
+interface DnsEntry { id: string; name: string; host: string; provider_id: string | null; }
 
 export function LinesView() {
   const [lines, setLines] = useState<Line[]>([]);
@@ -39,20 +39,45 @@ export function LinesView() {
   const [migrating, setMigrating] = useState(false);
   const [migrateDnsId, setMigrateDnsId] = useState('');
   const [migrateMsg, setMigrateMsg] = useState('');
+  const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: lineData }, { data: provData }, { data: dnsData }] = await Promise.all([
+
+    const { data: auth } = await supabase.auth.getUser();
+
+    let ownProviderId: string | null = null;
+    let superAdmin = false;
+
+    if (auth.user) {
+      const [{ data: profile }, { data: superAccess }] = await Promise.all([
+        supabase.from('profiles').select('provider_id, role').eq('id', auth.user.id).maybeSingle(),
+        supabase.rpc('is_super_admin'),
+      ]);
+
+      ownProviderId = profile?.provider_id ?? null;
+      superAdmin = Boolean(superAccess) || profile?.role === 'super_admin' || profile?.role === 'admin';
+    }
+
+    setCurrentProviderId(ownProviderId);
+    setIsSuperAdmin(superAdmin);
+
+    const [{ data: lineData, error: lineError }, { data: provData, error: providerError }, { data: dnsData, error: dnsError }] = await Promise.all([
       supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, renewal_url, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
       supabase.from('iptv_providers').select('id, name, server_url').order('name'),
-      supabase.from('iptv_dns').select('id, name, host').order('name'),
+      supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
     ]);
+
+    if (lineError) console.error('Erro ao carregar dispositivos:', lineError);
+    if (providerError) console.error('Erro ao carregar provedores:', providerError);
+    if (dnsError) console.error('Erro ao carregar DNS:', dnsError);
+
     setLines((lineData || []) as unknown as Line[]);
     setProviders(provData || []);
-    setDnsList(dnsData || []);
+    setDnsList((dnsData || []) as DnsEntry[]);
     setLoading(false);
   };
-
   useEffect(() => { load(); }, []);
 
   const filtered = lines.filter((l) => {
@@ -199,7 +224,7 @@ export function LinesView() {
                       onChange={(e) => handleMigrateOne(line, e.target.value)}
                       className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] text-white/70 outline-none focus:border-lime-300/50"
                     >
-                      <option value="" className="bg-slate-900">Padrão (provedor)</option>
+                      <option value="" className="bg-slate-900">Detectar automaticamente</option>
                       {dnsList.map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name}</option>)}
                     </select>
                   </div>
@@ -215,6 +240,8 @@ export function LinesView() {
           line={editing}
           providers={providers}
           dnsList={dnsList}
+          currentProviderId={currentProviderId}
+          superAdmin={isSuperAdmin}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load(); }}
         />
@@ -236,35 +263,47 @@ export function LinesView() {
   );
 }
 
-function LineForm({ line, providers, dnsList, onClose, onSaved }: {
+function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onClose, onSaved }: {
   line: Line | null;
   providers: Provider[];
   dnsList: DnsEntry[];
+  currentProviderId: string | null;
+  superAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [username, setUsername] = useState(line?.username ?? '');
   const [password, setPassword] = useState(line?.password ?? '');
-  const [providerId, setProviderId] = useState(line?.provider_id ?? '');
+  const [providerId, setProviderId] = useState(line?.provider_id ?? currentProviderId ?? (providers.length === 1 ? providers[0].id : ''));
   const [dnsId, setDnsId] = useState(line?.dns_id ?? '');
   const [notes, setNotes] = useState(line?.notes ?? '');
   const [renewalUrl, setRenewalUrl] = useState(line?.renewal_url ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const availableDns = useMemo(
+    () => dnsList.filter((dns) => !providerId || dns.provider_id === providerId),
+    [dnsList, providerId],
+  );
+
   const previewLink = useMemo(() => {
     const provider = providers.find((p) => p.id === providerId);
-    const dns = dnsList.find((d) => d.id === dnsId);
+    const dns = availableDns.find((d) => d.id === dnsId);
     const host = dns?.host || provider?.server_url || '';
     if (!host || !username || !password) return '';
     return buildM3ULink({ host, username, password });
-  }, [providers, dnsList, providerId, dnsId, username, password]);
+  }, [providers, availableDns, providerId, dnsId, username, password]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     if (username.trim().length < 2 || password.length < 1) {
       setError('Informe usuário e senha válidos.');
+      return;
+    }
+
+    if (!providerId) {
+      setError('Selecione o provedor deste dispositivo.');
       return;
     }
     setSaving(true);
@@ -277,11 +316,29 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
       notes: notes.trim() || null,
       renewal_url: renewalUrl.trim() || null,
     };
-    const result = line
+    let result = line
       ? await supabase.from('iptv_lines').update(payload).eq('id', line.id)
       : await supabase.from('iptv_lines').insert(payload);
+
+    // Compatibilidade com bancos que ainda não receberam a migration de renewal_url.
+    if (
+      result.error &&
+      /renewal_url/i.test(result.error.message || '')
+    ) {
+      const { renewal_url: _ignored, ...legacyPayload } = payload;
+      result = line
+        ? await supabase.from('iptv_lines').update(legacyPayload).eq('id', line.id)
+        : await supabase.from('iptv_lines').insert(legacyPayload);
+    }
+
     setSaving(false);
-    if (result.error) { setError('Não foi possível salvar o dispositivo.'); return; }
+
+    if (result.error) {
+      console.error('Erro ao salvar dispositivo:', result.error);
+      setError(result.error.message || 'Não foi possível salvar o dispositivo.');
+      return;
+    }
+
     onSaved();
   };
 
@@ -306,16 +363,29 @@ function LineForm({ line, providers, dnsList, onClose, onSaved }: {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-white/60">Provedor</span>
-              <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50">
-                <option value="" className="bg-slate-900">Nenhum</option>
-                {providers.map((p) => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
-              </select>
+              {superAdmin ? (
+                <select
+                  value={providerId}
+                  onChange={(e) => {
+                    setProviderId(e.target.value);
+                    setDnsId('');
+                  }}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50"
+                >
+                  <option value="" className="bg-slate-900">Selecione</option>
+                  {providers.map((p) => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
+                </select>
+              ) : (
+                <div className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white/80">
+                  {providers.find((p) => p.id === providerId)?.name || 'Provedor vinculado'}
+                </div>
+              )}
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-white/60">DNS (servidor da lista)</span>
               <select value={dnsId} onChange={(e) => setDnsId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none focus:border-lime-300/50">
-                <option value="" className="bg-slate-900">Padrão (URL do provedor)</option>
-                {dnsList.map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name} — {d.host}</option>)}
+                <option value="" className="bg-slate-900">Detectar automaticamente</option>
+                {availableDns.map((d) => <option key={d.id} value={d.id} className="bg-slate-900">{d.name} — {d.host}</option>)}
               </select>
             </label>
           </div>
