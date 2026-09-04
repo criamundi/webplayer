@@ -380,3 +380,10 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   opacity:.52;
   filter:saturate(.86) brightness(.86);
 }
+
+
+/* Contorno fino das capas com a cor principal do Admin */
+.media-poster-focus > div,
+.poster-card > div {
+  border: 1px solid var(--brand-primary,#bef264);
+}
