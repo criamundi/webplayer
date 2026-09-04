@@ -184,6 +184,49 @@ function validServerUrl(
   }
 }
 
+
+function serverUrlCandidates(value: string): URL[] {
+  const raw = value.trim();
+  if (!raw) return [];
+
+  const values = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+    ? [raw]
+    : [`http://${raw}`, `https://${raw}`];
+
+  const unique = new Map<string, URL>();
+
+  for (const candidate of values) {
+    const parsed = validServerUrl(candidate);
+    if (parsed) unique.set(parsed.toString(), parsed);
+  }
+
+  return Array.from(unique.values());
+}
+
+async function fetchProviderWithTimeout(
+  url: URL,
+  init: RequestInit,
+  parentSignal: AbortSignal,
+  timeoutMs = 6500,
+) {
+  const controller = new AbortController();
+
+  const abortFromParent = () => controller.abort();
+  parentSignal.addEventListener("abort", abortFromParent, { once: true });
+
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetchProvider(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+    parentSignal.removeEventListener("abort", abortFromParent);
+  }
+}
+
 function playerApiUrl(server: URL, username: string, password: string) {
   const url = new URL(server.toString());
   const basePath = url.pathname.toLowerCase().endsWith(".php")
@@ -220,7 +263,13 @@ function upstreamState(raw: Record<string, unknown>): UpstreamAccountState {
     displayName: displayName || null,
     activeConnections: Number(user.active_cons ?? 0) || 0,
     maxConnections: Number(user.max_connections ?? 0) || null,
-    allowed: authenticated && status.toLowerCase() === "active" && (!expiresAt || new Date(expiresAt) > new Date()),
+    allowed:
+      authenticated &&
+      (
+        !status ||
+        ["active", "enabled"].includes(status.toLowerCase())
+      ) &&
+      (!expiresAt || new Date(expiresAt) > new Date()),
   };
 }
 
@@ -542,98 +591,168 @@ Deno.serve(
       let reachedAnyDns = false;
 
       for (const candidate of candidates) {
-        const candidateUrl = validServerUrl(candidate.host);
-        if (!candidateUrl) {
+        const candidateUrls =
+          serverUrlCandidates(
+            candidate.host,
+          );
+
+        if (!candidateUrls.length) {
           continue;
         }
 
-        const cacheKey = accountCacheKey(
-          providerRow.id,
-          candidate.id,
-          username,
-        );
+        const cacheKey =
+          accountCacheKey(
+            providerRow.id,
+            candidate.id,
+            username,
+          );
 
         const cachedAccount =
-          upstreamAccountCache.get(cacheKey);
+          upstreamAccountCache.get(
+            cacheKey,
+          );
 
         if (
           !requireFreshAccount &&
           cachedAccount &&
-          cachedAccount.expiresAt > Date.now()
+          cachedAccount.expiresAt >
+            Date.now()
         ) {
-          if (cachedAccount.account.authenticated) {
-            dns = candidate;
-            serverUrl = candidateUrl;
-            account = cachedAccount.account;
+          if (
+            cachedAccount.account
+              .authenticated
+          ) {
+            dns =
+              candidate;
+
+            /*
+             * O DNS já conhecido ainda precisa de uma URL real.
+             * Prioriza a primeira configuração válida.
+             */
+            serverUrl =
+              candidateUrls[0];
+
+            account =
+              cachedAccount.account;
+
             break;
           }
 
           continue;
         }
 
-        try {
-          const upstreamResponse =
-            await fetchProvider(
-              playerApiUrl(
-                candidateUrl,
-                username,
-                password,
-              ),
-              {
-                headers: {
-                  Accept: "application/json",
-                  "User-Agent": "Mozilla/5.0",
+        for (
+          const candidateUrl
+          of candidateUrls
+        ) {
+          try {
+            const upstreamResponse =
+              await fetchProviderWithTimeout(
+                playerApiUrl(
+                  candidateUrl,
+                  username,
+                  password,
+                ),
+                {
+                  headers: {
+                    Accept:
+                      "application/json",
+                    "User-Agent":
+                      "Mozilla/5.0",
+                  },
+                  redirect:
+                    "follow",
                 },
-                redirect: "follow",
-                signal: controller.signal,
-              },
-            );
+                controller.signal,
+                6500,
+              );
 
-          if (!upstreamResponse.ok) {
+            if (
+              !upstreamResponse.ok
+            ) {
+              continue;
+            }
+
+            reachedAnyDns =
+              true;
+
+            const upstreamPayload =
+              await upstreamResponse
+                .json();
+
+            const candidateAccount =
+              upstreamState(
+                upstreamPayload,
+              );
+
+            if (
+              !candidateAccount
+                .authenticated
+            ) {
+              upstreamAccountCache
+                .delete(
+                  cacheKey,
+                );
+
+              continue;
+            }
+
+            dns =
+              candidate;
+
+            serverUrl =
+              candidateUrl;
+
+            account =
+              candidateAccount;
+
+            if (
+              candidateAccount
+                .allowed
+            ) {
+              upstreamAccountCache
+                .set(
+                  cacheKey,
+                  {
+                    expiresAt:
+                      Date.now() +
+                      UPSTREAM_ACCOUNT_CACHE_MS,
+
+                    account:
+                      candidateAccount,
+                  },
+                );
+            } else {
+              upstreamAccountCache
+                .delete(
+                  cacheKey,
+                );
+            }
+
+            break;
+          } catch (error) {
+            /*
+             * Cancelamento real do navegador encerra toda a operação.
+             * Timeout individual de um DNS apenas faz o sistema tentar
+             * o próximo protocolo/DNS.
+             */
+            if (
+              controller.signal
+                .aborted
+            ) {
+              throw error;
+            }
+
             continue;
           }
+        }
 
-          reachedAnyDns = true;
-
-          const upstreamPayload =
-            await upstreamResponse.json();
-
-          const candidateAccount =
-            upstreamState(
-              upstreamPayload,
-            );
-
-          if (!candidateAccount.authenticated) {
-            upstreamAccountCache.delete(cacheKey);
-            continue;
-          }
-
-          dns = candidate;
-          serverUrl = candidateUrl;
-          account = candidateAccount;
-
-          if (candidateAccount.allowed) {
-            upstreamAccountCache.set(cacheKey, {
-              expiresAt:
-                Date.now() +
-                UPSTREAM_ACCOUNT_CACHE_MS,
-              account:
-                candidateAccount,
-            });
-          } else {
-            upstreamAccountCache.delete(cacheKey);
-          }
-
+        if (
+          dns &&
+          serverUrl &&
+          account
+        ) {
           break;
-        } catch (error) {
-          if (
-            error instanceof DOMException &&
-            error.name === "AbortError"
-          ) {
-            throw error;
-          }
-
-          continue;
         }
       }
 
@@ -641,8 +760,8 @@ Deno.serve(
         return json(
           {
             error: reachedAnyDns
-              ? "Esta lista não foi localizada nos DNS cadastrados para o provedor."
-              : "Não foi possível validar a lista nos DNS cadastrados.",
+              ? "Usuário e senha não foram encontrados em nenhum DNS ativo cadastrado para este provedor."
+              : "Os DNS cadastrados não responderam à validação da lista.",
           },
           reachedAnyDns ? 401 : 502,
         );
