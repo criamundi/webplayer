@@ -52,3 +52,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Renovação individual: iptv_lines ganhou renewal_url; Admin Dispositivos permite salvar o checkout por lista; account-status retorna primeiro o link da linha e usa o link do provedor apenas como fallback.
 
 - Login 0.5.2: descoberta de DNS agora tenta HTTP/HTTPS quando o host não possui protocolo, usa timeout individual de 6,5s por tentativa e segue para o próximo DNS em caso de falha. Status Xtream vazio/Enabled autenticado também é aceito como ativo quando não vencido.
+
+- 0.5.3: Backspace deixou de ser tratado como botão Voltar global; campos de login/admin voltam a apagar texto normalmente.

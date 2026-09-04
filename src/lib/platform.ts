@@ -47,13 +47,20 @@ const BACK_KEYS = new Set([
 ]);
 
 const BACK_KEY_CODES = new Set([
-  8,      // alguns navegadores antigos
   27,     // Escape
   461,    // LG webOS Back
   10009,  // Samsung Tizen Return
 ]);
 
 export function isBackKey(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  const isEditable =
+    target?.tagName === 'INPUT' ||
+    target?.tagName === 'TEXTAREA' ||
+    target?.isContentEditable;
+
+  if (event.key === 'Backspace' && isEditable) return false;
+
   return BACK_KEYS.has(event.key) || BACK_KEY_CODES.has(event.keyCode || event.which);
 }
 
