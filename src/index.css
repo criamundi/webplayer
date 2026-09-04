@@ -207,3 +207,68 @@ html.is-tv * {
 .app-font-scale .ring-emerald-300 {
   --tw-ring-color: var(--brand-primary, #bef264) !important;
 }
+
+
+/* ==============================================================
+   TOP TV DIGITAL — ACENTOS 100% CONTROLADOS PELO ADMIN
+   ============================================================== */
+.app-font-scale .text-emerald-500,
+.app-font-scale .text-emerald-400,
+.app-font-scale .text-emerald-300,
+.app-font-scale .text-lime-500,
+.app-font-scale .text-lime-400,
+.app-font-scale .text-lime-300 {
+  color: var(--brand-primary, #bef264) !important;
+}
+
+.app-font-scale .fill-emerald-500,
+.app-font-scale .fill-emerald-400,
+.app-font-scale .fill-emerald-300,
+.app-font-scale .fill-lime-500,
+.app-font-scale .fill-lime-400,
+.app-font-scale .fill-lime-300 {
+  fill: var(--brand-primary, #bef264) !important;
+}
+
+.app-font-scale .stroke-emerald-500,
+.app-font-scale .stroke-emerald-400,
+.app-font-scale .stroke-emerald-300,
+.app-font-scale .stroke-lime-500,
+.app-font-scale .stroke-lime-400,
+.app-font-scale .stroke-lime-300 {
+  stroke: var(--brand-primary, #bef264) !important;
+}
+
+.app-font-scale .bg-emerald-500,
+.app-font-scale .bg-emerald-400,
+.app-font-scale .bg-emerald-300,
+.app-font-scale .bg-lime-500,
+.app-font-scale .bg-lime-400,
+.app-font-scale .bg-lime-300 {
+  background-color: var(--brand-primary, #bef264) !important;
+}
+
+.app-font-scale .border-emerald-500,
+.app-font-scale .border-emerald-400,
+.app-font-scale .border-emerald-300,
+.app-font-scale .border-lime-500,
+.app-font-scale .border-lime-400,
+.app-font-scale .border-lime-300 {
+  border-color: var(--brand-primary, #bef264) !important;
+}
+
+/* Opacidades Tailwind mais comuns usadas em loaders/ícones */
+.app-font-scale .text-emerald-400\/70,
+.app-font-scale .text-emerald-400\/60,
+.app-font-scale .text-emerald-400\/50,
+.app-font-scale .text-emerald-300\/70,
+.app-font-scale .text-lime-300\/70 {
+  color: var(--brand-primary, #bef264) !important;
+}
+
+/* Inputs nativos também acompanham o branding */
+.app-font-scale input[type="checkbox"],
+.app-font-scale input[type="radio"],
+.app-font-scale input[type="range"] {
+  accent-color: var(--brand-primary, #bef264);
+}

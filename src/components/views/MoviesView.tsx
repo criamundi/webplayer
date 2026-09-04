@@ -161,7 +161,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         {loading
           ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
           : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleMovies.map((movie) => <button key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{movie.name}</p></div></button>)}</div>}
-        {(visibleMovies.length < categoryMovies.length || loadingMore) && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin text-emerald-400" />Carregando mais filmes</div>}
+        {(visibleMovies.length < categoryMovies.length || loadingMore) && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais filmes</div>}
         {!loading && !categoryMovies.length && <div className="py-20 text-center text-sm text-white/35">Nenhum filme encontrado nesta categoria.</div>}
       </main>
     </div>
@@ -209,7 +209,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
 
     <section className="px-5 pb-16 pt-6 sm:px-8 lg:px-12">
       {detailLoading
-        ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>
+        ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></div>
         : <>
           {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">

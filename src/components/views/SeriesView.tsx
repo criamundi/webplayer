@@ -154,7 +154,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         {loading
           ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
           : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show) => <button key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{show.name}</p></div></button>)}</div>}
-        {visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin text-emerald-400" />Carregando mais séries</div>}
+        {visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais séries</div>}
       </main>
     </div>
   </div>;
@@ -200,7 +200,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
 
     <section className="px-5 pb-16 pt-6 sm:px-8 lg:px-12">
       {detailLoading
-        ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-400" /></div>
+        ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></div>
         : <>
           <div className="mb-8">
             <ArrowRow title="Temporadas">

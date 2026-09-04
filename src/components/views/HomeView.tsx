@@ -25,7 +25,7 @@ function PosterImage({ channel, priority = false }: { channel: CatalogItem; prio
   const [loading, setLoading] = useState(Boolean(channel.logo));
   const [failed, setFailed] = useState(false);
   return <>
-    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
+    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></span>}
     {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
   </>;
 }
@@ -53,7 +53,7 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
       <div className="relative">
         <div ref={trackRef} className="poster-track scrollbar-none">
           {items.map((channel, index) => (
-            <button key={channel.id} onClick={() => onSelect(channel)} className="poster-card group">
+            <button key={channel.id} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group">
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#111a20] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-emerald-400/40">
                 <PosterImage channel={channel} priority={index < 5} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/0 to-black/10" />
@@ -421,7 +421,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
-        {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin text-emerald-400/70" />Carregando destaque</div></div>}
+        {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando destaque</div></div>}
         <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
         <div className="home-hero-shade" />
         <div className="absolute left-5 top-6 z-20 flex items-center gap-3.5 rounded-xl bg-[#091018]/68 px-4 py-3 text-white backdrop-blur-xl sm:left-8 lg:left-12">
