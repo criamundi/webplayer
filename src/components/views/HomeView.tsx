@@ -26,7 +26,7 @@ function PosterImage({ channel, priority = false }: { channel: CatalogItem; prio
   const [failed, setFailed] = useState(false);
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></span>}
-    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
+    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-200" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
   </>;
 }
 

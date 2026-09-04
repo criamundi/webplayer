@@ -271,13 +271,13 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .media-poster-focus {
   position:relative;
   border-radius:1rem;
-  transition:transform .25s ease, filter .25s ease;
+  transition:filter 140ms ease;
   outline:none;
 }
 
 .media-poster-focus > div {
   position:relative;
-  transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+  transition:box-shadow 140ms ease, border-color 140ms ease;
 }
 
 .media-poster-focus > div::after {
@@ -340,4 +340,43 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .home-shortcut:focus-visible::after {
   opacity:1;
   transform:scaleX(1);
+}
+
+
+/* Capas da Home — foco TV sem corte */
+.poster-track {
+  overflow-x:auto;
+  overflow-y:visible;
+  padding-top:.45rem;
+  padding-bottom:1rem;
+  scroll-padding-inline:.4rem;
+}
+
+.poster-card {
+  opacity:.58;
+  transform-origin:center center;
+  transition:transform 140ms ease, opacity 140ms ease, filter 140ms ease;
+  will-change:transform;
+}
+
+.poster-card:hover,
+.poster-card:focus-visible {
+  opacity:1;
+  transform:scale(1.045);
+  z-index:20;
+}
+
+.poster-card:hover > div,
+.poster-card:focus-visible > div {
+  transform:none !important;
+}
+
+.poster-track:focus-within .poster-card:not(:focus-visible) {
+  opacity:.48;
+  filter:saturate(.82) brightness(.82);
+}
+
+.poster-track:hover .poster-card:not(:hover) {
+  opacity:.52;
+  filter:saturate(.86) brightness(.86);
 }

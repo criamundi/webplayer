@@ -179,21 +179,21 @@ export function FootballWidget({ primaryColor, onClose, onSelectChannel }: Footb
           <div className="mt-5">
             <div className="mb-2 text-[10px] text-white/45"><span>Probabilidade estimada</span></div>
             <div className="flex h-2.5 overflow-hidden rounded-full bg-white/[.06] shadow-inner shadow-black/30">
-              <span className="bg-sky-400/80" style={{ width: `${probabilities.home}%` }} />
-              <span className="bg-amber-300/75" style={{ width: `${probabilities.draw}%` }} />
-              <span className="bg-violet-400/75" style={{ width: `${probabilities.away}%` }} />
+              <span className="bg-slate-300/75" style={{ width: `${probabilities.home}%` }} />
+              <span className="bg-slate-500/65" style={{ width: `${probabilities.draw}%` }} />
+              <span className="bg-slate-700/80" style={{ width: `${probabilities.away}%` }} />
             </div>
             <div className="mt-3 grid grid-cols-3 gap-3">
               <div className="min-w-0 text-left">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-sky-300">{probabilities.home}%</strong>
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white">{probabilities.home}%</strong>
                 <span className="mt-1 block truncate text-[10px] font-medium text-white/40">{activeMatch.home}</span>
               </div>
               <div className="min-w-0 text-center">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-amber-200">{probabilities.draw}%</strong>
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white/72">{probabilities.draw}%</strong>
                 <span className="mt-1 block text-[10px] font-medium text-white/35">Empate</span>
               </div>
               <div className="min-w-0 text-right">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-violet-300">{probabilities.away}%</strong>
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white/55">{probabilities.away}%</strong>
                 <span className="mt-1 block truncate text-[10px] font-medium text-white/35">{activeMatch.away}</span>
               </div>
             </div>
