@@ -58,3 +58,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - 0.5.4: corrigido RPC de Cadastro automático. Perfis provider_admin com admin_active NULL agora seguem a mesma regra do login Admin (somente false bloqueia). Erros RPC agora aparecem com mensagem real no modal.
 
 - 0.5.5: reparo de DNS órfãos da migração multi-provedor. DNS antigo passa a receber provider_id pela linha que o referencia; em instalação com um único provedor, DNS restantes também são vinculados a ele. Não foi reintroduzido DNS padrão.
+
+- 0.5.6: corrigida migration de reparo de DNS; removido uso de min(uuid) e criado follow-up seguro para quem já tentou rodar a 0.5.5.

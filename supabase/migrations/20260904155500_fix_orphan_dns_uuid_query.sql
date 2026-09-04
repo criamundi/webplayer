@@ -1,15 +1,7 @@
 /*
-  Repara DNS antigos que ficaram sem provider_id durante a migração
-  para multi-provedor.
-
-  Não recria DNS padrão.
-
-  Regras:
-  1. Se uma linha já referencia o DNS e possui provider_id, usa esse provedor.
-  2. Se existe somente um provedor cadastrado no sistema, DNS ainda órfãos
-     pertencem inequivocamente a ele.
-  3. Em ambiente com vários provedores, DNS sem evidência permanecem órfãos
-     para evitar vinculação incorreta entre provedores.
+  Correção da migration anterior:
+  PostgreSQL não possui min(uuid) nativo.
+  Reexecuta de forma segura o reparo de DNS órfãos.
 */
 
 UPDATE public.iptv_dns AS dns
@@ -26,10 +18,6 @@ FROM (
 WHERE dns.id = inferred.dns_id
   AND dns.provider_id IS NULL;
 
-/*
-  Instalações antigas com apenas um provedor:
-  todo DNS órfão é desse único provedor.
-*/
 DO $$
 DECLARE
   provider_count integer;
