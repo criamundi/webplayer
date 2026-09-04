@@ -1,5 +1,6 @@
+import { SportsSettingsView } from './SportsSettingsView';
 import { useEffect, useState } from 'react';
-import { Globe, LayoutGrid, LogOut, Monitor, Palette, Radio, Server, ShieldCheck, X } from 'lucide-react';
+import { Globe, LayoutGrid, LogOut, Monitor, Palette, Radio, Server, ShieldCheck, X, Trophy} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { DashboardView } from '@/components/admin/DashboardView';
 import { LinesView } from '@/components/admin/LinesView';
@@ -8,7 +9,7 @@ import { DnsView } from '@/components/admin/DnsView';
 import { BrandingView } from '@/components/admin/BrandingView';
 import { ProviderAdminsView } from '@/components/admin/ProviderAdminsView';
 
-type AdminTab = 'dashboard' | 'devices' | 'providers' | 'admins' | 'dns' | 'branding';
+type AdminTab = 'dashboard' | 'devices' | 'providers' | 'admins' | 'dns' | 'branding' | 'sports';
 
 const tabs: Array<{ id: AdminTab; label: string; icon: typeof LayoutGrid }> = [
   { id: 'dashboard', label: 'Visão geral', icon: LayoutGrid },
@@ -16,6 +17,7 @@ const tabs: Array<{ id: AdminTab; label: string; icon: typeof LayoutGrid }> = [
   { id: 'providers', label: 'Provedores', icon: Server },
   { id: 'admins', label: 'Administradores', icon: ShieldCheck },
   { id: 'dns', label: 'DNS', icon: Globe },
+  { id: 'sports', label: 'Esportes', icon: Trophy },
   { id: 'branding', label: 'Branding', icon: Palette },
 ];
 

@@ -30,17 +30,41 @@ export interface ResolvedBroadcast {
 
 const BRAZIL_TIME_ZONE = 'America/Sao_Paulo';
 const SPORTS_DB_BASE = 'https://www.thesportsdb.com/api/v1/json/123';
-const SPORTS_CACHE_KEY = 'nexus:sports-feed:v1';
+const SPORTS_CACHE_KEY = 'top-tv:sports-feed:v2';
 const SPORTS_CACHE_MS = 10 * 60 * 1000;
-const competitions = [
+export const SPORTS_COMPETITIONS = [
   { slug: 'bra.1', priority: 1, fallbackName: 'Brasileirão' },
   { slug: 'bra.copa_do_brazil', priority: 2, fallbackName: 'Copa do Brasil' },
   { slug: 'conmebol.libertadores', priority: 3, fallbackName: 'Libertadores' },
-  { slug: 'uefa.champions', priority: 4, fallbackName: 'Champions League' },
-  { slug: 'fifa.worldq.conmebol', priority: 5, fallbackName: 'Eliminatórias' },
-  { slug: 'fifa.friendly', priority: 6, fallbackName: 'Seleções' },
-  { slug: 'bra.2', priority: 7, fallbackName: 'Brasileirão Série B' },
+  { slug: 'conmebol.sudamericana', priority: 4, fallbackName: 'Sul-Americana' },
+  { slug: 'uefa.champions', priority: 5, fallbackName: 'Champions League' },
+  { slug: 'uefa.europa', priority: 6, fallbackName: 'Europa League' },
+  { slug: 'eng.1', priority: 7, fallbackName: 'Premier League' },
+  { slug: 'esp.1', priority: 8, fallbackName: 'La Liga' },
+  { slug: 'ita.1', priority: 9, fallbackName: 'Serie A' },
+  { slug: 'ger.1', priority: 10, fallbackName: 'Bundesliga' },
+  { slug: 'fra.1', priority: 11, fallbackName: 'Ligue 1' },
+  { slug: 'fifa.worldq.conmebol', priority: 12, fallbackName: 'Eliminatórias' },
+  { slug: 'fifa.friendly', priority: 13, fallbackName: 'Seleções' },
+  { slug: 'bra.2', priority: 14, fallbackName: 'Brasileirão Série B' },
 ] as const;
+
+export type SportsCompetitionSlug = typeof SPORTS_COMPETITIONS[number]['slug'];
+
+export const DEFAULT_SPORTS_COMPETITIONS: SportsCompetitionSlug[] = [
+  'bra.1',
+  'bra.copa_do_brazil',
+  'conmebol.libertadores',
+  'uefa.champions',
+  'eng.1',
+  'esp.1',
+  'ita.1',
+];
+
+export interface SportsWidgetSettings {
+  enabled: boolean;
+  competitions: SportsCompetitionSlug[];
+}
 
 type EspnTeam = { homeAway?: 'home' | 'away'; team?: { displayName?: string; shortDisplayName?: string; logo?: string } };
 type EspnOdds = { homeTeamOdds?: { moneyLine?: number }; awayTeamOdds?: { moneyLine?: number }; drawOdds?: { moneyLine?: number } };
@@ -108,7 +132,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function loadCompetition(date: string, config: typeof competitions[number]) {
+async function loadCompetition(date: string, config: typeof SPORTS_COMPETITIONS[number]) {
   const compactDate = date.replace(/-/g, '');
   const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${config.slug}/scoreboard?dates=${compactDate}&region=br&lang=pt`;
   const payload = await fetchJson<EspnPayload>(url);
@@ -155,6 +179,42 @@ async function enrichMatch(match: PrioritizedMatch) {
   return { ...match, homeLogo: match.homeLogo || event.strHomeTeamBadge, awayLogo: match.awayLogo || event.strAwayTeamBadge, channels: uniqueNames([...match.channels, ...channels]) };
 }
 
+
+function storedSportsSettings(): SportsWidgetSettings {
+  try {
+    const raw = JSON.parse(localStorage.getItem('top-tv:sports-settings') || 'null') as Partial<SportsWidgetSettings> | null;
+    const allowed = new Set(SPORTS_COMPETITIONS.map((item) => item.slug));
+    const competitions = Array.isArray(raw?.competitions)
+      ? raw!.competitions!.filter((slug): slug is SportsCompetitionSlug => allowed.has(slug as SportsCompetitionSlug))
+      : DEFAULT_SPORTS_COMPETITIONS;
+
+    return {
+      enabled: raw?.enabled !== false,
+      competitions: competitions.length ? competitions : DEFAULT_SPORTS_COMPETITIONS,
+    };
+  } catch {
+    return { enabled: true, competitions: DEFAULT_SPORTS_COMPETITIONS };
+  }
+}
+
+export function cacheSportsSettings(settings: SportsWidgetSettings) {
+  try {
+    localStorage.setItem('top-tv:sports-settings', JSON.stringify(settings));
+    localStorage.removeItem(SPORTS_CACHE_KEY);
+  } catch {
+    // armazenamento indisponível
+  }
+}
+
+export function getCachedSportsSettings() {
+  return storedSportsSettings();
+}
+
+function activeCompetitionConfigs() {
+  const enabled = new Set(storedSportsSettings().competitions);
+  return SPORTS_COMPETITIONS.filter((config) => enabled.has(config.slug));
+}
+
 async function loadDirectMatches() {
   const date = todayInBrazil();
   try {
@@ -162,7 +222,7 @@ async function loadDirectMatches() {
     if (cached?.date === date && Number(cached.expiresAt) > Date.now() && Array.isArray(cached.matches)) return cached.matches;
   } catch { /* cache inválido */ }
 
-  const results = await Promise.all(competitions.map((config) => loadCompetition(date, config)));
+  const results = await Promise.all(activeCompetitionConfigs().map((config) => loadCompetition(date, config)));
   const unique = new Map<string, PrioritizedMatch>();
   for (const match of results.flat()) {
     const key = `${match.home}|${match.away}|${match.kickoff}`.toLocaleLowerCase('pt-BR');

@@ -21,7 +21,7 @@ const PAGE_SIZE = 100;
 const ALL_CHANNELS = '__all_live_channels__';
 const SEARCH_CHANNELS = '__search_live_channels__';
 const FAVORITE_CHANNELS = '__favorite_live_channels__';
-const CHANNEL_SELECTION_DELAY = 1400;
+const CHANNEL_SELECTION_DELAY = 250;
 const cleanGroupName = (name: string) => name.trim() || 'Outros';
 const categoryInitial = (name: string) => name.replace(/^CANAIS\s*\|?\s*/i, '').trim().charAt(0).toUpperCase() || 'C';
 const groupLabel = (group: string) => {

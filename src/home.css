@@ -219,7 +219,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   right:1.5rem;
   bottom:9rem;
   display:flex;
-  width:min(23rem,calc(100% - 3rem));
+  width:min(520px, 42vw);
   flex-direction:column;
   overflow:hidden;
   border:0;
