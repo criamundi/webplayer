@@ -565,7 +565,7 @@ Deno.serve(
       if (!activeDns.length) {
         return json(
           {
-            error: "Nenhum DNS ativo está cadastrado para este provedor.",
+            error: "Este provedor não possui nenhum DNS ativo vinculado. Verifique o cadastro de DNS no Admin.",
           },
           502,
         );

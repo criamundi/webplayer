@@ -79,6 +79,11 @@ export function DnsView() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white/90">{entry.name}</p>
                 <p className="truncate text-xs text-white/40">{entry.host}</p>
+                {!entry.provider_id && (
+                  <p className="mt-1 text-[10px] font-semibold text-amber-300">
+                    DNS sem provedor vinculado
+                  </p>
+                )}
               </div>
               <button onClick={() => handleToggle(entry)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${entry.active ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-white/50'}`}>
                 {entry.active ? 'Ativo' : 'Inativo'}
