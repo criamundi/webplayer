@@ -1,0 +1,13 @@
+{
+  "id": "com.toptvdigital.player",
+  "version": "0.5.0",
+  "vendor": "Top TV Digital",
+  "type": "web",
+  "main": "index.html",
+  "title": "Top TV Digital",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#091018",
+  "requiredMemory": 64,
+  "disableBackHistoryAPI": true
+}

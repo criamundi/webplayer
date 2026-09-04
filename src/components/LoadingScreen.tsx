@@ -8,7 +8,7 @@ interface LoadingBranding {
 }
 
 const defaultBranding: LoadingBranding = {
-  app_name: 'Nexus Play',
+  app_name: 'Top TV Digital',
   logo_url: null,
   primary_color: '#bef264',
   secondary_color: '#091018',

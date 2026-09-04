@@ -28,7 +28,7 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
   const [tab, setTab] = useState<AdminTab>('devices');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
-  const [panelBranding, setPanelBranding] = useState({ app_name: 'Nexus Play', logo_url: null as string | null, primary_color: '#bef264' });
+  const [panelBranding, setPanelBranding] = useState({ app_name: 'Top TV Digital', logo_url: null as string | null, primary_color: '#bef264' });
 
   useEffect(() => { setSidebarOpen(false); }, [tab]);
   useEffect(() => {

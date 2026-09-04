@@ -1,14 +1,17 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "top-tv-digital",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "build:web": "vite build",
+    "build:tizen": "vite build --mode tizen",
+    "build:webos": "vite build --mode webos"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

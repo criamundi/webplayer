@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { storage } from '@/lib/storage';
 
 import { loadLinePlaylistStreaming, validateLineAccess } from '@/lib/provider';
+import { enterAppFullscreen, exitAppFullscreen } from '@/lib/platform';
 
 import type {
   PlaylistCategory,
@@ -81,7 +82,7 @@ type Phase =
 */
 
 const defaultBranding: Branding = {
-  app_name: 'Nexus Play',
+  app_name: 'Top TV Digital',
   logo_url: null,
   primary_color: '#bef264',
   secondary_color: '#091018',
@@ -1405,10 +1406,8 @@ export default function App() {
       ) => {
         const isLive = channel.category === 'live';
         if (channel.id.startsWith('episode:')) setSeriesResumeId(channel.parentSeriesId || null);
-        if (!isLive && !document.fullscreenElement) {
-          void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {
-            // PlaybackView ainda cobre toda a janela quando o navegador bloqueia fullscreen.
-          });
+        if (!isLive) {
+          void enterAppFullscreen(document.documentElement);
         }
 
         setActiveChannel(
@@ -1846,6 +1845,45 @@ export default function App() {
 
   /*
 |--------------------------------------------------------------------------
+| CONTROLE REMOTO / VOLTAR
+|--------------------------------------------------------------------------
+*/
+
+  useEffect(() => {
+    const handlePlatformBack = () => {
+      if (phase !== 'ready') return;
+
+      if (sidebarOpen) {
+        setSidebarOpen(false);
+        return;
+      }
+
+      if (view === 'player') {
+        void exitAppFullscreen();
+        setView(activeChannel?.id.startsWith('episode:') ? 'series' : 'movies');
+        return;
+      }
+
+      if (view === 'live' && activeChannel?.category === 'live') {
+        setActiveChannel(null);
+        return;
+      }
+
+      if (view !== 'home') {
+        if (activeChannel?.category === 'live') setActiveChannel(null);
+        setView('home');
+        return;
+      }
+
+      setSidebarOpen(true);
+    };
+
+    window.addEventListener('top-tv:back', handlePlatformBack);
+    return () => window.removeEventListener('top-tv:back', handlePlatformBack);
+  }, [phase, sidebarOpen, view, activeChannel]);
+
+  /*
+|--------------------------------------------------------------------------
 | LOGIN
 |--------------------------------------------------------------------------
 */
@@ -2075,7 +2113,13 @@ export default function App() {
           )}
 
           {view === 'player' && activeChannel && (
-            <PlaybackView channel={activeChannel} onClose={() => handleNavigate(activeChannel.id.startsWith('episode:') ? 'series' : 'movies')} />
+            <PlaybackView
+              channel={activeChannel}
+              onClose={() => {
+                void exitAppFullscreen();
+                handleNavigate(activeChannel.id.startsWith('episode:') ? 'series' : 'movies');
+              }}
+            />
           )}
 
           {view ===

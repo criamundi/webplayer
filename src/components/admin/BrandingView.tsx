@@ -3,7 +3,7 @@ import { Check, ChevronDown, Image, Loader2, Save, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface Branding { provider_id?: string; app_name: string; logo_url: string | null; background_url: string | null; login_background_url: string | null; primary_color: string; secondary_color: string; player_layout: string; settings_layout: string; main_font_scale: number; }
-const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Nexus Play', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', player_layout: 'default', settings_layout: 'default', main_font_scale: 1.3 });
+const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Top TV Digital', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', player_layout: 'default', settings_layout: 'default', main_font_scale: 1.3 });
 const validHex = (value: string) => /^#[0-9a-f]{6}$/i.test(value.trim());
 
 export function BrandingView() {
@@ -54,7 +54,7 @@ export function BrandingView() {
     if (!validHex(branding.primary_color)) { setError('Informe a cor principal no formato hexadecimal, por exemplo #BEF264.'); return; }
     if (!validHex(branding.secondary_color)) { setError('Informe a cor secundária no formato hexadecimal, por exemplo #2563EB.'); return; }
     setSaving(true); setError('');
-    const payload = { app_name: branding.app_name.trim() || 'Nexus Play', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), secondary_color: branding.secondary_color.toUpperCase(), player_layout: branding.player_layout, settings_layout: branding.settings_layout, main_font_scale: Math.min(1.3, Math.max(.85, Number(branding.main_font_scale) || 1)) };
+    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), secondary_color: branding.secondary_color.toUpperCase(), player_layout: branding.player_layout, settings_layout: branding.settings_layout, main_font_scale: Math.min(1.3, Math.max(.85, Number(branding.main_font_scale) || 1)) };
     const result = target === 'global'
       ? await supabase.from('app_branding').update(payload).eq('singleton', true)
       : await supabase.from('provider_branding').upsert({ provider_id: target, ...payload }, { onConflict: 'provider_id' });

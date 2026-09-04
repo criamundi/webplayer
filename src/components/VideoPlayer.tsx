@@ -28,6 +28,7 @@ import {
 import type { Channel } from '@/types';
 import { resolvePlayableStreamUrl } from '@/lib/streamProxy';
 import { storage } from '@/lib/storage';
+import { isAppFullscreen, toggleAppFullscreen } from '@/lib/platform';
 
 interface VideoPlayerProps {
   channel: Channel | null;
@@ -885,9 +886,7 @@ export function VideoPlayer({
     const onChange =
       () => {
         setIsFullscreen(
-          Boolean(
-            document.fullscreenElement,
-          ),
+          isAppFullscreen(),
         );
       };
 
@@ -906,15 +905,11 @@ export function VideoPlayer({
 
   const toggleFullscreen =
     useCallback(() => {
-      if (
-        !document.fullscreenElement
-      ) {
-        containerRef.current
-          ?.requestFullscreen?.();
-      } else {
-        document
-          .exitFullscreen?.();
-      }
+      const container = containerRef.current;
+      if (!container) return;
+      void toggleAppFullscreen(container).then(() => {
+        setIsFullscreen(isAppFullscreen());
+      });
     }, []);
 
   const isLive = channel?.category === 'live';

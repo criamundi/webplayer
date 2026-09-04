@@ -89,3 +89,49 @@ input[type='range']::-moz-range-thumb {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+
+
+/* ==============================================================
+   TOP TV DIGITAL — TV FOUNDATION
+   ============================================================== */
+html.is-tv {
+  overscroll-behavior: none;
+}
+
+html.is-tv body {
+  cursor: default;
+}
+
+html.is-tv button:focus-visible,
+html.is-tv a:focus-visible,
+html.is-tv input:focus-visible,
+html.is-tv select:focus-visible,
+html.is-tv textarea:focus-visible,
+html.is-tv [tabindex]:focus-visible,
+html.is-tv [data-tv-focus="true"]:focus-visible {
+  outline: 3px solid rgba(190, 242, 100, .95);
+  outline-offset: 3px;
+  transform: scale(1.025);
+  transition: transform 120ms ease, outline-color 120ms ease;
+  z-index: 30;
+}
+
+.tv-pseudo-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+body.tv-fullscreen-active {
+  overflow: hidden !important;
+}
+
+html.is-tv * {
+  -webkit-tap-highlight-color: transparent;
+}
