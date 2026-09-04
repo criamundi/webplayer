@@ -106,6 +106,7 @@ export function AdminShell({ onExit, onSignOut }: AdminShellProps) {
           {tab === 'providers' && <ProvidersView />}
           {tab === 'admins' && <ProviderAdminsView />}
           {tab === 'dns' && <DnsView />}
+          {tab === 'sports' && <SportsSettingsView />}
           {tab === 'branding' && <BrandingView />}
         </main>
       </div>
