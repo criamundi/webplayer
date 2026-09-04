@@ -26,7 +26,7 @@ function PosterImage({ channel, priority = false }: { channel: CatalogItem; prio
   const [failed, setFailed] = useState(false);
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></span>}
-    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover transition duration-200" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
+    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
   </>;
 }
 
@@ -53,13 +53,12 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
       <div className="relative">
         <div ref={trackRef} className="media-poster-group poster-track scrollbar-none">
           {items.map((channel, index) => (
-            <button key={channel.id} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group">
-              <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#111a20] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-emerald-400/40">
+            <button key={channel.id} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group text-left">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]">
                 <PosterImage channel={channel} priority={index < 5} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/0 to-black/10" />
-                {validRating(channel.rating) && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
-                <span className="absolute inset-0 bg-emerald-300/0 transition duration-500 group-hover:bg-emerald-300/[0.04]" />
-                <div className="absolute inset-x-0 bottom-0 p-3 text-left"><p className="truncate text-sm font-semibold text-white">{channel.name}</p>{channel.group && <p className="mt-0.5 truncate text-[10px] text-white/45">{channel.group}</p>}</div>
+                {validRating(channel.rating) && <span className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" />
+                <p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{channel.name}</p>
               </div>
             </button>
           ))}
