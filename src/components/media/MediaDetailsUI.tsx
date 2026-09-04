@@ -28,7 +28,7 @@ export function MediaBackdrop({ sources }: { sources: string[] }) {
   return <img key={source} src={source} alt="" onError={() => setIndex((current) => current + 1)} className="absolute inset-0 h-full w-full object-cover" />;
 }
 
-export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false }: { logo?: string; fallbackLogo?: string; name: string; preserveAspect?: boolean }) {
+export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false, priority = false }: { logo?: string; fallbackLogo?: string; name: string; preserveAspect?: boolean; priority?: boolean }) {
   const candidates = useMemo(() => imageCandidates(logo, fallbackLogo), [fallbackLogo, logo]);
   const signature = candidates.join('|');
   const firstCandidate = candidates[0];
@@ -47,9 +47,9 @@ export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false }:
   };
 
   return <>
-    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin text-emerald-400/70" /></span>}
+    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></span>}
     {source
-      ? <>{preserveAspect && <img src={source} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl" />}<img src={source} alt={name} loading="lazy" decoding="async" onLoad={() => setLoading(false)} onError={handleError} className={preserveAspect ? 'relative z-[1] h-full w-full object-contain' : 'h-full w-full object-cover transition duration-500 group-hover:scale-105'} /></>
+      ? <>{preserveAspect && <img src={source} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl" />}<img src={source} alt={name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={handleError} className={preserveAspect ? 'relative z-[1] h-full w-full object-contain' : 'h-full w-full object-cover transition duration-300'} /></>
       : <span className="flex h-full items-center justify-center"><Tv className="h-9 w-9 text-white/15" /></span>}
   </>;
 }

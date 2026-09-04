@@ -95,6 +95,11 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+
+  const isImageTarget =
+    /\.(?:jpe?g|png|webp|gif|svg|avif)(?:$|\?)/i.test(target.toString()) ||
+    (req.headers.get("accept") || "").toLowerCase().includes("image/");
+
   /*
    * Quando a VPS está configurada, a Edge Function gera uma assinatura curta
    * e redireciona o navegador. O segredo nunca sai do Supabase.
@@ -102,7 +107,7 @@ Deno.serve(async (req: Request) => {
   const vpsProxyUrl = Deno.env.get("VPS_STREAM_PROXY_URL")?.trim();
   const vpsProxyToken = Deno.env.get("VPS_STREAM_PROXY_TOKEN")?.trim();
 
-  if (vpsProxyUrl && vpsProxyToken) {
+  if (vpsProxyUrl && vpsProxyToken && !isImageTarget) {
     try {
       const redirectUrl = new URL(vpsProxyUrl);
       if (redirectUrl.protocol !== "https:") {
@@ -232,7 +237,9 @@ Deno.serve(async (req: Request) => {
 
     responseHeaders.set(
       "Cache-Control",
-      "no-store",
+      isImageTarget
+        ? "public, max-age=86400, stale-while-revalidate=604800"
+        : "no-store",
     );
 
     /*

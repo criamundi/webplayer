@@ -496,6 +496,9 @@ Deno.serve(
             dns_id,
             local_enabled,
             upstream_expires_at,
+            upstream_status,
+            upstream_active_connections,
+            upstream_max_connections,
             status,
             renewal_url
           `)
@@ -590,6 +593,44 @@ Deno.serve(
       let account: UpstreamAccountState | null = null;
       let reachedAnyDns = false;
 
+      /*
+       * A lista já foi validada de forma fresca ao abrir o app.
+       * Ações auxiliares (catálogo, EPG, detalhes) não precisam fazer
+       * outro player_api.php sem action antes de cada chamada.
+       *
+       * Isso reduz bastante o número de requests ao provedor sem
+       * enfraquecer a validação de entrada.
+       */
+      if (!requireFreshAccount && existingLine && preferredDnsId) {
+        const knownDns = candidates.find((candidate) => candidate.id === preferredDnsId);
+        const knownUrls = knownDns ? serverUrlCandidates(knownDns.host) : [];
+        const knownExpiry = existingLine.upstream_expires_at
+          ? new Date(existingLine.upstream_expires_at)
+          : null;
+        const locallyAllowed =
+          existingLine.local_enabled !== false &&
+          String(existingLine.status || "active").toLowerCase() === "active" &&
+          (!knownExpiry || knownExpiry > new Date());
+
+        if (knownDns && knownUrls.length && locallyAllowed) {
+          dns = knownDns;
+          serverUrl = knownUrls[0];
+          account = {
+            authenticated: true,
+            status: String(existingLine.upstream_status || existingLine.status || "active"),
+            expiresAt: existingLine.upstream_expires_at || null,
+            username,
+            displayName: username,
+            activeConnections: Number(existingLine.upstream_active_connections || 0),
+            maxConnections: existingLine.upstream_max_connections == null
+              ? null
+              : Number(existingLine.upstream_max_connections),
+            allowed: true,
+          };
+        }
+      }
+
+      if (!dns || !serverUrl || !account) {
       for (const candidate of candidates) {
         const candidateUrls =
           serverUrlCandidates(
@@ -754,6 +795,7 @@ Deno.serve(
         ) {
           break;
         }
+      }
       }
 
       if (!dns || !serverUrl || !account) {
