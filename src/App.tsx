@@ -66,6 +66,7 @@ interface Branding {
   background_url?: string | null;
   login_background_url?: string | null;
   main_font_scale?: number;
+  font_family?: string;
 }
 
 type Phase =
@@ -86,7 +87,8 @@ const defaultBranding: Branding = {
   logo_url: null,
   primary_color: '#bef264',
   secondary_color: '#091018',
-  main_font_scale: 1.3,
+  main_font_scale: 1,
+  font_family: 'Inter',
 };
 
 const VIEW_LIMITS: Record<
@@ -379,12 +381,12 @@ export default function App() {
         const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
         const provider = providers?.[0];
         if (provider) {
-          const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').eq('provider_id', provider.id).maybeSingle();
+          const { data: providerBranding } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, font_family').eq('provider_id', provider.id).maybeSingle();
           data = providerBranding as Branding | null;
         }
       }
       if (!data) {
-        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').maybeSingle();
+        const { data: globalBranding } = await supabase.from('app_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, font_family').maybeSingle();
         data = globalBranding as Branding | null;
       }
 
@@ -1417,7 +1419,7 @@ export default function App() {
           const { data: providers } = await supabase.rpc('find_public_provider', { provider_name: credentials.provider });
           const provider = providers?.[0];
           if (provider) {
-            const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale').eq('provider_id', provider.id).maybeSingle();
+            const { data } = await supabase.from('provider_branding').select('app_name, logo_url, primary_color, secondary_color, background_url, login_background_url, main_font_scale, font_family').eq('provider_id', provider.id).maybeSingle();
             if (data) setBranding(data as Branding);
           }
         }
@@ -1965,7 +1967,10 @@ export default function App() {
 */
 
   return (
-    <div className="app-font-scale min-h-screen overflow-x-hidden bg-[#091018] text-white selection:bg-lime-300 selection:text-slate-950" style={{ '--app-font-scale': branding.main_font_scale || 1 } as React.CSSProperties}>
+    <div className="app-font-scale min-h-screen overflow-x-hidden bg-[#091018] text-white selection:bg-lime-300 selection:text-slate-950" style={{
+      '--app-font-scale': branding.main_font_scale || 1,
+      '--app-font-family': `'${branding.font_family || 'Inter'}', Arial, sans-serif`,
+    } as React.CSSProperties}>
 
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
 
