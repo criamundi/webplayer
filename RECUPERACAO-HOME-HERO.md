@@ -54,3 +54,5 @@ Nenhuma função de dispositivos foi incluída neste pacote; esta recuperação 
 - Login 0.5.2: descoberta de DNS agora tenta HTTP/HTTPS quando o host não possui protocolo, usa timeout individual de 6,5s por tentativa e segue para o próximo DNS em caso de falha. Status Xtream vazio/Enabled autenticado também é aceito como ativo quando não vencido.
 
 - 0.5.3: Backspace deixou de ser tratado como botão Voltar global; campos de login/admin voltam a apagar texto normalmente.
+
+- 0.5.4: corrigido RPC de Cadastro automático. Perfis provider_admin com admin_active NULL agora seguem a mesma regra do login Admin (somente false bloqueia). Erros RPC agora aparecem com mensagem real no modal.

@@ -139,7 +139,11 @@ function ProviderForm({ provider, superAdmin, onClose, onSaved }: {
           next_auto_registration: autoRegistration,
         });
     setSaving(false);
-    if (result.error) { setError('Erro ao salvar.'); return; }
+    if (result.error) {
+      console.error('Erro ao salvar cadastro automático:', result.error);
+      setError(result.error.message || 'Erro ao salvar cadastro automático.');
+      return;
+    }
     onSaved();
   };
 
