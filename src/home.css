@@ -267,42 +267,77 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
-/* Seleção das capas: mesma linguagem dos botões principais da Home */
+/* Capas — mesma linguagem visual dos botões da Home */
 .media-poster-focus {
-  position: relative;
-  border-radius: 1rem;
-  transition: transform .22s ease, filter .22s ease;
-  outline: none;
+  position:relative;
+  border-radius:1rem;
+  transition:transform .25s ease, filter .25s ease;
+  outline:none;
 }
 
 .media-poster-focus > div {
-  transition: box-shadow .22s ease, transform .22s ease;
+  position:relative;
+  transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+
+.media-poster-focus > div::after {
+  content:"";
+  position:absolute;
+  z-index:20;
+  inset:auto .8rem 0;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,var(--brand-primary,#bef264),transparent);
+  opacity:0;
+  transform:scaleX(.35);
+  transition:opacity .25s ease,transform .28s ease;
+  pointer-events:none;
 }
 
 .media-poster-focus:hover,
 .media-poster-focus:focus-visible {
-  transform: translateY(-3px) scale(1.025);
-  z-index: 10;
+  transform:translateY(-4px);
+  z-index:10;
 }
 
 .media-poster-focus:hover > div,
 .media-poster-focus:focus-visible > div {
   box-shadow:
-    0 0 0 3px var(--brand-primary,#bef264),
-    0 14px 34px rgb(var(--brand-primary-rgb,190 242 100) / .18);
+    0 18px 40px rgba(0,0,0,.34),
+    0 0 0 1px rgb(var(--brand-primary-rgb,190 242 100) / .22),
+    0 0 24px rgb(var(--brand-primary-rgb,190 242 100) / .10);
+}
+
+.media-poster-focus:hover > div::after,
+.media-poster-focus:focus-visible > div::after {
+  opacity:1;
+  transform:scaleX(1);
 }
 
 .media-poster-focus:focus-visible {
-  outline: none !important;
+  outline:none !important;
 }
 
-
-/* Home: Canais ao Vivo, Filmes e Séries usam o mesmo foco das capas */
+/* Home shortcuts — mantém o estilo original */
 .home-shortcut:hover,
 .home-shortcut:focus-visible {
-  transform: translateY(-3px) scale(1.015);
+  transform: translateY(-4px);
+  background:linear-gradient(135deg,rgba(22,45,45,.96),rgba(8,20,24,.9));
   box-shadow:
-    0 0 0 3px var(--brand-primary,#bef264),
-    0 16px 38px rgb(var(--brand-primary-rgb,190 242 100) / .18);
-  outline: none !important;
+    0 22px 55px rgba(0,0,0,.38),
+    0 0 0 1px rgb(var(--brand-primary-rgb,190 242 100) / .18),
+    0 0 30px rgb(var(--brand-primary-rgb,190 242 100) / .12);
+  outline:none;
+}
+
+.home-shortcut:hover::before,
+.home-shortcut:focus-visible::before {
+  opacity:1;
+  transform:scale(1.12);
+}
+
+.home-shortcut:hover::after,
+.home-shortcut:focus-visible::after {
+  opacity:1;
+  transform:scaleX(1);
 }
