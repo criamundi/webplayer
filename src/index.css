@@ -110,7 +110,7 @@ html.is-tv select:focus-visible,
 html.is-tv textarea:focus-visible,
 html.is-tv [tabindex]:focus-visible,
 html.is-tv [data-tv-focus="true"]:focus-visible {
-  outline: 3px solid rgba(190, 242, 100, .95);
+  outline: 3px solid var(--brand-primary, #bef264);
   outline-offset: 3px;
   transform: scale(1.025);
   transition: transform 120ms ease, outline-color 120ms ease;
@@ -192,4 +192,18 @@ html.is-tv * {
 /* Tailwind 'tracking-widest' ultrapassa o limite visual definido para TV. */
 .app-font-scale .tracking-widest {
   letter-spacing: .05em !important;
+}
+
+
+/* Estados de foco/seleção usam sempre a cor definida no Admin */
+.app-font-scale button:focus-visible,
+.app-font-scale a:focus-visible,
+.app-font-scale [role="button"]:focus-visible {
+  --tw-ring-color: var(--brand-primary, #bef264);
+}
+
+.app-font-scale .ring-lime-300,
+.app-font-scale .ring-emerald-400,
+.app-font-scale .ring-emerald-300 {
+  --tw-ring-color: var(--brand-primary, #bef264) !important;
 }

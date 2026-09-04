@@ -82,6 +82,15 @@ type Phase =
 |--------------------------------------------------------------------------
 */
 
+
+function hexToRgbChannels(value?: string) {
+  const match = (value || '').trim().match(/^#([0-9a-f]{6})$/i);
+  if (!match) return '190 242 100';
+
+  const hex = match[1];
+  return `${parseInt(hex.slice(0, 2), 16)} ${parseInt(hex.slice(2, 4), 16)} ${parseInt(hex.slice(4, 6), 16)}`;
+}
+
 const defaultBranding: Branding = {
   app_name: 'Top TV Digital',
   logo_url: null,
@@ -1971,6 +1980,7 @@ export default function App() {
       '--app-font-scale': branding.main_font_scale || 1,
       '--app-font-family': `'${branding.font_family || 'Inter'}', Arial, sans-serif`,
       '--brand-primary': branding.primary_color || '#bef264',
+      '--brand-primary-rgb': hexToRgbChannels(branding.primary_color),
       '--brand-secondary': branding.secondary_color || '#091018',
     } as React.CSSProperties}>
 
