@@ -51,7 +51,7 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
         </div>
       </div>
       <div className="relative">
-        <div ref={trackRef} className="poster-track scrollbar-none">
+        <div ref={trackRef} className="media-poster-group poster-track scrollbar-none">
           {items.map((channel, index) => (
             <button key={channel.id} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group">
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-[#111a20] ring-1 ring-white/10 transition duration-500 group-hover:-translate-y-1 group-hover:ring-emerald-400/40">

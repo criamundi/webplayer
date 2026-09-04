@@ -152,8 +152,8 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
       <main className="min-w-0 p-5 sm:p-7 lg:p-8">
         <div className="mb-6 flex items-end justify-between"><div><p className="text-[10px] uppercase tracking-[.05em] text-emerald-400">Séries</p><h1 className="mt-1 text-2xl font-semibold">{activeCategory === LATEST ? 'Últimos adicionados' : categories.find((item) => item.id === activeCategory)?.name}</h1></div><span className="text-xs text-white/30">{categoryShows.length} títulos</span></div>
         {loading
-          ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
-          : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show) => <button key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{show.name}</p></div></button>)}</div>}
+          ? <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
+          : <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show) => <button key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{show.name}</p></div></button>)}</div>}
         {visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais séries</div>}
       </main>
     </div>
@@ -211,7 +211,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
             {seasonEpisodes.map((item) => {
               const watched = progress[item.id];
               const percent = watched ? Math.min(100, Math.round((watched.current / watched.duration) * 100)) : 0;
-              return <button data-arrow-item key={`${season}:${item.id}`} onClick={() => playEpisode(item)} className="group w-[min(78vw,22rem)] shrink-0 snap-start text-left">
+              return <button data-arrow-item key={`${season}:${item.id}`} onClick={() => playEpisode(item)} className="media-poster-focus group w-[min(78vw,22rem)] shrink-0 snap-start text-left">
                 <div className="relative aspect-video overflow-hidden rounded-2xl bg-white/[0.04]">
                   <SeriesCover logo={seasonThumbs[`${season}:${item.episode}`] || item.logo} fallbackLogo={selected.logo} name={item.name} preserveAspect />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
@@ -224,7 +224,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           </ArrowRow>
           {similarSeries.length > 0 && <div className="mt-10">
             <ArrowRow title="Séries semelhantes">
-              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
+              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
             </ArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">

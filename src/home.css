@@ -267,45 +267,70 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
-/* Capas — mesma linguagem visual dos botões da Home */
+/* Capas — exatamente a mesma linguagem visual dos botões da Home */
 .media-poster-focus {
   position:relative;
   border-radius:1rem;
-  transition:filter 140ms ease;
+  opacity:.58;
+  transform-origin:center center;
+  transition:transform 150ms ease,opacity 150ms ease,filter 150ms ease;
   outline:none;
+  will-change:transform;
 }
 
 .media-poster-focus > div {
   position:relative;
-  transition:box-shadow 140ms ease, border-color 140ms ease;
+  border:1px solid transparent;
+  transition:border-color 150ms ease,box-shadow 150ms ease,background 150ms ease;
+}
+
+.media-poster-focus > div::before {
+  content:"";
+  position:absolute;
+  z-index:20;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 82% 86%,rgb(var(--brand-primary-rgb,190 242 100) / .15),transparent 36%);
+  opacity:0;
+  transition:opacity 150ms ease;
 }
 
 .media-poster-focus > div::after {
   content:"";
   position:absolute;
-  z-index:20;
+  z-index:21;
   inset:auto .8rem 0;
   height:2px;
   border-radius:999px;
   background:linear-gradient(90deg,transparent,var(--brand-primary,#bef264),transparent);
   opacity:0;
   transform:scaleX(.35);
-  transition:opacity .25s ease,transform .28s ease;
+  transition:opacity 150ms ease,transform 150ms ease;
   pointer-events:none;
 }
 
 .media-poster-focus:hover,
 .media-poster-focus:focus-visible {
+  opacity:1;
   transform:translateY(-4px);
-  z-index:10;
+  z-index:20;
 }
 
 .media-poster-focus:hover > div,
 .media-poster-focus:focus-visible > div {
+  border-color:rgb(var(--brand-primary-rgb,190 242 100) / .28);
+  background:linear-gradient(135deg,rgba(22,45,45,.96),rgba(8,20,24,.9));
   box-shadow:
-    0 18px 40px rgba(0,0,0,.34),
-    0 0 0 1px rgb(var(--brand-primary-rgb,190 242 100) / .22),
-    0 0 24px rgb(var(--brand-primary-rgb,190 242 100) / .10);
+    0 22px 55px rgba(0,0,0,.38),
+    0 0 0 1px rgb(var(--brand-primary-rgb,190 242 100) / .18),
+    0 0 30px rgb(var(--brand-primary-rgb,190 242 100) / .12);
+}
+
+.media-poster-focus:hover > div::before,
+.media-poster-focus:focus-visible > div::before {
+  opacity:1;
 }
 
 .media-poster-focus:hover > div::after,
@@ -316,6 +341,12 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 
 .media-poster-focus:focus-visible {
   outline:none !important;
+}
+
+.media-poster-group:focus-within .media-poster-focus:not(:focus-visible),
+.media-poster-group:hover .media-poster-focus:not(:hover) {
+  opacity:.48;
+  filter:saturate(.84) brightness(.84);
 }
 
 /* Home shortcuts — mantém o estilo original */
@@ -382,8 +413,3 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
-/* Contorno fino das capas com a cor principal do Admin */
-.media-poster-focus > div,
-.poster-card > div {
-  border: 1px solid var(--brand-primary,#bef264);
-}
