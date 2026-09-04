@@ -145,13 +145,13 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
           <X className="h-4 w-4" />
         </button>
         <div className="min-w-0">
-          <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">Central do jogo</span>
+          <span className="block text-[9px] font-semibold uppercase tracking-[.05em] text-white/30">Central do jogo</span>
           <strong className="mt-0.5 block truncate text-sm font-semibold text-white">Partidas em destaque</strong>
         </div>
       </div>
       <span className="min-w-[6.5rem] text-right uppercase leading-tight text-white/30">
-        <span className="block text-[8px] tracking-[.13em]">{currentDate.weekday}</span>
-        <span className="mt-1 block text-[10px] font-semibold tracking-[.08em] text-white/45">{currentDate.dayMonth}</span>
+        <span className="block text-[8px] tracking-[.05em]">{currentDate.weekday}</span>
+        <span className="mt-1 block text-[10px] font-semibold tracking-[.05em] text-white/45">{currentDate.dayMonth}</span>
       </span>
     </header>
 
@@ -164,10 +164,10 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
       {!loading && activeMatch && <>
         <section className="rounded-2xl bg-white/[.045] p-4">
-          <div className="flex items-center justify-between gap-3"><span className="truncate text-[12px] font-extrabold uppercase tracking-[0.13em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.10] px-3.5 py-2.5 text-[14px] font-extrabold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="truncate text-[12px] font-extrabold uppercase tracking-[.05em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.10] px-3.5 py-2.5 text-[14px] font-extrabold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
           <div className="mt-4 grid grid-cols-[7.5rem_3.25rem_7.5rem] items-center justify-center gap-3">
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white">{activeMatch.home}</strong></div>
-            <span className="mx-auto flex h-9 w-14 items-center justify-center rounded-full bg-white/[.06] text-[10px] font-bold uppercase tracking-[.12em] text-white/45">VS</span>
+            <span className="mx-auto flex h-9 w-14 items-center justify-center rounded-full bg-white/[.06] text-[10px] font-bold uppercase tracking-[.05em] text-white/45">VS</span>
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white">{activeMatch.away}</strong></div>
           </div>
 
@@ -191,7 +191,7 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
             {competitionGroups.map((group) => (
               <section key={group.competition}>
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-white/[.055] px-3.5 py-3">
-                  <strong className="truncate text-[13px] font-extrabold uppercase tracking-[.11em]" style={{ color: primaryColor }}>
+                  <strong className="truncate text-[13px] font-extrabold uppercase tracking-[.05em]" style={{ color: primaryColor }}>
                     {group.competition}
                   </strong>
                   <span className="shrink-0 text-[11px] font-semibold text-white/40">
@@ -223,7 +223,7 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
                             <TeamLogo compact source={match.homeLogo} name={match.home} />
                           </span>
                           <strong className="truncate text-[12px] font-semibold text-white/88">{match.home}</strong>
-                          <span className="justify-self-center rounded-full bg-white/[.08] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-white/55">VS</span>
+                          <span className="justify-self-center rounded-full bg-white/[.08] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[.05em] text-white/55">VS</span>
                           <strong className="truncate text-right text-[12px] font-semibold text-white/88">{match.away}</strong>
                           <span className="flex justify-center">
                             <TeamLogo compact source={match.awayLogo} name={match.away} />

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Nunito+Sans:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -159,3 +159,37 @@ html.is-tv * {
 .app-font-scale .text-xl { font-size: calc(1.25rem * var(--app-font-scale, 1)); }
 .app-font-scale .text-2xl { font-size: calc(1.5rem * var(--app-font-scale, 1)); }
 .app-font-scale .text-3xl { font-size: calc(1.875rem * var(--app-font-scale, 1)); }
+
+
+/* ==============================================================
+   TOP TV DIGITAL — BRANDING VISUAL
+   ============================================================== */
+.app-font-scale .bg-lime-300,
+.app-font-scale .bg-emerald-400 {
+  background-color: var(--brand-primary) !important;
+}
+
+.app-font-scale .text-lime-300,
+.app-font-scale .text-emerald-400,
+.app-font-scale .text-emerald-300 {
+  color: var(--brand-primary) !important;
+}
+
+.app-font-scale .fill-emerald-400 {
+  fill: var(--brand-primary) !important;
+}
+
+.app-font-scale .border-lime-300 {
+  border-color: var(--brand-primary) !important;
+}
+
+.app-font-scale .hover\:bg-lime-200:hover,
+.app-font-scale .hover\:bg-emerald-300:hover {
+  background-color: var(--brand-primary) !important;
+  filter: brightness(1.08);
+}
+
+/* Tailwind 'tracking-widest' ultrapassa o limite visual definido para TV. */
+.app-font-scale .tracking-widest {
+  letter-spacing: .05em !important;
+}

@@ -105,7 +105,7 @@ export function SettingsView({ onSignOut }: SettingsViewProps) {
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-white/30">{label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[.05em] text-white/30">{label}</p>
               <p className="mt-1 break-all text-sm font-medium text-white/80">{value}</p>
             </div>
           </div>

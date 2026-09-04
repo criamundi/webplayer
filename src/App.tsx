@@ -1837,7 +1837,7 @@ export default function App() {
               className="mx-auto mb-8 max-h-16 max-w-[12rem] object-contain"
             />
           ) : (
-            <div className="mb-3 text-sm font-semibold uppercase tracking-[.22em] text-white/35">
+            <div className="mb-3 text-sm font-semibold uppercase tracking-[.05em] text-white/35">
               {branding.app_name}
             </div>
           )}
@@ -1970,6 +1970,8 @@ export default function App() {
     <div className="app-font-scale min-h-screen overflow-x-hidden bg-[#091018] text-white selection:bg-lime-300 selection:text-slate-950" style={{
       '--app-font-scale': branding.main_font_scale || 1,
       '--app-font-family': `'${branding.font_family || 'Inter'}', Arial, sans-serif`,
+      '--brand-primary': branding.primary_color || '#bef264',
+      '--brand-secondary': branding.secondary_color || '#091018',
     } as React.CSSProperties}>
 
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />

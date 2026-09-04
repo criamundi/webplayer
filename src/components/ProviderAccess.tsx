@@ -82,7 +82,7 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1fr_440px] lg:gap-20">
           <section className="hidden max-w-xl lg:block">
             <div className="mb-10">{brandIdentity}</div>
-            <p className="text-sm font-medium uppercase tracking-[0.22em]" style={{ color: visualBranding.primary_color }}>Bem-vindo</p>
+            <p className="text-sm font-medium uppercase tracking-[.05em]" style={{ color: visualBranding.primary_color }}>Bem-vindo</p>
             <h2 className="mt-4 max-w-lg text-4xl font-semibold leading-[1.1] tracking-tight xl:text-5xl">Entre para assistir ao seu conteúdo.</h2>
             <p className="mt-6 max-w-md text-base leading-7 text-white/55">Use as credenciais fornecidas pelo seu provedor para acessar canais, filmes e séries em um só lugar.</p>
           </section>

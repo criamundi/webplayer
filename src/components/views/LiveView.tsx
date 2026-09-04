@@ -360,7 +360,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     <header className="live-topbar">
       <button type="button" onClick={onMenuOpen} className="live-mobile-back" aria-label="Abrir menu principal"><Menu className="h-5 w-5" /></button>
       <span className="live-topbar-icon"><Radio className="h-5 w-5" /></span>
-      <span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[.17em] text-emerald-300/65">Canais ao Vivo</span><strong className="block truncate text-base text-white">{groupLabel(activeGroup)}</strong></span>
+      <span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-300/65">Canais ao Vivo</span><strong className="block truncate text-base text-white">{groupLabel(activeGroup)}</strong></span>
       <span className="live-status"><span /> Ao vivo</span>
     </header>
 

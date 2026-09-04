@@ -168,7 +168,7 @@ function ProviderForm({ provider, superAdmin, onClose, onSaved }: {
             </label>
           ) : (
             <div className="rounded-xl bg-white/[0.04] px-4 py-3">
-              <span className="block text-[10px] font-semibold uppercase tracking-[.14em] text-white/35">Provedor</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-[.05em] text-white/35">Provedor</span>
               <strong className="mt-1 block text-sm text-white/85">{provider?.name || name}</strong>
             </div>
           )}

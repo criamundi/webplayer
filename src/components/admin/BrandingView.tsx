@@ -78,7 +78,7 @@ export function BrandingView() {
         <ChoiceSelect
           label="Fonte"
           value={branding.font_family || 'Inter'}
-          options={[['Inter', 'Inter'], ['Manrope', 'Manrope'], ['DM Sans', 'DM Sans'], ['Roboto', 'Roboto']]}
+          options={[['Inter', 'Inter'], ['Nunito Sans', 'Nunito Sans'], ['Barlow', 'Barlow'], ['IBM Plex Sans', 'IBM Plex Sans']]}
           onChange={(value) => setBranding({ ...branding, font_family: value })}
         />
         <div>
