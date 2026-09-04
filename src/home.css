@@ -235,7 +235,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .hero-info-panel > :nth-child(2) > :first-child { border-color:rgba(255,255,255,.025)!important; }
 .hero-info-panel-open { opacity:1; transform:translateX(0); pointer-events:auto; }
 .sports-rotation-track { height:2px; flex:none; overflow:hidden; background:rgba(255,255,255,.035); }
-.sports-rotation-progress { display:block; width:100%; height:100%; opacity:.48; transform-origin:left center; animation:sports-widget-progress 9s linear both; }
+.sports-rotation-progress { display:block; width:100%; height:100%; opacity:.48; transform-origin:left center; animation-name:sports-widget-progress; animation-timing-function:linear; animation-fill-mode:both; }
 @keyframes sports-widget-progress { from { transform:scaleX(0); } to { transform:scaleX(1); } }
 @media (prefers-reduced-motion:reduce) { .sports-rotation-progress { animation:none; opacity:.25; } }
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } .sidebar-shell:not(:hover) .sidebar-brand-logo { width:3rem; height:3rem; justify-content:center; } .sidebar-shell:not(:hover) .sidebar-brand-logo img { max-width:3rem; max-height:3rem; } }
@@ -293,5 +293,16 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 .media-poster-focus:focus-visible {
+  outline: none !important;
+}
+
+
+/* Home: Canais ao Vivo, Filmes e Séries usam o mesmo foco das capas */
+.home-shortcut:hover,
+.home-shortcut:focus-visible {
+  transform: translateY(-3px) scale(1.015);
+  box-shadow:
+    0 0 0 3px var(--brand-primary,#bef264),
+    0 16px 38px rgb(var(--brand-primary-rgb,190 242 100) / .18);
   outline: none !important;
 }

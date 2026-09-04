@@ -449,7 +449,6 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         {sportsWidgetEnabled && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
           <FootballWidget
             primaryColor={branding.primaryColor}
-            secondaryColor={branding.secondaryColor}
             onClose={() => setInfoPanelOpen(false)}
             onSelectChannel={onSelectChannel}
           />

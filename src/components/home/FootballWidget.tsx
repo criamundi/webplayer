@@ -5,7 +5,6 @@ import type { Channel } from '@/types';
 
 interface FootballWidgetProps {
   primaryColor: string;
-  secondaryColor: string;
   onClose: () => void;
   onSelectChannel: (channel: Channel) => void;
 }
@@ -67,7 +66,7 @@ function groupMatchesByCompetition(matches: TodayMatch[]) {
     );
 }
 
-export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
+export function FootballWidget({ primaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [rotationKey, setRotationKey] = useState(0);
@@ -101,13 +100,19 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (matches.length < 2) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
+
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') {
+        setRotationKey((value) => value + 1);
+        return;
+      }
+
       setActiveIndex((current) => (current + 1) % matches.length);
       setRotationKey((value) => value + 1);
     }, ROTATION_MS);
-    return () => window.clearInterval(timer);
-  }, [matches.length]);
+
+    return () => window.clearTimeout(timer);
+  }, [matches.length, activeIndex, rotationKey]);
 
   const activeMatch = matches[activeIndex];
   const probabilities = activeMatch?.probabilities || { home: 40, draw: 30, away: 30 };
@@ -155,7 +160,7 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
       </span>
     </header>
 
-    <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor }} /></div>
+    <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor, animationDuration: `${ROTATION_MS}ms` }} /></div>
 
     <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3 scrollbar-none">
       {loading && <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-xs text-white/35"><LoaderCircle className="h-7 w-7 animate-spin" style={{ color: primaryColor }} />Carregando partidas de hoje</div>}
@@ -173,15 +178,24 @@ export function FootballWidget({ primaryColor, secondaryColor, onClose, onSelect
 
           <div className="mt-5">
             <div className="mb-2 text-[10px] text-white/45"><span>Probabilidade estimada</span></div>
-            <div className="flex h-2 overflow-hidden rounded-full bg-white/5">
-              <span style={{ width: `${probabilities.home}%`, backgroundColor: primaryColor }} />
-              <span className="bg-white/25" style={{ width: `${probabilities.draw}%` }} />
-              <span style={{ width: `${probabilities.away}%`, backgroundColor: secondaryColor }} />
+            <div className="flex h-2 overflow-hidden rounded-full bg-white/[.06]">
+              <span className="bg-white/55" style={{ width: `${probabilities.home}%` }} />
+              <span className="bg-white/30" style={{ width: `${probabilities.draw}%` }} />
+              <span className="bg-white/15" style={{ width: `${probabilities.away}%` }} />
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-semibold text-white/45">
-              <span className="truncate text-left">{activeMatch.home} · {probabilities.home}%</span>
-              <span className="text-center">Empate · {probabilities.draw}%</span>
-              <span className="truncate text-right">{activeMatch.away} · {probabilities.away}%</span>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="min-w-0 text-left">
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white">{probabilities.home}%</strong>
+                <span className="mt-1 block truncate text-[10px] font-medium text-white/40">{activeMatch.home}</span>
+              </div>
+              <div className="min-w-0 text-center">
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white/80">{probabilities.draw}%</strong>
+                <span className="mt-1 block text-[10px] font-medium text-white/35">Empate</span>
+              </div>
+              <div className="min-w-0 text-right">
+                <strong className="block text-[15px] font-extrabold tabular-nums text-white/65">{probabilities.away}%</strong>
+                <span className="mt-1 block truncate text-[10px] font-medium text-white/35">{activeMatch.away}</span>
+              </div>
             </div>
           </div>
         </section>
