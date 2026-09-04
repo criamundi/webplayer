@@ -266,6 +266,46 @@ export default function App() {
     ...EMPTY_TOTALS,
   });
 
+  /*
+|--------------------------------------------------------------------------
+| CONTROLE REMOTO / VOLTAR
+|--------------------------------------------------------------------------
+*/
+
+  useEffect(() => {
+    const handlePlatformBack = () => {
+      if (phase !== 'ready') return;
+
+      if (sidebarOpen) {
+        setSidebarOpen(false);
+        return;
+      }
+
+      if (view === 'player') {
+        void exitAppFullscreen();
+        setView(activeChannel?.id.startsWith('episode:') ? 'series' : 'movies');
+        return;
+      }
+
+      if (view === 'live' && activeChannel?.category === 'live') {
+        setActiveChannel(null);
+        return;
+      }
+
+      if (view !== 'home') {
+        if (activeChannel?.category === 'live') setActiveChannel(null);
+        setView('home');
+        return;
+      }
+
+      setSidebarOpen(true);
+    };
+
+    window.addEventListener('top-tv:back', handlePlatformBack);
+    return () => window.removeEventListener('top-tv:back', handlePlatformBack);
+  }, [phase, sidebarOpen, view, activeChannel]);
+
+
   const [
     reloadKey,
     setReloadKey,
@@ -1842,45 +1882,6 @@ export default function App() {
       </div>
     );
   }
-
-  /*
-|--------------------------------------------------------------------------
-| CONTROLE REMOTO / VOLTAR
-|--------------------------------------------------------------------------
-*/
-
-  useEffect(() => {
-    const handlePlatformBack = () => {
-      if (phase !== 'ready') return;
-
-      if (sidebarOpen) {
-        setSidebarOpen(false);
-        return;
-      }
-
-      if (view === 'player') {
-        void exitAppFullscreen();
-        setView(activeChannel?.id.startsWith('episode:') ? 'series' : 'movies');
-        return;
-      }
-
-      if (view === 'live' && activeChannel?.category === 'live') {
-        setActiveChannel(null);
-        return;
-      }
-
-      if (view !== 'home') {
-        if (activeChannel?.category === 'live') setActiveChannel(null);
-        setView('home');
-        return;
-      }
-
-      setSidebarOpen(true);
-    };
-
-    window.addEventListener('top-tv:back', handlePlatformBack);
-    return () => window.removeEventListener('top-tv:back', handlePlatformBack);
-  }, [phase, sidebarOpen, view, activeChannel]);
 
   /*
 |--------------------------------------------------------------------------
