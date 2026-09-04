@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="https://toptvdigital.app/tv"
-        version="0.6.0"
+        version="0.6.1"
         viewmodes="maximized">
   <name>Top TV Digital</name>
   <content src="index.html"/>
