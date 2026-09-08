@@ -29,7 +29,14 @@ interface MoviesViewProps {
 const LATEST = 'recent';
 const PAGE_SIZE = 40;
 
-export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorite }: MoviesViewProps) {
+export function MoviesView({
+  groups,
+  favorites,
+  onSelectChannel,
+  onToggleFavorite,
+  resumeMovieId,
+  onResumeHandled,
+}: MoviesViewProps) {
   const [categories, setCategories] = useState<MovieCategory[]>([]);
   const [movies, setMovies] = useState<MovieShow[]>([]);
   const [activeCategory, setActiveCategory] = useState(LATEST);

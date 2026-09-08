@@ -360,23 +360,34 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
 
 
   useEffect(() => {
-    if (!liveEpg?.current || !currentProgramRef.current || !dayGuideRef.current) return;
+    if (!liveEpg?.current) return;
 
-    const frame = window.requestAnimationFrame(() => {
-      const container = dayGuideRef.current;
-      const current = currentProgramRef.current;
-      if (!container || !current) return;
+    let frame2 = 0;
+    const frame1 = window.requestAnimationFrame(() => {
+      frame2 = window.requestAnimationFrame(() => {
+        const container = dayGuideRef.current;
+        const current = currentProgramRef.current;
+        if (!container || !current) return;
 
-      const targetTop = Math.max(
-        0,
-        current.offsetTop - (container.clientHeight - current.clientHeight) / 2,
-      );
+        const containerRect = container.getBoundingClientRect();
+        const currentRect = current.getBoundingClientRect();
+        const currentTop =
+          currentRect.top - containerRect.top + container.scrollTop;
 
-      container.scrollTo({ top: targetTop, behavior: 'smooth' });
+        const targetTop = Math.max(
+          0,
+          currentTop - Math.max(8, (container.clientHeight - current.clientHeight) / 2),
+        );
+
+        container.scrollTo({ top: targetTop, behavior: 'auto' });
+      });
     });
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [liveActive?.id, liveEpg?.current?.start, liveEpg?.current?.title]);
+    return () => {
+      window.cancelAnimationFrame(frame1);
+      if (frame2) window.cancelAnimationFrame(frame2);
+    };
+  }, [liveActive?.id, liveEpg?.current?.start, liveEpg?.current?.title, liveEpg?.programs?.length]);
 
   return <div className="live-page -mx-5 min-h-screen sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <header className="live-topbar">
