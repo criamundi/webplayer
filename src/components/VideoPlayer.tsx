@@ -1135,7 +1135,7 @@ export function VideoPlayer({
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      className={`relative h-full w-full overflow-hidden bg-black ${immersive ? 'rounded-none' : 'rounded-2xl'} ${immersive && !showControls ? 'cursor-none' : ''}`}
+      className={`relative h-full w-full overflow-hidden bg-black rounded-none ${immersive && !showControls ? 'cursor-none' : ''}`}
     >
       {immersive && onClose && <button type="button" onClick={onClose} className={`absolute left-4 top-4 z-40 flex h-11 items-center gap-2 rounded-xl bg-black/55 px-4 text-sm font-medium text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-black/75 hover:text-white ${showControls ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'}`} aria-label="Voltar"><ArrowLeft className="h-4 w-4" />Voltar</button>}
       <video
