@@ -43,6 +43,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const [visibleCount, setVisibleCount] = useState(40);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const detailRequestRef = useRef(0);
+  const pageScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -71,18 +72,27 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
 
   const visibleShows = categoryShows.slice(0, visibleCount);
 
-  useEffect(() => { setVisibleCount(40); }, [activeCategory, query]);
+  useEffect(() => {
+    setVisibleCount(40);
+    pageScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeCategory, query]);
 
   useEffect(() => {
     if (selected || visibleCount >= categoryShows.length) return;
+
+    const scroller = pageScrollRef.current;
+    if (!scroller) return;
+
     const loadMore = () => {
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 900) {
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 700) {
         setVisibleCount((current) => Math.min(current + 40, categoryShows.length));
       }
     };
-    window.addEventListener('scroll', loadMore, { passive: true });
+
+    scroller.addEventListener('scroll', loadMore, { passive: true });
     loadMore();
-    return () => window.removeEventListener('scroll', loadMore);
+
+    return () => scroller.removeEventListener('scroll', loadMore);
   }, [categoryShows.length, selected, visibleCount]);
 
   const selectShow = useCallback(async (show: SeriesShow) => {
@@ -93,7 +103,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     setSeasonThumbs({});
     setDetailLoading(true);
     setProgress(storage.getWatchProgress());
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     try {
       const details = await loadSeriesDetails(show.seriesId, show.name, show.releaseDate);
       if (details && requestId === detailRequestRef.current) {
@@ -106,6 +116,13 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
       if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      pageScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selected?.id]);
 
   useEffect(() => {
     if (!resumeSeriesId || loading || !shows.length) return;
@@ -140,7 +157,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     setSelected(null);
   };
 
-  if (!selected) return <div data-series-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  if (!selected) return <div ref={pageScrollRef} data-series-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
@@ -172,7 +189,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const trailerKey = text(seriesInfo.trailerKey || seriesInfo.youtube_trailer);
   const playEpisode = (episode: SeriesEpisode) => onSelectChannel({ ...episode, parentSeriesId: selected.id });
 
-  return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
       <HeroBackdrop sources={heroBackdrops} />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />

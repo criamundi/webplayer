@@ -45,6 +45,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   const [loadingMore, setLoadingMore] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const detailRequestRef = useRef(0);
+  const pageScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -102,13 +103,21 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    pageScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeCategory, query]);
 
   useEffect(() => {
     if (selected || (visibleCount >= categoryMovies.length && !(localMode && localHasMore && activeCategory !== LATEST))) return;
+
+    const scroller = pageScrollRef.current;
+    if (!scroller) return;
+
     const loadMore = () => {
-      if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 900) return;
+      const nearBottom =
+        scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 700;
+
+      if (!nearBottom) return;
+
       if (visibleCount < categoryMovies.length) {
         setVisibleCount((current) => Math.min(current + PAGE_SIZE, categoryMovies.length));
       } else if (localMode && localHasMore && !loadingMore && activeCategory !== LATEST) {
@@ -121,9 +130,11 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         }).finally(() => setLoadingMore(false));
       }
     };
-    window.addEventListener('scroll', loadMore, { passive: true });
+
+    scroller.addEventListener('scroll', loadMore, { passive: true });
     loadMore();
-    return () => window.removeEventListener('scroll', loadMore);
+
+    return () => scroller.removeEventListener('scroll', loadMore);
   }, [activeCategory, categoryMovies.length, loadingMore, localHasMore, localMode, localOffset, selected, visibleCount]);
 
   const selectMovie = useCallback(async (movie: MovieShow) => {
@@ -132,7 +143,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
     setSelectedInfo(null);
     setTrailerOpen(false);
     setDetailLoading(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     try {
       const info = await loadContentInfo(movie);
       if (requestId === detailRequestRef.current) setSelectedInfo(info);
@@ -141,6 +152,14 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
       if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
   }, []);
+
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      pageScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selected?.id]);
 
 
   useEffect(() => {
@@ -157,7 +176,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
     setSelected(null);
   };
 
-  if (!selected) return <div data-movie-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  if (!selected) return <div ref={pageScrollRef} data-movie-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
@@ -191,7 +210,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
   const castMembers = mediaCastList(selectedInfo?.castMembers, selectedInfo?.cast);
   const similarMovies = movies.filter((movie) => movie.id !== selected.id && movie.categoryId === selected.categoryId).slice(0, 10);
 
-  return <div className="-mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
       <MediaBackdrop sources={heroBackdrops} />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />

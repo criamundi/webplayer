@@ -453,21 +453,18 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   scroll-padding-bottom:4.5rem;
 }
 
-/* Nas listas internas, o próprio conteúdo continua rolável por trás da máscara. */
-.live-page,
+
+/* Filmes/Séries: scroll interno real, sem depender do window */
+[data-movie-catalog],
+[data-series-catalog],
 .view-scroll-shell {
-  -webkit-mask-image:linear-gradient(
-    to bottom,
-    #000 0,
-    #000 calc(100% - 2.75rem),
-    rgba(0,0,0,.18) calc(100% - .7rem),
-    transparent 100%
-  );
-  mask-image:linear-gradient(
-    to bottom,
-    #000 0,
-    #000 calc(100% - 2.75rem),
-    rgba(0,0,0,.18) calc(100% - .7rem),
-    transparent 100%
-  );
+  min-height:0;
+  height:100%;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+}
+
+.view-scroll-shell > :last-child {
+  padding-bottom:max(4.75rem, env(safe-area-inset-bottom));
 }
