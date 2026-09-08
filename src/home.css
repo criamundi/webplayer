@@ -439,24 +439,24 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
-/* TV UX: mascara inferior evita corte seco no limite do viewport */
+/* TV UX: degradê inferior permanente, sem corte seco */
 .app-main::after {
   content:"";
   position:absolute;
-  z-index:45;
+  z-index:999;
   left:0;
   right:0;
   bottom:0;
-  height:3.75rem;
+  height:5.5rem;
   pointer-events:none;
   background:linear-gradient(
     to bottom,
-    rgba(9,16,24,0),
-    rgba(9,16,24,.55) 55%,
+    rgba(9,16,24,0) 0%,
+    rgba(9,16,24,.18) 28%,
+    rgba(9,16,24,.72) 72%,
     #091018 100%
   );
 }
-
 .view-scroll-shell {
   padding-bottom:3.75rem;
   scroll-padding-bottom:4.5rem;
@@ -488,4 +488,37 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 [data-movie-catalog] main,
 [data-series-catalog] main {
   min-height:100%;
+}
+
+
+/* Scroll interno único para mouse, trackpad e controle */
+.home-page.view-scroll-shell,
+[data-movie-catalog],
+[data-series-catalog],
+.view-scroll-shell {
+  min-height:0;
+  height:100%;
+  max-height:100%;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch;
+}
+
+.home-page.view-scroll-shell {
+  position:relative;
+  touch-action:pan-y;
+}
+
+.home-hero {
+  min-height:100%;
+}
+
+/* Espaço para o conteúdo desaparecer por trás do degradê inferior */
+.home-page.view-scroll-shell,
+[data-movie-catalog],
+[data-series-catalog] {
+  padding-bottom:5.5rem;
+  scroll-padding-bottom:6rem;
 }
