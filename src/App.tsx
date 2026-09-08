@@ -186,6 +186,7 @@ export default function App() {
     useState(0);
 
   const [seriesResumeId, setSeriesResumeId] = useState<string | null>(null);
+  const [movieResumeId, setMovieResumeId] = useState<string | null>(null);
 
   /*
    * Somente uma pequena janela fica no React.
@@ -2006,7 +2007,7 @@ export default function App() {
           }
         />
 
-        <main className="min-w-0 flex-1 px-5 pb-12 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
+        <main className="app-main min-w-0 h-screen flex-1 overflow-hidden px-5 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
 
           {!['home', 'movies', 'series', 'live', 'favorites', 'settings'].includes(view) && <TopBar
             query={
@@ -2075,12 +2076,15 @@ export default function App() {
                   'home',
                 )
               }
-              onSelectChannel={
-                handleSelectChannel
-              }
+              onSelectChannel={(channel) => {
+                setMovieResumeId(channel.id);
+                handleSelectChannel(channel);
+              }}
               onToggleFavorite={
                 handleToggleFavorite
               }
+              resumeMovieId={movieResumeId}
+              onResumeHandled={() => setMovieResumeId(null)}
             />
           )}
 
@@ -2119,9 +2123,11 @@ export default function App() {
               favorites={
                 favorites
               }
-              onSelectChannel={
-                handleSelectChannel
-              }
+              onSelectChannel={(channel) => {
+                const parentSeriesId = String((channel as Channel & { parentSeriesId?: string }).parentSeriesId || '');
+                if (parentSeriesId) setSeriesResumeId(parentSeriesId);
+                handleSelectChannel(channel);
+              }}
               onToggleFavorite={
                 handleToggleFavorite
               }

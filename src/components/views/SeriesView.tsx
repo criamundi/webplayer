@@ -140,7 +140,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     setSelected(null);
   };
 
-  if (!selected) return <div data-series-catalog className="-mx-5 -mt-6 min-h-screen bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  if (!selected) return <div data-series-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
@@ -211,7 +211,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
             {seasonEpisodes.map((item) => {
               const watched = progress[item.id];
               const percent = watched ? Math.min(100, Math.round((watched.current / watched.duration) * 100)) : 0;
-              return <button data-arrow-item key={`${season}:${item.id}`} onClick={() => playEpisode(item)} className="media-poster-focus group w-[min(78vw,22rem)] shrink-0 snap-start text-left">
+              return <button data-arrow-item key={`${season}:${item.id}`} onClick={() => playEpisode(item)} className="group w-[min(78vw,22rem)] shrink-0 snap-start text-left">
                 <div className="relative aspect-video overflow-hidden rounded-2xl bg-white/[0.04]">
                   <SeriesCover logo={seasonThumbs[`${season}:${item.episode}`] || item.logo} fallbackLogo={selected.logo} name={item.name} preserveAspect />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
@@ -224,7 +224,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           </ArrowRow>
           {similarSeries.length > 0 && <div className="mt-10">
             <ArrowRow title="Séries semelhantes">
-              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
+              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
             </ArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">

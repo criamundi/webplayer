@@ -140,6 +140,8 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const [epgLoading, setEpgLoading] = useState(false);
   const loadingMoreRef = useRef(false);
   const categoryListRef = useRef<HTMLElement>(null);
+  const currentProgramRef = useRef<HTMLDivElement | null>(null);
+  const dayGuideRef = useRef<HTMLDivElement | null>(null);
   const channelListRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -356,6 +358,26 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
     }
   };
 
+
+  useEffect(() => {
+    if (!liveEpg?.current || !currentProgramRef.current || !dayGuideRef.current) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const container = dayGuideRef.current;
+      const current = currentProgramRef.current;
+      if (!container || !current) return;
+
+      const targetTop = Math.max(
+        0,
+        current.offsetTop - (container.clientHeight - current.clientHeight) / 2,
+      );
+
+      container.scrollTo({ top: targetTop, behavior: 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [liveActive?.id, liveEpg?.current?.start, liveEpg?.current?.title]);
+
   return <div className="live-page -mx-5 min-h-screen sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <header className="live-topbar">
       <button type="button" onClick={onMenuOpen} className="live-mobile-back" aria-label="Abrir menu principal"><Menu className="h-5 w-5" /></button>
@@ -494,11 +516,11 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
             )}
 
             {!epgLoading && Boolean(liveEpg?.programs?.length) && (
-              <div className="live-day-program-list">
+              <div ref={dayGuideRef} className="live-day-program-list">
                 {liveEpg!.programs.map((program, index) => {
                   const isCurrent = liveEpg?.current?.start === program.start && liveEpg?.current?.title === program.title;
                   return (
-                    <div key={`${program.start || index}-${program.title}`} className={`live-day-program ${isCurrent ? 'live-day-program-current' : ''}`}>
+                    <div ref={isCurrent ? currentProgramRef : undefined} key={`${program.start || index}-${program.title}`} className={`live-day-program ${isCurrent ? 'live-day-program-current' : ''}`}>
                       <span className="live-day-program-time">{programSchedule(program) || '--:--'}</span>
                       <span className="min-w-0 flex-1">
                         <strong>{program.title}</strong>

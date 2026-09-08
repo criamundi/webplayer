@@ -418,7 +418,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   return (
     <div className="home-page -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
-      <section className="home-hero">
+      <section className="view-scroll-shell home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
         {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando destaque</div></div>}
         <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />

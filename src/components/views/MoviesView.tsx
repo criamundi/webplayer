@@ -22,6 +22,8 @@ interface MoviesViewProps {
   favorites: Set<string>;
   onSelectChannel: (channel: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
+  resumeMovieId?: string | null;
+  onResumeHandled?: () => void;
 }
 
 const LATEST = 'recent';
@@ -140,6 +142,14 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
     }
   }, []);
 
+
+  useEffect(() => {
+    if (!resumeMovieId || loading || !movies.length) return;
+    const resume = movies.find((movie) => movie.id === resumeMovieId || movie.movieId === resumeMovieId);
+    onResumeHandled?.();
+    if (resume) void selectMovie(resume);
+  }, [loading, movies, onResumeHandled, resumeMovieId, selectMovie]);
+
   const closeDetails = () => {
     detailRequestRef.current += 1;
     setDetailLoading(false);
@@ -147,7 +157,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
     setSelected(null);
   };
 
-  if (!selected) return <div data-movie-catalog className="-mx-5 -mt-6 min-h-screen bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  if (!selected) return <div data-movie-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
@@ -213,7 +223,7 @@ export function MoviesView({ groups, favorites, onSelectChannel, onToggleFavorit
         : <>
           {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">
-              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
+              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
             </MediaArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">
