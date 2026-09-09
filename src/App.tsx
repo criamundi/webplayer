@@ -1991,7 +1991,7 @@ export default function App() {
 
       <div className="flex min-h-screen w-full">
 
-        <Sidebar
+        {branding.home_layout !== 'simple' && <Sidebar
           branding={branding}
           view={
             view
@@ -2007,9 +2007,9 @@ export default function App() {
               false,
             )
           }
-        />
+        />}
 
-        <main className={`app-main relative min-w-0 h-screen flex-1 overflow-hidden px-5 sm:px-8 lg:ml-20 lg:px-10 ${view === 'home' ? 'lg:py-0' : 'lg:py-8'}`}>
+        <main className={`app-main relative min-w-0 h-screen flex-1 overflow-hidden px-5 sm:px-8 lg:px-10 ${branding.home_layout === 'simple' ? '' : 'lg:ml-20'} ${view === 'home' ? 'lg:py-0' : 'lg:py-8'}`}>
 
           {!['home', 'movies', 'series', 'live', 'favorites', 'settings'].includes(view) && <TopBar
             query={
@@ -2054,6 +2054,7 @@ export default function App() {
                 homeLayout: branding.home_layout || 'complete',
                 appName: branding.app_name || 'Top TV Digital',
                 logoUrl: branding.logo_url,
+                backgroundUrl: branding.background_url,
               }}
             />
           )}

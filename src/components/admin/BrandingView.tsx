@@ -53,7 +53,7 @@ export function BrandingView() {
     event.preventDefault(); if (!branding || !target) return;
     if (!validHex(branding.primary_color)) { setError('Informe a cor principal no formato hexadecimal, por exemplo #BEF264.'); return; }
     setSaving(true); setError('');
-    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter', home_layout: branding.home_layout === 'simple' ? 'simple' : 'complete' };
+    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: branding.background_url, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter', home_layout: branding.home_layout === 'simple' ? 'simple' : 'complete' };
     const result = target === 'global'
       ? await supabase.from('app_branding').update(payload).eq('singleton', true)
       : await supabase.from('provider_branding').upsert({ provider_id: target, ...payload }, { onConflict: 'provider_id' });
@@ -69,7 +69,7 @@ export function BrandingView() {
 
   return <div className="space-y-6"><div><h1 className="text-3xl font-semibold">Branding</h1><p className="mt-2 text-sm text-white/45">{isSuper ? 'Identidade exclusiva do painel Super Admin e padrão inicial do app.' : 'Identidade exclusiva do seu provedor.'}</p></div>
     <form onSubmit={save} className="space-y-6"><section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><label><span className="mb-2 block text-xs text-white/60">Nome do app</span><input required value={branding.app_name} onChange={(e) => setBranding({ ...branding, app_name: e.target.value })} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-lime-300/50" /></label></section>
-    <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><div className="mb-5 flex gap-3"><Image className="text-lime-300" /><b>Imagens</b></div><div className="grid gap-4 lg:grid-cols-2"><Picture field="logo_url" title="Logo" hint="PNG transparente recomendado" /><Picture field="login_background_url" title="Fundo do acesso" hint="Usado somente na tela de login" /></div></section>
+    <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><div className="mb-5 flex gap-3"><Image className="text-lime-300" /><b>Imagens</b></div><div className="grid gap-4 lg:grid-cols-3"><Picture field="logo_url" title="Logo" hint="PNG transparente recomendado" /><Picture field="background_url" title="Fundo da Home simples" hint="Imagem exibida atrás dos botões no layout Simples" /><Picture field="login_background_url" title="Fundo do acesso" hint="Usado somente na tela de login" /></div></section>
     <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6">
       <div className="mb-5">
         <b className="text-sm">Layout da Home</b>
