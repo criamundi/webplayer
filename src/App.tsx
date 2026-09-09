@@ -2007,7 +2007,7 @@ export default function App() {
           }
         />
 
-        <main className="app-main relative min-w-0 h-screen flex-1 overflow-hidden px-5 sm:px-8 lg:ml-20 lg:px-10 lg:py-8">
+        <main className={`app-main relative min-w-0 h-screen flex-1 overflow-hidden px-5 sm:px-8 lg:ml-20 lg:px-10 ${view === 'home' ? 'lg:py-0' : 'lg:py-8'}`}>
 
           {!['home', 'movies', 'series', 'live', 'favorites', 'settings'].includes(view) && <TopBar
             query={
