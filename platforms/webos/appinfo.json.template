@@ -1,6 +1,6 @@
 {
   "id": "com.toptvdigital.player",
-  "version": "0.7.23",
+  "version": "0.7.24",
   "vendor": "Top TV Digital",
   "type": "web",
   "main": "index.html",

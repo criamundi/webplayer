@@ -181,13 +181,13 @@ export function FootballWidget({ primaryColor, onClose, onSelectChannel }: Footb
 
     <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor, animationDuration: `${ROTATION_MS}ms` }} /></div>
 
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3 scrollbar-none">
+    <div className="sports-widget-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3 scrollbar-none">
       {loading && <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-xs text-white/35"><LoaderCircle className="h-7 w-7 animate-spin" style={{ color: primaryColor }} />Carregando partidas de hoje</div>}
       {!loading && error && <div className="flex min-h-72 flex-col items-center justify-center px-5 text-center"><p className="text-sm text-white/55">{error}</p><button type="button" onClick={() => void load()} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white/[.08] px-4 py-2.5 text-xs font-semibold text-white/75 transition hover:bg-white/[.12]"><RefreshCw className="h-3.5 w-3.5" />Tentar novamente</button></div>}
       {!loading && !error && !activeMatch && <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center"><strong className="text-sm text-white/70">Nenhuma partida encontrada hoje</strong><p className="mt-2 text-xs leading-5 text-white/35">A agenda será atualizada automaticamente quando houver jogos nas competições acompanhadas.</p></div>}
 
       {!loading && activeMatch && <>
-        <section className="sports-featured-sticky rounded-2xl bg-white/[.045] p-4">
+        <section className="sports-featured-card rounded-2xl bg-white/[.045] p-4">
           <div className="flex items-center justify-between gap-3"><span className="truncate text-[12px] font-extrabold uppercase tracking-[.05em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.10] px-3.5 py-2.5 text-[14px] font-extrabold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
           <div className="mt-4 grid grid-cols-[7.5rem_3.25rem_7.5rem] items-center justify-center gap-3">
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white">{activeMatch.home}</strong></div>
@@ -219,7 +219,7 @@ export function FootballWidget({ primaryColor, onClose, onSelectChannel }: Footb
           </div>
         </section>
 
-        <section className="mt-5">
+        <section className="sports-matches-list mt-5">
           <div className="space-y-6">
             {competitionGroups.map((group) => (
               <section key={group.competition}>
