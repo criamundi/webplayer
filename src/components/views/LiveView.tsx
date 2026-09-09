@@ -143,6 +143,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
   const loadingMoreRef = useRef(false);
   const categoryListRef = useRef<HTMLElement>(null);
   const currentProgramRef = useRef<HTMLDivElement | null>(null);
+  const activeFavoriteRef = useRef<HTMLButtonElement | null>(null);
   const dayGuideRef = useRef<HTMLDivElement | null>(null);
   const channelListRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -371,7 +372,9 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
         const current = currentProgramRef.current;
         if (!container || !current) return;
 
-        const targetTop = Math.max(0, current.offsetTop);
+        const firstRow = container.firstElementChild as HTMLElement | null;
+        const baseTop = firstRow?.offsetTop ?? 0;
+        const targetTop = Math.max(0, current.offsetTop - baseTop);
         container.scrollTop = targetTop;
       });
     });
@@ -465,9 +468,9 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
                     event.preventDefault();
                     categoryListRef.current?.querySelector<HTMLElement>('.live-rail-item-active')?.focus();
                   }
-                  if (event.key === 'ArrowRight') {
+                  if (event.key === 'ArrowRight' && liveActive?.id === channel.id) {
                     event.preventDefault();
-                    event.currentTarget.parentElement?.querySelector<HTMLElement>('[data-live-favorite]')?.focus();
+                    activeFavoriteRef.current?.focus();
                   }
                 }}
                 className="live-channel-main"
@@ -477,31 +480,6 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
                 <span className="min-w-0 flex-1"><strong>{channel.name}</strong><small>{cleanGroupName(channel.group || 'Canais ao Vivo')}</small></span>
                 {liveActive?.id === channel.id && <span className="live-playing-dot" title="Reproduzindo"><span /></span>}
               </button>
-              <button
-                type="button"
-                data-live-favorite
-                onClick={() => onToggleFavorite(channel.id, channel)}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowLeft') {
-                    event.preventDefault();
-                    event.currentTarget.parentElement?.querySelector<HTMLElement>('[data-live-channel]')?.focus();
-                  }
-                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                    const rows = Array.from(channelListRef.current?.querySelectorAll<HTMLElement>('[data-live-favorite]') || []);
-                    const current = rows.indexOf(event.currentTarget);
-                    const delta = event.key === 'ArrowDown' ? 1 : -1;
-                    const next = rows[Math.min(Math.max(current + delta, 0), rows.length - 1)];
-                    if (next && next !== event.currentTarget) {
-                      event.preventDefault();
-                      next.focus();
-                      next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                    }
-                  }
-                }}
-                className="live-channel-favorite"
-                aria-label={favorites.has(channel.id) ? `Remover ${channel.name} dos favoritos` : `Adicionar ${channel.name} aos favoritos`}
-                title={favorites.has(channel.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-              ><Heart className={`h-5 w-5 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>
             </div>)}
 
           {!loading && !items.length && <div className="live-list-empty"><Search className="h-7 w-7" /><strong>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Procure um canal' : 'Nenhum canal encontrado'}</strong><span>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Digite pelo menos duas letras.' : activeGroup === FAVORITE_CHANNELS ? 'Você ainda não favoritou canais.' : 'Não há canais disponíveis nesta categoria.'}</span></div>}
@@ -526,7 +504,30 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
           <section className="live-day-guide" aria-label="Programação do dia">
             <div className="live-day-guide-title">
               <span>Programação do dia</span>
-              {liveActive && <strong>{liveActive.name}</strong>}
+              {liveActive && <div className="live-day-guide-actions">
+                <strong>{liveActive.name}</strong>
+                <button
+                  ref={activeFavoriteRef}
+                  type="button"
+                  onClick={() => onToggleFavorite(liveActive.id, liveActive)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowLeft') {
+                      event.preventDefault();
+                      channelListRef.current?.querySelector<HTMLElement>('.live-channel-row-active [data-live-channel]')?.focus();
+                    }
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      currentProgramRef.current?.focus();
+                    }
+                  }}
+                  className={`live-active-favorite ${favorites.has(liveActive.id) ? 'live-active-favorite-on' : ''}`}
+                  aria-label={favorites.has(liveActive.id) ? `Remover ${liveActive.name} dos favoritos` : `Adicionar ${liveActive.name} aos favoritos`}
+                  title={favorites.has(liveActive.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                >
+                  <Heart className={`h-5 w-5 ${favorites.has(liveActive.id) ? 'fill-current' : ''}`} />
+                  <span>{favorites.has(liveActive.id) ? 'Favoritado' : 'Favoritar canal'}</span>
+                </button>
+              </div>}
             </div>
 
             {epgLoading && (
@@ -547,7 +548,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
                 {liveEpg!.programs.map((program, index) => {
                   const isCurrent = liveEpg?.current?.start === program.start && liveEpg?.current?.title === program.title;
                   return (
-                    <div ref={isCurrent ? currentProgramRef : undefined} key={`${program.start || index}-${program.title}`} className={`live-day-program ${isCurrent ? 'live-day-program-current' : ''}`}>
+                    <div ref={isCurrent ? currentProgramRef : undefined} tabIndex={isCurrent ? 0 : -1} key={`${program.start || index}-${program.title}`} className={`live-day-program ${isCurrent ? 'live-day-program-current' : ''}`}>
                       <span className="live-day-program-time">{programSchedule(program) || '--:--'}</span>
                       <span className="min-w-0 flex-1">
                         <strong>{program.title}</strong>
