@@ -275,14 +275,10 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .live-day-program { display:flex; min-height:3.75rem; align-items:flex-start; gap:.9rem; padding:.8rem 1rem; border-bottom:1px solid rgba(255,255,255,.045); color:rgba(255,255,255,.5); }
 .live-day-program:last-child { border-bottom:0; }
 .live-day-program-current {
-  position:sticky;
-  top:0;
-  z-index:4;
+  position:relative;
   background:#101b22;
   color:#fff;
-  box-shadow:
-    inset 3px 0 0 var(--brand-primary,#bef264),
-    0 8px 22px rgba(0,0,0,.28);
+  box-shadow:inset 3px 0 0 var(--brand-primary,#bef264);
 }
 .live-day-program-time { width:6.6rem; flex:none; padding-top:.1rem; font-size:.78rem; font-weight:700; font-variant-numeric:tabular-nums; color:rgba(255,255,255,.4); }
 .live-day-program-current .live-day-program-time { color:var(--brand-primary,var(--brand-primary,#bef264)); }
@@ -446,25 +442,6 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
-/* TV UX: degradê fixo no limite inferior da área visível */
-.app-main::after {
-  content:"";
-  position:absolute;
-  z-index:80;
-  left:0;
-  right:0;
-  bottom:0;
-  height:6.5rem;
-  pointer-events:none;
-  background:linear-gradient(
-    to bottom,
-    rgba(9,16,24,0) 0%,
-    rgba(9,16,24,.06) 26%,
-    rgba(9,16,24,.22) 48%,
-    rgba(9,16,24,.62) 76%,
-    #091018 100%
-  );
-}
 .view-scroll-shell {
   padding-bottom:3.75rem;
   scroll-padding-bottom:4.5rem;
@@ -552,3 +529,35 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 }
 
 
+
+
+/* TV UX: efeito de continuidade sem bloco escuro sobre o conteúdo */
+.home-page.view-scroll-shell,
+[data-movie-catalog],
+[data-series-catalog],
+.view-scroll-shell:not(.live-page) {
+  -webkit-mask-image:linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 calc(100% - 5.5rem),
+    rgba(0,0,0,.82) calc(100% - 4rem),
+    rgba(0,0,0,.38) calc(100% - 1.5rem),
+    transparent 100%
+  );
+  mask-image:linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 calc(100% - 5.5rem),
+    rgba(0,0,0,.82) calc(100% - 4rem),
+    rgba(0,0,0,.38) calc(100% - 1.5rem),
+    transparent 100%
+  );
+}
+
+/* Reserva espaço para elementos focados passarem totalmente pela máscara */
+.home-page.view-scroll-shell,
+[data-movie-catalog],
+[data-series-catalog] {
+  padding-bottom:6.75rem;
+  scroll-padding-bottom:7.5rem;
+}

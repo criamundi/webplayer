@@ -374,10 +374,7 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
         const currentTop =
           currentRect.top - containerRect.top + container.scrollTop;
 
-        const targetTop = Math.max(
-          0,
-          currentTop - Math.max(8, (container.clientHeight - current.clientHeight) / 2),
-        );
+        const targetTop = Math.max(0, currentTop - 2);
 
         container.scrollTo({ top: targetTop, behavior: 'auto' });
       });

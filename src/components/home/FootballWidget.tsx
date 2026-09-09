@@ -97,7 +97,26 @@ export function FootballWidget({ primaryColor, onClose, onSelectChannel }: Footb
       setLoading(false);
     }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+
+    const retry = window.setTimeout(() => {
+      void load();
+    }, 2500);
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.clearTimeout(retry);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
   useEffect(() => {
     if (matches.length < 2) return;
 
