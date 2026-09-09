@@ -183,7 +183,7 @@ export function MoviesView({
     setSelected(null);
   };
 
-  if (!selected) return <div ref={pageScrollRef} data-movie-catalog className="view-scroll-shell -mx-5 -mt-6 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  if (!selected) return <div ref={pageScrollRef} data-movie-catalog className="view-scroll-shell -mx-5 min-h-full bg-[#091018] sm:-mx-8 lg:-mx-10">
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
@@ -217,7 +217,7 @@ export function MoviesView({
   const castMembers = mediaCastList(selectedInfo?.castMembers, selectedInfo?.cast);
   const similarMovies = movies.filter((movie) => movie.id !== selected.id && movie.categoryId === selected.categoryId).slice(0, 10);
 
-  return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8">
+  return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
       <MediaBackdrop sources={heroBackdrops} />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
@@ -238,7 +238,7 @@ export function MoviesView({
         <div className="mt-6 flex flex-wrap gap-3">
           <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>
           {trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
-          <button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm backdrop-blur"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
+          <button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
         </div>
       </div>
     </section>
