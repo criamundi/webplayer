@@ -75,9 +75,20 @@ export function ProviderAccess({ branding, onConnecting, onError, onSuccess }: P
     ? <img src={visualBranding.logo_url} alt={visualBranding.app_name} className="max-h-24 max-w-[260px] object-contain object-left" />
     : <div className="flex items-center gap-3"><span className="flex h-14 w-14 items-center justify-center rounded-2xl text-slate-950 shadow-lg" style={buttonStyle}><Tv className="h-7 w-7" /></span><h1 className="text-2xl font-semibold tracking-tight">{visualBranding.app_name}</h1></div>;
 
+  const loginBackground = visualBranding.login_background_url?.trim();
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#091018] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_15%,rgba(46,72,86,.24),transparent_35%),radial-gradient(circle_at_85%_80%,rgba(61,104,85,.12),transparent_30%)]" />
+      {loginBackground && <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url("${loginBackground}")` }}
+        aria-hidden="true"
+      />}
+      <div className={`absolute inset-0 ${
+        loginBackground
+          ? 'bg-[linear-gradient(90deg,rgba(9,16,24,.90)_0%,rgba(9,16,24,.68)_52%,rgba(9,16,24,.82)_100%)]'
+          : 'bg-[radial-gradient(circle_at_14%_15%,rgba(46,72,86,.24),transparent_35%),radial-gradient(circle_at_85%_80%,rgba(61,104,85,.12),transparent_30%)]'
+      }`} />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-8 sm:px-8 lg:px-12">
         <div className="grid w-full items-center gap-12 lg:grid-cols-[1fr_440px] lg:gap-20">
           <section className="hidden max-w-xl lg:block">

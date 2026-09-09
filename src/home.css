@@ -25,8 +25,8 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 .sidebar-item { display:flex; width:100%; min-height:3rem; flex-shrink:0; align-items:center; gap:.9rem; overflow:hidden; border-radius:.85rem; padding:0 .9rem; color:rgba(255,255,255,.46); text-align:left; white-space:nowrap; transition:.2s ease; }
 .sidebar-item:hover { background:rgba(255,255,255,.07); color:#fff; }
 .sidebar-item-active { background:rgb(var(--brand-primary-rgb,190 242 100) / .12); color:var(--brand-primary,#bef264); box-shadow:inset 3px 0 0 var(--brand-primary,#bef264); }
-.home-hero { position:relative; min-height:100svh; overflow:hidden; background:#091018; }
-.hero-visual { position:relative; isolation:isolate; contain:paint; min-height:100svh; width:100%; overflow:hidden; background:radial-gradient(circle at 70% 30%,#1f3634 0,transparent 45%),#0b1217; transition:none; }
+.home-hero { position:relative; height:calc(100svh - 10.75rem); min-height:34rem; overflow:hidden; background:#091018; }
+.hero-visual { position:relative; isolation:isolate; contain:paint; height:100%; min-height:100%; width:100%; overflow:hidden; background:radial-gradient(circle at 70% 30%,#1f3634 0,transparent 45%),#0b1217; transition:none; }
 .hero-visual-panel-open { width:calc(100% - min(520px,42vw) - 2.25rem); }
 .hero-visual-panel-open::after { display:none; }
 .home-hero-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 28%; image-rendering:auto; opacity:0; transition:opacity .55s ease; }
@@ -223,7 +223,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   z-index:30;
   top:1.5rem;
   right:1.5rem;
-  bottom:12.5rem;
+  bottom:1.5rem;
   display:flex;
   width:min(520px,42vw);
   flex-direction:column;
@@ -247,7 +247,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } .sidebar-shell:not(:hover) .sidebar-brand-logo { width:3rem; height:3rem; justify-content:center; } .sidebar-shell:not(:hover) .sidebar-brand-logo img { max-width:3rem; max-height:3rem; } }
 @media (min-width:1024px) { [data-series-catalog] aside { position:fixed!important; z-index:35; inset:0 auto 0 5rem; width:17rem; height:100vh; } [data-series-catalog] main { grid-column:2; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
-@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:11.5rem; width:min(22rem,calc(100vw - 2.5rem)); } }
+@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:1rem; width:min(22rem,calc(100vw - 2.5rem)); } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
 @media (min-width:768px) and (max-width:1279px) { .poster-card { min-width:calc((100% - 3rem)/4); flex-basis:calc((100% - 3rem)/4); } }
 
@@ -794,5 +794,51 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   }
   .home-simple-secondary {
     grid-template-columns:1fr;
+  }
+}
+
+
+/* Home completa: faixa própria para os três acessos principais */
+.home-complete-nav-band {
+  position:relative;
+  background:#091018;
+  padding-top:1.35rem;
+  padding-bottom:1.55rem;
+}
+
+.home-complete-nav-band::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.045),transparent);
+  pointer-events:none;
+}
+
+.home-complete-nav-band .home-shortcut {
+  min-height:7rem;
+}
+
+@media (min-width:1600px) {
+  .home-hero {
+    height:calc(100svh - 11.5rem);
+  }
+  .home-complete-nav-band {
+    padding-top:1.5rem;
+    padding-bottom:1.75rem;
+  }
+}
+
+@media (max-height:760px) and (min-width:900px) {
+  .home-hero {
+    height:calc(100svh - 9.5rem);
+    min-height:28rem;
+  }
+  .home-complete-nav-band {
+    padding-top:1rem;
+    padding-bottom:1rem;
+  }
+  .home-complete-nav-band .home-shortcut {
+    min-height:6.5rem;
   }
 }
