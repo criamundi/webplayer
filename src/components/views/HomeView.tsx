@@ -76,38 +76,80 @@ function HomeTVNavigation({
   onNavigate: (view: View) => void;
   simple?: boolean;
 }) {
-  const completeItems = [
+  const mainItems = [
     { id: 'live' as View, label: 'Canais ao Vivo', icon: Radio },
     { id: 'movies' as View, label: 'Filmes', icon: Film },
     { id: 'series' as View, label: 'Séries', icon: Tv },
   ];
 
-  const simpleItems = [
-    ...completeItems,
+  if (!simple) {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {mainItems.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onNavigate(id)}
+            className="home-shortcut group"
+            aria-label={label}
+          >
+            <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
+            <span className="relative z-10 min-w-0 flex-1">
+              <strong className="home-shortcut-title">{label}</strong>
+            </span>
+            <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  const secondaryItems = [
     { id: 'favorites' as View, label: 'Favoritos', icon: Heart },
     { id: 'settings' as View, label: 'Configurações', icon: Settings },
   ];
 
-  const items = simple ? simpleItems : completeItems;
-
   return (
-    <div className={simple ? 'home-simple-nav home-shortcut-grid-simple' : 'grid grid-cols-1 gap-3 sm:grid-cols-3'}>
-      {items.map(({ id, label, icon: Icon }, index) => (
-        <button
-          key={id}
-          type="button"
-          autoFocus={simple && index === 0}
-          onClick={() => onNavigate(id)}
-          className="home-shortcut group"
-          aria-label={label}
-        >
-          <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
-          <span className="relative z-10 min-w-0 flex-1">
-            <strong className="home-shortcut-title">{label}</strong>
-          </span>
-          <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
-        </button>
-      ))}
+    <div className="home-simple-nav-shell">
+      <div className="home-simple-featured">
+        {mainItems.map(({ id, label, icon: Icon }, index) => (
+          <button
+            key={id}
+            type="button"
+            autoFocus={index === 1}
+            onClick={() => onNavigate(id)}
+            className="home-simple-feature-card group"
+            aria-label={label}
+          >
+            <span className="home-simple-feature-glow" />
+            <span className="home-simple-feature-icon">
+              <Icon className="h-14 w-14" />
+            </span>
+            <strong>{label}</strong>
+            <span className="home-simple-feature-arrow">
+              <ChevronRight className="h-6 w-6" />
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="home-simple-secondary">
+        {secondaryItems.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onNavigate(id)}
+            className="home-shortcut group"
+            aria-label={label}
+          >
+            <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
+            <span className="relative z-10 min-w-0 flex-1">
+              <strong className="home-shortcut-title">{label}</strong>
+            </span>
+            <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -573,9 +615,9 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </aside>}
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
-      <div className="relative z-20 -mt-24 px-5 sm:px-8 lg:-mt-28 lg:px-12">
+      <div className="relative z-20 -mt-20 px-5 sm:px-8 lg:-mt-24 lg:px-12">
         <HomeTVNavigation onNavigate={onNavigate} />
-        <div className="space-y-12 pb-16 pt-10">
+        <div className="space-y-12 pb-16 pt-14">
           <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} />
           <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} />
         </div>
