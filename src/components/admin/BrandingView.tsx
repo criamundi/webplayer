@@ -2,8 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Check, ChevronDown, Image, Loader2, Save, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-interface Branding { provider_id?: string; app_name: string; logo_url: string | null; background_url: string | null; login_background_url: string | null; primary_color: string; secondary_color: string; main_font_scale: number; font_family: string; }
-const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Top TV Digital', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', main_font_scale: 1, font_family: 'Inter' });
+interface Branding { provider_id?: string; app_name: string; logo_url: string | null; background_url: string | null; login_background_url: string | null; primary_color: string; secondary_color: string; main_font_scale: number; font_family: string; home_layout: 'complete' | 'simple'; }
+const empty = (providerId?: string): Branding => ({ ...(providerId ? { provider_id: providerId } : {}), app_name: 'Top TV Digital', logo_url: null, background_url: null, login_background_url: null, primary_color: '#bef264', secondary_color: '#091018', main_font_scale: 1, font_family: 'Inter', home_layout: 'complete' });
 const validHex = (value: string) => /^#[0-9a-f]{6}$/i.test(value.trim());
 
 export function BrandingView() {
@@ -30,7 +30,7 @@ export function BrandingView() {
   useEffect(() => { if (!target) return; void (async () => {
     setLoading(true); setError('');
     const query = target === 'global'
-      ? supabase.from('app_branding').select('app_name, logo_url, background_url, login_background_url, primary_color, secondary_color, main_font_scale, font_family').eq('singleton', true).maybeSingle()
+      ? supabase.from('app_branding').select('app_name, logo_url, background_url, login_background_url, primary_color, secondary_color, main_font_scale, font_family, home_layout').eq('singleton', true).maybeSingle()
       : supabase.from('provider_branding').select('*').eq('provider_id', target).maybeSingle();
     const { data, error: loadError } = await query;
     if (loadError) setError('Não foi possível carregar o branding. Execute a migration mais recente.');
@@ -53,7 +53,7 @@ export function BrandingView() {
     event.preventDefault(); if (!branding || !target) return;
     if (!validHex(branding.primary_color)) { setError('Informe a cor principal no formato hexadecimal, por exemplo #BEF264.'); return; }
     setSaving(true); setError('');
-    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter' };
+    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: null, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter', home_layout: branding.home_layout === 'simple' ? 'simple' : 'complete' };
     const result = target === 'global'
       ? await supabase.from('app_branding').update(payload).eq('singleton', true)
       : await supabase.from('provider_branding').upsert({ provider_id: target, ...payload }, { onConflict: 'provider_id' });
@@ -70,6 +70,32 @@ export function BrandingView() {
   return <div className="space-y-6"><div><h1 className="text-3xl font-semibold">Branding</h1><p className="mt-2 text-sm text-white/45">{isSuper ? 'Identidade exclusiva do painel Super Admin e padrão inicial do app.' : 'Identidade exclusiva do seu provedor.'}</p></div>
     <form onSubmit={save} className="space-y-6"><section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><label><span className="mb-2 block text-xs text-white/60">Nome do app</span><input required value={branding.app_name} onChange={(e) => setBranding({ ...branding, app_name: e.target.value })} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-lime-300/50" /></label></section>
     <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6"><div className="mb-5 flex gap-3"><Image className="text-lime-300" /><b>Imagens</b></div><div className="grid gap-4 lg:grid-cols-2"><Picture field="logo_url" title="Logo" hint="PNG transparente recomendado" /><Picture field="login_background_url" title="Fundo do acesso" hint="Usado somente na tela de login" /></div></section>
+    <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6">
+      <div className="mb-5">
+        <b className="text-sm">Layout da Home</b>
+        <small className="mt-1 block text-white/40">Escolha entre a experiência completa ou uma Home mais leve e direta para TV.</small>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {[
+          { id: 'complete' as const, title: 'Completo', text: 'Hero, partidas em destaque e atalhos de navegação.' },
+          { id: 'simple' as const, title: 'Simples', text: 'Sem Hero. Canais, Filmes e Séries ficam como foco principal.' },
+        ].map((option) => (
+          <button
+            type="button"
+            key={option.id}
+            onClick={() => setBranding({ ...branding, home_layout: option.id })}
+            className={`rounded-2xl border p-5 text-left transition ${
+              (branding.home_layout || 'complete') === option.id
+                ? 'border-lime-300 bg-lime-300/10'
+                : 'border-white/10 bg-white/[.025] hover:bg-white/[.06]'
+            }`}
+          >
+            <strong className={(branding.home_layout || 'complete') === option.id ? 'text-lime-300' : 'text-white'}>{option.title}</strong>
+            <span className="mt-1.5 block text-xs leading-5 text-white/45">{option.text}</span>
+          </button>
+        ))}
+      </div>
+    </section>
     <section className="rounded-3xl border border-white/10 bg-white/[.04] p-6">
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <HexColor label="Cor principal" value={branding.primary_color} onChange={(value) => setBranding({ ...branding, primary_color: value })} />

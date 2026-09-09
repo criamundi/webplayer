@@ -17,7 +17,7 @@ interface HomeViewProps {
   onToggleFavorite: (id: string, channel?: Channel) => void;
   onNavigate: (view: View) => void;
   onSelectSeries: (seriesId: string) => void;
-  branding: { primaryColor: string; secondaryColor: string };
+  branding: { primaryColor: string; secondaryColor: string; homeLayout?: 'complete' | 'simple'; appName?: string; logoUrl?: string | null };
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
@@ -65,6 +65,44 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+
+function HomeTVNavigation({
+  onNavigate,
+  simple = false,
+}: {
+  onNavigate: (view: View) => void;
+  simple?: boolean;
+}) {
+  const items = [
+    { id: 'live' as View, label: 'Canais ao Vivo', icon: Radio },
+    { id: 'movies' as View, label: 'Filmes', icon: Film },
+    { id: 'series' as View, label: 'Séries', icon: Tv },
+  ];
+
+  return (
+    <div className={`home-tv-nav ${simple ? 'home-tv-nav-simple' : 'home-tv-nav-complete'}`}>
+      {items.map(({ id, label, icon: Icon }, index) => (
+        <button
+          key={id}
+          type="button"
+          autoFocus={simple && index === 0}
+          onClick={() => onNavigate(id)}
+          className="home-tv-action group"
+          aria-label={label}
+        >
+          <span className="home-tv-action-icon">
+            <Icon className={simple ? 'h-11 w-11' : 'h-8 w-8'} />
+          </span>
+          <strong>{label}</strong>
+          <span className="home-tv-action-arrow">
+            <ChevronRight className="h-6 w-6" />
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -204,6 +242,7 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
 }
 
 export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, branding }: HomeViewProps) {
+  const isSimple = branding.homeLayout === 'simple';
   const favoritesRef = useRef(favorites);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
@@ -238,6 +277,12 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   }, []);
 
   useEffect(() => {
+    if (isSimple) {
+      setSportsWidgetEnabled(false);
+      setInfoPanelOpen(false);
+      return;
+    }
+
     let active = true;
     void loadSportsWidgetSettings().then((settings) => {
       if (!active) return;
@@ -245,7 +290,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       if (!settings.enabled) setInfoPanelOpen(false);
     });
     return () => { active = false; };
-  }, []);
+  }, [isSimple]);
 
   const loadCompleteHeroInfo = useCallback((item: CatalogItem) => {
     const cached = heroInfoCacheRef.current.get(item.id);
@@ -314,6 +359,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   }, [renewalCompleted, renewalOpen, verifyRenewal]);
 
   useEffect(() => {
+    if (isSimple) {
+      setHeroPool([]);
+      setCatalogMovies([]);
+      setCatalogSeries([]);
+      setHeroImageLoading(false);
+      return;
+    }
+
     let active = true;
     const applyCatalog = (catalog: { movies: CatalogItem[]; series: CatalogItem[] }) => {
       if (!active) return;
@@ -348,7 +401,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     });
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshCatalog(true); }, 30 * 60_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, []);
+  }, [isSimple]);
 
   useEffect(() => {
     if (!heroItem) {
@@ -443,6 +496,35 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const movies = catalogMovies.slice(0, 10);
   const series = catalogSeries.slice(0, 10);
 
+  if (isSimple) {
+    return (
+      <div className="home-simple-page -mx-5 sm:-mx-8 lg:-mx-10">
+        <div className="home-simple-atmosphere" />
+        <header className="home-simple-header">
+          <div className="flex items-center gap-4">
+            {branding.logoUrl
+              ? <img src={branding.logoUrl} alt={branding.appName || 'Top TV Digital'} className="max-h-16 max-w-40 object-contain object-left" />
+              : <strong className="text-xl font-semibold text-white">{branding.appName || 'Top TV Digital'}</strong>}
+          </div>
+          <div className="home-simple-clock">
+            <Clock3 className="h-5 w-5" style={{ color: branding.primaryColor }} />
+            <strong>{now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>
+          </div>
+        </header>
+
+        <main className="home-simple-content">
+          <div>
+            <span className="text-[11px] font-semibold uppercase tracking-[.05em] text-white/35">Escolha o que assistir</span>
+            <h1 className="mt-2 max-w-3xl text-3xl font-semibold tracking-tight text-white lg:text-5xl">
+              Entretenimento direto ao ponto.
+            </h1>
+          </div>
+          <HomeTVNavigation onNavigate={onNavigate} simple />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="home-page view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
       <section className="home-hero">
@@ -483,22 +565,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-28 lg:px-12">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            { id: 'live' as View, label: 'Canais ao Vivo', description: 'Assista à programação agora', icon: Radio },
-            { id: 'movies' as View, label: 'Filmes', description: 'Explore todos os filmes', icon: Film },
-            { id: 'series' as View, label: 'Séries', description: 'Encontre sua próxima série', icon: Tv },
-          ].map(({ id, label, description, icon: Icon }) => (
-            <button key={id} type="button" onClick={() => onNavigate(id)} className="home-shortcut group" aria-label={`${label}: ${description}`}>
-              <span className="home-shortcut-icon"><Icon className="h-6 w-6" /></span>
-              <span className="relative z-10 min-w-0 flex-1">
-                <strong className="home-shortcut-title">{label}</strong>
-                <span className="home-shortcut-description">{description}</span>
-              </span>
-              <span className="home-shortcut-arrow"><ChevronRight className="h-5 w-5" /></span>
-            </button>
-          ))}
-        </div>
+        <HomeTVNavigation onNavigate={onNavigate} />
         <div className="space-y-12 pb-16 pt-10">
           <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} />
           <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} />

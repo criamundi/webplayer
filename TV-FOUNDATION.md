@@ -1,4 +1,4 @@
-# Top TV Digital — TV Foundation 0.7.17
+# Top TV Digital — TV Foundation 0.7.18
 
 Uma única base React/Vite atende Web, Samsung Tizen e LG webOS.
 
