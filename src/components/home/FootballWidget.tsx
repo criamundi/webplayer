@@ -187,7 +187,7 @@ export function FootballWidget({ primaryColor, onClose, onSelectChannel }: Footb
       {!loading && !error && !activeMatch && <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center"><strong className="text-sm text-white/70">Nenhuma partida encontrada hoje</strong><p className="mt-2 text-xs leading-5 text-white/35">A agenda será atualizada automaticamente quando houver jogos nas competições acompanhadas.</p></div>}
 
       {!loading && activeMatch && <>
-        <section className="rounded-2xl bg-white/[.045] p-4">
+        <section className="sports-featured-sticky rounded-2xl bg-white/[.045] p-4">
           <div className="flex items-center justify-between gap-3"><span className="truncate text-[12px] font-extrabold uppercase tracking-[.05em]" style={{ color: primaryColor }}>{activeMatch.competition || 'Futebol'}</span><span className="shrink-0 rounded-lg bg-white/[.10] px-3.5 py-2.5 text-[14px] font-extrabold tabular-nums text-white shadow-inner shadow-black/20">{activeMatch.time}</span></div>
           <div className="mt-4 grid grid-cols-[7.5rem_3.25rem_7.5rem] items-center justify-center gap-3">
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.homeLogo} name={activeMatch.home} /><strong className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white">{activeMatch.home}</strong></div>

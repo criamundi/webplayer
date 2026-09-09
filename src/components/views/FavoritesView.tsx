@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Heart, Loader2, Play, Search, Star, Tv } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Loader2, Play, Search, Star, Tv } from 'lucide-react';
 import type { Channel } from '@/types';
 import type { View } from '@/components/layout/Sidebar';
 import { loadContentInfo, type ContentInfo } from '@/lib/provider';
@@ -41,9 +41,21 @@ export function FavoritesView({ favorites, onSelectChannel, onToggleFavorite, lo
   const [selected, setSelected] = useState<FavoriteItem | null>(null);
   const [info, setInfo] = useState<ContentInfo | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
+  const favoritesTrackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { let active = true; void loadFavorites().then((result) => { if (active) setItems(result as FavoriteItem[]); }); return () => { active = false; }; }, [favorites, loadFavorites]);
   const filtered = useMemo(() => { const value = query.trim().toLocaleLowerCase('pt-BR'); return value ? items.filter((item) => item.name.toLocaleLowerCase('pt-BR').includes(value)) : items; }, [items, query]);
+
+  const scrollFavorites = (direction: -1 | 1) => {
+    const track = favoritesTrackRef.current;
+    const card = track?.querySelector<HTMLElement>('[data-favorite-card]');
+    if (!track || !card) return;
+    const gap = Number.parseFloat(getComputedStyle(track).gap) || 16;
+    track.scrollBy({
+      left: direction * (card.offsetWidth + gap) * 2,
+      behavior: 'smooth',
+    });
+  };
 
   const openFavorite = async (item: FavoriteItem) => {
     if (!item.id.startsWith('movie:') && !item.id.startsWith('series:')) { onSelectChannel(item); onNavigate('live'); return; }
@@ -58,5 +70,50 @@ export function FavoritesView({ favorites, onSelectChannel, onToggleFavorite, lo
     return <div className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10 lg:-mt-8"><section className="relative min-h-screen overflow-hidden bg-[#0a1117]">{hero && <img src={hero} alt="" className={`absolute inset-0 h-full w-full ${info?.backdrop || selected.backdrop ? 'object-cover' : 'scale-110 object-cover opacity-48 blur-2xl'}`} />}<div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.84)_48%,rgba(9,16,24,.12)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" /><button onClick={() => setSelected(null)} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar aos favoritos</button><div className="relative z-10 flex min-h-screen max-w-2xl flex-col justify-end px-5 pb-16 pt-24 sm:px-8 lg:px-12"><span className="mb-3 text-[10px] uppercase tracking-[.05em] text-emerald-400">Favorito</span><h1 className="text-4xl font-semibold leading-none lg:text-6xl">{info?.name || selected.name}</h1><div className="mt-4 flex gap-3 text-xs text-white/55">{rating && Number(rating) > 0 && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{rating}</span>}{info?.genre && <span>{info.genre}</span>}</div>{loadingInfo ? <Loader2 className="mt-5 h-6 w-6 animate-spin text-emerald-400" /> : info?.plot && <p className="mt-4 line-clamp-3 text-sm leading-6 text-white/55">{info.plot}</p>}<div className="mt-6 flex gap-3">{selected.id.startsWith('movie:') ? <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button> : <button onClick={() => onNavigate('series')} className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950">Ver episódios</button>}<button onClick={() => { onToggleFavorite(selected.id, selected); setSelected(null); }} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm"><Heart className="h-4 w-4 fill-emerald-400 text-emerald-400" />Remover favorito</button></div></div></section></div>;
   }
 
-  return <div className="view-scroll-shell h-full pt-6"><div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-400/12 p-2.5 text-emerald-300"><Heart className="h-5 w-5 fill-current" /></div><div><h1 className="text-2xl font-semibold">Favoritos</h1><p className="text-xs text-white/40">{favorites.size} itens marcados</p></div></div>{favorites.size > 0 && <div className="relative max-w-xs flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nos favoritos" className="w-full rounded-xl bg-white/5 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-white/30" /></div>}</div>{favorites.size === 0 ? <div className="flex flex-col items-center py-20 text-center"><Heart className="mb-4 h-12 w-12 text-white/15" /><p className="text-sm text-white/50">Nenhum favorito ainda</p></div> : <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">{filtered.map((item) => <button key={item.id} onClick={() => void openFavorite(item)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><FavoriteCover item={item} />{Number(item.rating) > 0 && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300"><Star className="h-3 w-3 fill-current" />{item.rating}</span>}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-10"><p className="truncate text-sm font-semibold">{item.name}</p></div></div></button>)}</div>}</div>;
+  return <div className="view-scroll-shell h-full pt-6">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <div className="rounded-xl bg-emerald-400/12 p-2.5 text-emerald-300"><Heart className="h-5 w-5 fill-current" /></div>
+        <div><h1 className="text-2xl font-semibold">Favoritos</h1><p className="text-xs text-white/40">{favorites.size} itens marcados</p></div>
+      </div>
+      {favorites.size > 0 && <div className="flex items-center gap-3">
+        <div className="relative max-w-xs flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar nos favoritos" className="w-full rounded-xl bg-white/5 py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-white/30" />
+        </div>
+        <div className="hidden items-center gap-2 sm:flex">
+          <button type="button" onClick={() => scrollFavorites(-1)} className="shelf-arrow" aria-label="Favoritos anteriores"><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" onClick={() => scrollFavorites(1)} className="shelf-arrow" aria-label="Próximos favoritos"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>}
+    </div>
+    {favorites.size === 0
+      ? <div className="flex flex-col items-center py-20 text-center"><Heart className="mb-4 h-12 w-12 text-white/15" /><p className="text-sm text-white/50">Nenhum favorito ainda</p></div>
+      : <div className="favorites-slider-shell">
+          <div ref={favoritesTrackRef} className="favorites-slider media-poster-group">
+            {filtered.map((item) => <button
+              key={item.id}
+              data-favorite-card
+              onClick={() => void openFavorite(item)}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                const cards = Array.from(favoritesTrackRef.current?.querySelectorAll<HTMLElement>('[data-favorite-card]') || []);
+                const current = cards.indexOf(event.currentTarget);
+                const next = cards[current + (event.key === 'ArrowRight' ? 1 : -1)];
+                if (!next) return;
+                event.preventDefault();
+                next.focus();
+                next.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+              }}
+              className="favorites-slider-card media-poster-focus group text-left"
+            >
+              <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]">
+                <FavoriteCover item={item} />
+                {Number(item.rating) > 0 && <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/75 px-2 py-1 text-[10px] text-amber-300"><Star className="h-3 w-3 fill-current" />{item.rating}</span>}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-10"><p className="truncate text-sm font-semibold">{item.name}</p></div>
+              </div>
+            </button>)}
+          </div>
+        </div>}
+  </div>;
 }
