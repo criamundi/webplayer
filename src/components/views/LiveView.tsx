@@ -114,11 +114,13 @@ function Logo({ channel, compact = false }: { channel: Channel; compact?: boolea
   return <img
     src={source}
     alt=""
-    loading="lazy"
+    loading={compact ? 'eager' : 'lazy'}
+    fetchPriority={compact ? 'high' : 'auto'}
     decoding="async"
+    referrerPolicy="no-referrer"
     onError={() => {
       const proxy = getPlayableStreamUrl(channel.logo || '');
-      if (source !== proxy) setSource(proxy);
+      if (proxy && source !== proxy) setSource(proxy);
       else setFailed(true);
     }}
     className={`${compact ? 'max-h-10 max-w-12' : 'max-h-16 max-w-[75%]'} object-contain`}
@@ -369,14 +371,8 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
         const current = currentProgramRef.current;
         if (!container || !current) return;
 
-        const containerRect = container.getBoundingClientRect();
-        const currentRect = current.getBoundingClientRect();
-        const currentTop =
-          currentRect.top - containerRect.top + container.scrollTop;
-
-        const targetTop = Math.max(0, currentTop - 2);
-
-        container.scrollTo({ top: targetTop, behavior: 'auto' });
+        const targetTop = Math.max(0, current.offsetTop);
+        container.scrollTop = targetTop;
       });
     });
 
@@ -469,6 +465,10 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
                     event.preventDefault();
                     categoryListRef.current?.querySelector<HTMLElement>('.live-rail-item-active')?.focus();
                   }
+                  if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    event.currentTarget.parentElement?.querySelector<HTMLElement>('[data-live-favorite]')?.focus();
+                  }
                 }}
                 className="live-channel-main"
               >
@@ -479,10 +479,29 @@ export const LiveView = memo(function LiveView({ groups, activeChannel, favorite
               </button>
               <button
                 type="button"
+                data-live-favorite
                 onClick={() => onToggleFavorite(channel.id, channel)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    event.currentTarget.parentElement?.querySelector<HTMLElement>('[data-live-channel]')?.focus();
+                  }
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    const rows = Array.from(channelListRef.current?.querySelectorAll<HTMLElement>('[data-live-favorite]') || []);
+                    const current = rows.indexOf(event.currentTarget);
+                    const delta = event.key === 'ArrowDown' ? 1 : -1;
+                    const next = rows[Math.min(Math.max(current + delta, 0), rows.length - 1)];
+                    if (next && next !== event.currentTarget) {
+                      event.preventDefault();
+                      next.focus();
+                      next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                  }
+                }}
                 className="live-channel-favorite"
                 aria-label={favorites.has(channel.id) ? `Remover ${channel.name} dos favoritos` : `Adicionar ${channel.name} aos favoritos`}
-              ><Heart className={`h-4 w-4 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>
+                title={favorites.has(channel.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+              ><Heart className={`h-5 w-5 ${favorites.has(channel.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /></button>
             </div>)}
 
           {!loading && !items.length && <div className="live-list-empty"><Search className="h-7 w-7" /><strong>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Procure um canal' : 'Nenhum canal encontrado'}</strong><span>{activeGroup === SEARCH_CHANNELS && query.trim().length < 2 ? 'Digite pelo menos duas letras.' : activeGroup === FAVORITE_CHANNELS ? 'Você ainda não favoritou canais.' : 'Não há canais disponíveis nesta categoria.'}</span></div>}

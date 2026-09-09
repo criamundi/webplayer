@@ -43,7 +43,7 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
   return (
     <section className="home-shelf">
       <div className="mb-4 flex items-end justify-between gap-4">
-        <div><p className="mb-1 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400/70">Novidades</p><h2 className="text-lg font-semibold tracking-tight text-white sm:text-xl">{title}</h2></div>
+        <div><h2 className="text-lg font-semibold tracking-tight text-white sm:text-xl">{title}</h2></div>
         <div className="flex items-center gap-2">
           <button onClick={() => scroll(-1)} className="shelf-arrow" aria-label="Voltar"><ChevronLeft className="h-4 w-4" /></button>
           <button onClick={() => scroll(1)} className="shelf-arrow" aria-label="Avançar"><ChevronRight className="h-4 w-4" /></button>
@@ -63,7 +63,6 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
             </button>
           ))}
         </div>
-        <div className="pointer-events-none absolute inset-x-0 -bottom-5 h-24 bg-gradient-to-b from-transparent via-[#091018]/70 to-[#091018] blur-[2px]" />
       </div>
     </section>
   );
@@ -226,6 +225,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const heroInfoPendingRef = useRef(new Map<string, Promise<ContentInfo>>());
   const heroInfoRequestRef = useRef(0);
   const heroIndexRef = useRef(0);
+  const heroLogoRetryRef = useRef(new Set<string>());
 
   const heroItem = heroPool[heroIndex] ?? null;
 
@@ -371,6 +371,22 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   }, [heroItem, loadCompleteHeroInfo]);
 
   useEffect(() => {
+    if (!heroItem || heroInfo?.titleLogo || heroLogoRetryRef.current.has(heroItem.id)) return;
+
+    heroLogoRetryRef.current.add(heroItem.id);
+    const timer = window.setTimeout(() => {
+      heroInfoCacheRef.current.delete(heroItem.id);
+      const requestId = ++heroInfoRequestRef.current;
+      void loadCompleteHeroInfo(heroItem).then((info) => {
+        if (requestId !== heroInfoRequestRef.current) return;
+        setHeroInfo(info);
+      });
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [heroInfo?.titleLogo, heroItem, loadCompleteHeroInfo]);
+
+  useEffect(() => {
     if (heroPool.length < 2 || trailerOpen) return;
     let active = true;
     let transitioning = false;
@@ -412,6 +428,17 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
   const renewalUrl = (() => { try { const url = new URL(rawRenewalUrl || ''); return /^https?:$/.test(url.protocol) ? url.toString() : undefined; } catch { return undefined; } })();
+  const remainingMs = accountStatus?.expiresAt ? new Date(accountStatus.expiresAt).getTime() - now.getTime() : null;
+  const remainingHours = remainingMs != null && remainingMs > 0 ? Math.ceil(remainingMs / 3_600_000) : null;
+  const renewalTimeLabel = remainingHours != null && remainingHours <= 24
+    ? `Sua assinatura vence em ${remainingHours} ${remainingHours === 1 ? 'hora' : 'horas'}`
+    : accountStatus?.daysRemaining === 0
+      ? 'Sua assinatura vence hoje'
+      : accountStatus?.daysRemaining === 1
+        ? 'Sua assinatura vence em 1 dia'
+        : accountStatus?.daysRemaining != null
+          ? `Sua assinatura vence em ${accountStatus.daysRemaining} dias`
+          : '';
   const trailerSource = heroInfo?.trailerKey;
   const movies = catalogMovies.slice(0, 10);
   const series = catalogSeries.slice(0, 10);
@@ -446,16 +473,16 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </div>
         </div>
         {sportsWidgetEnabled && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
+          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-b border-white/8 p-4"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
           <FootballWidget
             primaryColor={branding.primaryColor}
             onClose={() => setInfoPanelOpen(false)}
             onSelectChannel={onSelectChannel}
           />
-          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-t border-white/8 p-5"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{accountStatus.daysRemaining === 0 ? 'Sua assinatura vence hoje' : accountStatus.daysRemaining === 1 ? 'Sua assinatura vence em 1 dia' : `Sua assinatura vence em ${accountStatus.daysRemaining} dias`}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
         </aside>}
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
-      <div className="relative z-20 -mt-36 px-5 sm:px-8 lg:-mt-40 lg:px-12">
+      <div className="relative z-20 -mt-28 px-5 sm:px-8 lg:-mt-28 lg:px-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { id: 'live' as View, label: 'Canais ao Vivo', description: 'Assista à programação agora', icon: Radio },

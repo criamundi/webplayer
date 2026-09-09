@@ -61,11 +61,30 @@ export function MediaCover({ logo, fallbackLogo, name, preserveAspect = false, p
 }
 
 export function MediaHeroTitle({ logo, name }: { logo?: string; name: string }) {
+  const [source, setSource] = useState(logo);
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [logo]);
+
+  useEffect(() => {
+    setSource(logo);
+    setFailed(false);
+  }, [logo]);
+
   const displayName = name.replace(/\s*(?:\[\s*l\s*\]|\(\s*l\s*\))\s*$/i, '').trim() || name;
-  if (!logo || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{displayName}</h1>;
-  return <img src={logo} alt={displayName} decoding="async" fetchPriority="high" onError={() => setFailed(true)} className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left" />;
+  if (!source || failed) return <h1 className="text-4xl font-semibold leading-none tracking-tight lg:text-6xl">{displayName}</h1>;
+
+  return <img
+    src={source}
+    alt={displayName}
+    decoding="async"
+    fetchPriority="high"
+    referrerPolicy="no-referrer"
+    onError={() => {
+      const proxy = getPlayableStreamUrl(source);
+      if (proxy && proxy !== source) setSource(proxy);
+      else setFailed(true);
+    }}
+    className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left"
+  />;
 }
 
 export function MediaSynopsis({ text }: { text: string }) {
