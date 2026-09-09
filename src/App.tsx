@@ -2207,16 +2207,6 @@ export default function App() {
             <SettingsView onSignOut={handleSignOut} />
           )}
 
-          {!streamingDone &&
-            phase ===
-              'ready' && (
-              <div className="fixed bottom-4 right-4 z-40 rounded-xl border border-white/10 bg-slate-950/90 px-3 py-2 text-xs text-white/60 shadow-xl backdrop-blur">
-
-                Atualizando lista em segundo plano…
-
-              </div>
-            )}
-
         </main>
 
       </div>

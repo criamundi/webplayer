@@ -194,7 +194,7 @@ export function installTVRuntime() {
 
     event.preventDefault();
     target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: platform.isTV ? 'auto' : 'smooth' });
   };
 
   window.addEventListener('keydown', onKeyDown);

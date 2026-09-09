@@ -60,7 +60,6 @@ export function FavoritesView({ favorites, onSelectChannel, onToggleFavorite, lo
   const openFavorite = async (item: FavoriteItem) => {
     if (!item.id.startsWith('movie:') && !item.id.startsWith('series:')) { onSelectChannel(item); onNavigate('live'); return; }
     setSelected(item); setInfo(item.id.startsWith('series:') ? { name: item.name, plot: item.plot, genre: item.genre, rating: item.rating, backdrop: item.backdrop, cover: item.logo } : null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (item.id.startsWith('movie:')) { setLoadingInfo(true); try { setInfo(await loadContentInfo(item)); } finally { setLoadingInfo(false); } }
   };
 

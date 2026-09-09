@@ -22,11 +22,38 @@ interface HomeViewProps {
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
 
 function PosterImage({ channel, priority = false }: { channel: CatalogItem; priority?: boolean }) {
+  const [source, setSource] = useState(channel.logo || '');
   const [loading, setLoading] = useState(Boolean(channel.logo));
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setSource(channel.logo || '');
+    setLoading(Boolean(channel.logo));
+    setFailed(false);
+  }, [channel.logo]);
+
   return <>
     {loading && <span className="absolute inset-0 z-10 flex items-center justify-center bg-[#111a20]"><LoaderCircle className="h-6 w-6 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></span>}
-    {channel.logo && !failed ? <img src={channel.logo} alt={channel.name} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true); }} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
+    {source && !failed ? <img
+      src={source}
+      alt={channel.name}
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onLoad={() => setLoading(false)}
+      onError={() => {
+        const proxy = getPlayableStreamUrl(channel.logo || '');
+        if (proxy && proxy !== source) {
+          setSource(proxy);
+          setLoading(true);
+          return;
+        }
+        setLoading(false);
+        setFailed(true);
+      }}
+      className="h-full w-full object-cover"
+    /> : <div className="flex h-full items-center justify-center"><Tv className="h-10 w-10 text-white/15" /></div>}
   </>;
 }
 
@@ -597,7 +624,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           aria-label="Abrir Jogos do Dia"
           title="Abrir Jogos do Dia"
         ><PanelRightOpen className="h-4 w-4" /> Jogos do Dia</button>}
-        <div className="relative z-10 flex min-h-[100svh] max-w-3xl flex-col justify-end px-5 pb-40 pt-32 sm:px-8 lg:px-12 lg:pb-48">
+        <div className="relative z-10 flex h-full min-h-0 max-w-3xl flex-col justify-end px-5 pb-20 pt-28 sm:px-8 lg:px-12 lg:pb-24">
           <MediaHeroTitle logo={heroInfo?.titleLogo} name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'} />
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
@@ -606,7 +633,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
         </div>
         </div>
         {sportsWidgetEnabled && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
-          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="-b border-white/8 p-4"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
+          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-b border-white/8 p-4"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
           <FootballWidget
             primaryColor={branding.primaryColor}
             onClose={() => setInfoPanelOpen(false)}

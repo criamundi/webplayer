@@ -159,6 +159,6 @@ export function MediaArrowRow({ title, children }: { title: string; children: Re
         <button type="button" onClick={() => scroll(1)} className="shelf-arrow" aria-label={`Avançar em ${title}`}><ChevronRight className="h-4 w-4" /></button>
       </div>
     </div>
-    <div ref={trackRef} className="media-arrow-track flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-2 py-3 scrollbar-none">{children}</div>
+    <div ref={trackRef} className="media-arrow-track media-poster-group flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-2 py-3 scrollbar-none">{children}</div>
   </div>;
 }
