@@ -223,7 +223,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   z-index:30;
   top:1.5rem;
   right:1.5rem;
-  bottom:8rem;
+  bottom:11.5rem;
   display:flex;
   width:min(520px,42vw);
   flex-direction:column;
@@ -247,7 +247,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
 @media (min-width:1024px) { .sidebar-shell { width:5rem; height:100vh; } .sidebar-shell:hover { width:17rem; } .sidebar-shell:not(:hover) .sidebar-label { display:none; } .sidebar-shell:not(:hover) .sidebar-item { justify-content:center; gap:0; padding:0; } .sidebar-shell:not(:hover) .sidebar-brand-logo { width:3rem; height:3rem; justify-content:center; } .sidebar-shell:not(:hover) .sidebar-brand-logo img { max-width:3rem; max-height:3rem; } }
 @media (min-width:1024px) { [data-series-catalog] aside { position:fixed!important; z-index:35; inset:0 auto 0 5rem; width:17rem; height:100vh; } [data-series-catalog] main { grid-column:2; } }
 @media (max-width:1023px) { .home-hero-image { opacity:.67; } }
-@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:8rem; width:min(22rem,calc(100vw - 2.5rem)); } }
+@media (max-width:1023px) { .hero-visual-panel-open { width:100%; } .hero-info-panel { top:5rem; bottom:11.5rem; width:min(22rem,calc(100vw - 2.5rem)); } }
 @media (max-width:767px) { .poster-card { min-width:calc((100% - 1rem)/2); flex-basis:calc((100% - 1rem)/2); } }
 @media (min-width:768px) and (max-width:1279px) { .poster-card { min-width:calc((100% - 3rem)/4); flex-basis:calc((100% - 3rem)/4); } }
 
@@ -568,7 +568,6 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   display:none !important;
 }
 
-
 /* Layout Simples: menu completo na própria Home */
 .home-simple-page {
   position:relative;
@@ -621,74 +620,8 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:1rem;
 }
-.home-simple-action {
-  position:relative;
-  display:flex;
-  min-height:9.5rem;
-  align-items:center;
-  gap:1.1rem;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:1.2rem;
-  background:rgba(11,24,31,.88);
-  padding:1.25rem 1.4rem;
-  color:#fff;
-  text-align:left;
-  box-shadow:0 18px 45px rgba(0,0,0,.3);
-  backdrop-filter:blur(14px);
-  transition:transform 180ms ease,border-color 180ms ease,background-color 180ms ease,box-shadow 180ms ease;
-}
-.home-simple-action:hover,
-.home-simple-action:focus-visible {
-  z-index:5;
-  transform:translateY(-4px) scale(1.025);
-  border-color:var(--brand-primary,#bef264);
-  background:rgba(15,35,38,.96);
-  box-shadow:0 20px 48px rgba(0,0,0,.38),0 0 0 2px rgb(var(--brand-primary-rgb,190 242 100) / .26);
-  outline:none;
-}
-.home-simple-action-icon {
-  display:flex;
-  width:4.8rem;
-  height:4.8rem;
-  flex:none;
-  align-items:center;
-  justify-content:center;
-  border:1px solid rgb(var(--brand-primary-rgb,190 242 100) / .3);
-  border-radius:1.1rem;
-  background:rgb(var(--brand-primary-rgb,190 242 100) / .1);
-  color:var(--brand-primary,#bef264);
-}
-.home-simple-action:hover .home-simple-action-icon,
-.home-simple-action:focus-visible .home-simple-action-icon {
-  background:var(--brand-primary,#bef264);
-  color:#071017;
-}
-.home-simple-action > strong {
-  min-width:0;
-  flex:1;
-  font-size:clamp(1.2rem,1.55vw,1.65rem);
-  font-weight:720;
-}
-.home-simple-action-arrow {
-  display:flex;
-  width:2.6rem;
-  height:2.6rem;
-  flex:none;
-  align-items:center;
-  justify-content:center;
-  border-radius:999px;
-  background:rgba(255,255,255,.06);
-  color:rgba(255,255,255,.4);
-}
-.home-simple-action:hover .home-simple-action-arrow,
-.home-simple-action:focus-visible .home-simple-action-arrow {
-  color:var(--brand-primary,#bef264);
-  transform:translateX(3px);
-}
-.home-simple-nav .home-simple-action:nth-child(4),
-.home-simple-nav .home-simple-action:nth-child(5) {
-  min-height:7.5rem;
+.home-shortcut-grid-simple .home-shortcut {
+  min-height:8.5rem;
 }
 @media (max-width:1100px) {
   .home-simple-nav {
@@ -705,8 +638,5 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   }
   .home-simple-nav {
     grid-template-columns:1fr;
-  }
-  .home-simple-action {
-    min-height:6.5rem;
   }
 }
