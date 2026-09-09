@@ -249,7 +249,7 @@ export function MoviesView({
         : <>
           {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">
-              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
+              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
             </MediaArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">

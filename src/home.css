@@ -443,9 +443,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   overscroll-behavior:contain;
 }
 
-.view-scroll-shell > :last-child {
-  padding-bottom:max(1rem, env(safe-area-inset-bottom));
-}
+
 [data-movie-catalog],
 [data-series-catalog] {
   scroll-padding-top:1rem;
@@ -482,12 +480,7 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   min-height:100%;
 }
 
-.home-page.view-scroll-shell,
-[data-movie-catalog],
-[data-series-catalog] {
-  padding-bottom:0;
-  scroll-padding-bottom:1rem;
-}
+
 .live-video-frame,
 .live-video-frame > div,
 .live-video-frame video {
@@ -915,4 +908,47 @@ section[class*="pb-16"][class*="pt-6"] .scrollbar-none::-webkit-scrollbar-thumb 
   display:none;
   width:0;
   height:0;
+}
+
+/* Catálogos TV: sem faixa escura inferior e sem scrollbar visível */
+[data-movie-catalog],
+[data-series-catalog],
+[data-movie-catalog] main,
+[data-series-catalog] main {
+  padding-bottom:0 !important;
+  margin-bottom:0 !important;
+}
+
+[data-movie-catalog],
+[data-series-catalog],
+.view-scroll-shell {
+  scrollbar-width:none !important;
+  -ms-overflow-style:none;
+}
+
+[data-movie-catalog]::-webkit-scrollbar,
+[data-series-catalog]::-webkit-scrollbar,
+.view-scroll-shell::-webkit-scrollbar {
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+}
+
+/* Trilhos horizontais de semelhantes sem barra visível */
+.scrollbar-none {
+  scrollbar-width:none !important;
+  -ms-overflow-style:none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+}
+
+/* Semelhantes usam o mesmo destaque dos demais cards */
+section .media-poster-focus.w-40 {
+  transition:
+    transform 220ms cubic-bezier(.22,1,.36,1),
+    opacity 220ms ease,
+    filter 220ms ease;
 }

@@ -52,7 +52,7 @@ export function FavoritesView({ favorites, onSelectChannel, onToggleFavorite, lo
     if (!track || !card) return;
     const gap = Number.parseFloat(getComputedStyle(track).gap) || 16;
     track.scrollBy({
-      left: direction * (card.offsetWidth + gap) * 2,
+      left: direction * (card.offsetWidth + gap),
       behavior: 'smooth',
     });
   };

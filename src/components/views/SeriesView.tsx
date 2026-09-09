@@ -241,7 +241,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
           </ArrowRow>
           {similarSeries.length > 0 && <div className="mt-10">
             <ArrowRow title="Séries semelhantes">
-              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
+              {similarSeries.map((show) => <button data-arrow-item key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} /><MediaRatingBadge value={show.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{show.name}</p></button>)}
             </ArrowRow>
           </div>}
           {castMembers.length > 0 && <div className="mt-10">
