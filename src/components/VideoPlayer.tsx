@@ -28,9 +28,11 @@ import {
 import type { Channel } from '@/types';
 import { resolvePlayableStreamUrl } from '@/lib/streamProxy';
 import { storage } from '@/lib/storage';
-import { isAppFullscreen, toggleAppFullscreen } from '@/lib/platform';
+import { isAppFullscreen, platform, toggleAppFullscreen } from '@/lib/platform';
+import { hasSamsungAVPlay } from '@/lib/samsungAvplay';
+import { SamsungAVPlayer } from '@/components/SamsungAVPlayer';
 
-interface VideoPlayerProps {
+export interface VideoPlayerProps {
   channel: Channel | null;
   startMuted?: boolean;
   immersive?: boolean;
@@ -56,7 +58,12 @@ function formatPlayerTime(value: number) {
   return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
 }
 
-export function VideoPlayer({
+export function VideoPlayer(props: VideoPlayerProps) {
+  if (platform.isSamsung && hasSamsungAVPlay()) return <SamsungAVPlayer {...props} />;
+  return <BrowserVideoPlayer {...props} />;
+}
+
+function BrowserVideoPlayer({
   channel,
   startMuted = false,
   immersive = false,

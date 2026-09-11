@@ -103,20 +103,6 @@ html.is-tv body {
   cursor: default;
 }
 
-html.is-tv button:focus-visible,
-html.is-tv a:focus-visible,
-html.is-tv input:focus-visible,
-html.is-tv select:focus-visible,
-html.is-tv textarea:focus-visible,
-html.is-tv [tabindex]:focus-visible,
-html.is-tv [data-tv-focus="true"]:focus-visible {
-  outline: 3px solid var(--brand-primary, #bef264);
-  outline-offset: 3px;
-  transform: scale(1.025);
-  transition: transform 120ms ease, outline-color 120ms ease;
-  z-index: 30;
-}
-
 .tv-pseudo-fullscreen {
   position: fixed !important;
   inset: 0 !important;

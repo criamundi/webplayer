@@ -1,28 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { getCachedSportsSettings, loadTodayMatches, type TodayMatch } from '@/lib/sports';
-import type { Channel } from '@/types';
 
 interface FootballWidgetProps {
   primaryColor: string;
   onClose: () => void;
-  onSelectChannel: (channel: Channel) => void;
 }
 
 const ROTATION_MS = 15_000;
 
 function teamInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
-}
-
-function readableText(color: string) {
-  const match = color.match(/^#([0-9a-f]{6})$/i);
-  if (!match) return '#061014';
-  const value = Number.parseInt(match[1], 16);
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return ((red * 299 + green * 587 + blue * 114) / 1000) > 145 ? '#061014' : '#ffffff';
 }
 
 function TeamLogo({ source, name, compact = false }: { source?: string; name: string; compact?: boolean }) {
@@ -66,7 +54,7 @@ function groupMatchesByCompetition(matches: TodayMatch[]) {
     );
 }
 
-export function FootballWidget({ primaryColor, onClose, onSelectChannel }: FootballWidgetProps) {
+export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [rotationKey, setRotationKey] = useState(0);

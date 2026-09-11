@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -33,9 +35,6 @@ import { useRecentlyWatched } from '@/lib/useRecentlyWatched';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { ProviderAccess } from '@/components/ProviderAccess';
 
-import { AdminShell } from '@/components/admin/AdminShell';
-import { AdminLogin } from '@/components/admin/AdminLogin';
-
 import {
   Sidebar,
   type View,
@@ -44,14 +43,17 @@ import {
 import { TopBar } from '@/components/layout/TopBar';
 
 import { HomeView } from '@/components/views/HomeView';
-import { LiveView } from '@/components/views/LiveView';
-import { MoviesView } from '@/components/views/MoviesView';
-import { SeriesView } from '@/components/views/SeriesView';
-import { FavoritesView } from '@/components/views/FavoritesView';
-import { SearchView } from '@/components/views/SearchView';
-import { SettingsView } from '@/components/views/SettingsView';
-import { ContinueWatchingView } from '@/components/views/ContinueWatchingView';
-import { PlaybackView } from '@/components/views/PlaybackView';
+
+const AdminShell = lazy(() => import('@/components/admin/AdminShell').then((module) => ({ default: module.AdminShell })));
+const AdminLogin = lazy(() => import('@/components/admin/AdminLogin').then((module) => ({ default: module.AdminLogin })));
+const LiveView = lazy(() => import('@/components/views/LiveView').then((module) => ({ default: module.LiveView })));
+const MoviesView = lazy(() => import('@/components/views/MoviesView').then((module) => ({ default: module.MoviesView })));
+const SeriesView = lazy(() => import('@/components/views/SeriesView').then((module) => ({ default: module.SeriesView })));
+const FavoritesView = lazy(() => import('@/components/views/FavoritesView').then((module) => ({ default: module.FavoritesView })));
+const SearchView = lazy(() => import('@/components/views/SearchView').then((module) => ({ default: module.SearchView })));
+const SettingsView = lazy(() => import('@/components/views/SettingsView').then((module) => ({ default: module.SettingsView })));
+const ContinueWatchingView = lazy(() => import('@/components/views/ContinueWatchingView').then((module) => ({ default: module.ContinueWatchingView })));
+const PlaybackView = lazy(() => import('@/components/views/PlaybackView').then((module) => ({ default: module.PlaybackView })));
 
 /*
 |--------------------------------------------------------------------------
@@ -145,6 +147,14 @@ const EMPTY_GROUPS: Record<
   other: [],
 };
 
+function ViewLoadingFallback() {
+  return (
+    <div className="flex h-full min-h-[18rem] items-center justify-center bg-[#091018]">
+      <div className="tv-route-loader" aria-label="Abrindo seção"><span /><span /><span /></div>
+    </div>
+  );
+}
+
 /*
 |--------------------------------------------------------------------------
 | VIEW -> CATEGORIA
@@ -212,10 +222,7 @@ export default function App() {
     ...EMPTY_GROUPS,
   });
 
-  const [
-    streamingDone,
-    setStreamingDone,
-  ] = useState(true);
+  const [, setStreamingDone] = useState(true);
 
   const [
     activeChannel,
@@ -1775,7 +1782,7 @@ export default function App() {
   if (
     showAdmin
   ) {
-    return adminAuthed ? (
+    return <Suspense fallback={<ViewLoadingFallback />}>{adminAuthed ? (
       <AdminShell
         onExit={
           handleAdminExit
@@ -1795,7 +1802,7 @@ export default function App() {
           handleAdminExit
         }
       />
-    );
+    )}</Suspense>;
   }
 
   /*
@@ -2018,7 +2025,7 @@ export default function App() {
       '--brand-secondary': branding.secondary_color || '#091018',
     } as React.CSSProperties}>
 
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
+      <div className="app-background-atmosphere fixed inset-0 -z-10 bg-[radial-gradient(circle_at_35%_0%,rgba(46,72,86,.32),transparent_38%),radial-gradient(circle_at_90%_80%,rgba(61,104,85,.16),transparent_30%)]" />
 
       <div className="flex min-h-screen w-full">
 
@@ -2060,6 +2067,7 @@ export default function App() {
             home={false}
           />}
 
+          <Suspense fallback={<ViewLoadingFallback />}>
           {view ===
             'home' && (
             <HomeView
@@ -2237,6 +2245,7 @@ export default function App() {
             'settings' && (
             <SettingsView onSignOut={handleSignOut} />
           )}
+          </Suspense>
 
         </main>
 

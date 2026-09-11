@@ -14,6 +14,7 @@ declare global {
       appcommon?: {
         getUuid?: () => string;
       };
+      avplay?: unknown;
     };
   }
 }
@@ -28,7 +29,7 @@ export interface TvDeviceIdentity {
   name: string;
 }
 
-const APP_VERSION = '0.7.34';
+const APP_VERSION = '0.8.0';
 let lastRegistrationAt = 0;
 
 function safeRead(reader?: () => string) {

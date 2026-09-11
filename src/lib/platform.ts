@@ -80,18 +80,36 @@ function isElementVisible(element: HTMLElement) {
   return rect.width > 1 && rect.height > 1 && style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity || '1') > 0.02;
 }
 
-function focusableElements(): HTMLElement[] {
-  const selector = [
-    'button:not([disabled])',
-    'a[href]',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    '[tabindex]:not([tabindex="-1"])',
-    '[data-tv-focus="true"]',
-  ].join(',');
+const FOCUS_SELECTOR = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+  '[data-tv-focus="true"]',
+].join(',');
 
-  return Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(isElementVisible);
+type Direction = 'up' | 'down' | 'left' | 'right';
+interface FocusEntry { element: HTMLElement; rect: DOMRect; }
+
+let focusSnapshot: FocusEntry[] = [];
+let focusSnapshotDirty = true;
+let markedFocus: HTMLElement | null = null;
+let lastRepeatMoveAt = 0;
+
+export function invalidateTVFocusMap() {
+  focusSnapshotDirty = true;
+}
+
+function focusableElements(): FocusEntry[] {
+  if (!focusSnapshotDirty) return focusSnapshot;
+
+  focusSnapshot = Array.from(document.querySelectorAll<HTMLElement>(FOCUS_SELECTOR))
+    .filter(isElementVisible)
+    .map((element) => ({ element, rect: element.getBoundingClientRect() }));
+  focusSnapshotDirty = false;
+  return focusSnapshot;
 }
 
 function centerOf(rect: DOMRect) {
@@ -107,17 +125,56 @@ function overlapRatio(aStart: number, aEnd: number, bStart: number, bEnd: number
   return overlap / base;
 }
 
-function spatialCandidate(current: HTMLElement, direction: 'up' | 'down' | 'left' | 'right') {
+function scopedCandidate(current: HTMLElement, direction: Direction) {
+  const scope = current.closest<HTMLElement>('[data-tv-axis],[data-tv-grid-columns]');
+  if (!scope) return null;
+
+  const items = Array.from(scope.querySelectorAll<HTMLElement>(FOCUS_SELECTOR)).filter((item) => {
+    if (item.closest('[data-tv-axis],[data-tv-grid-columns]') !== scope) return false;
+    return item.getAttribute('aria-hidden') !== 'true' && !item.hasAttribute('disabled');
+  });
+  const currentIndex = items.indexOf(current);
+  if (currentIndex < 0) return null;
+
+  const axis = scope.dataset.tvAxis;
+  if (axis === 'horizontal' && (direction === 'left' || direction === 'right')) {
+    return items[currentIndex + (direction === 'right' ? 1 : -1)] ?? null;
+  }
+  if (axis === 'vertical' && (direction === 'up' || direction === 'down')) {
+    return items[currentIndex + (direction === 'down' ? 1 : -1)] ?? null;
+  }
+
+  const columns = Number.parseInt(scope.dataset.tvGridColumns || '', 10);
+  if (columns > 0) {
+    const row = Math.floor(currentIndex / columns);
+    const nextIndex = direction === 'left'
+      ? currentIndex - 1
+      : direction === 'right'
+        ? currentIndex + 1
+        : direction === 'up'
+          ? currentIndex - columns
+          : currentIndex + columns;
+
+    if (nextIndex < 0 || nextIndex >= items.length) return null;
+    if (direction === 'left' || direction === 'right') {
+      if (Math.floor(nextIndex / columns) !== row) return null;
+    }
+    return items[nextIndex] ?? null;
+  }
+
+  return null;
+}
+
+function spatialCandidate(current: HTMLElement, direction: Direction) {
   const currentRect = current.getBoundingClientRect();
   const currentCenter = centerOf(currentRect);
   const horizontal = direction === 'left' || direction === 'right';
 
   let best: { element: HTMLElement; score: number } | null = null;
 
-  for (const element of focusableElements()) {
+  for (const entry of focusableElements()) {
+    const { element, rect } = entry;
     if (element === current) continue;
-
-    const rect = element.getBoundingClientRect();
     const center = centerOf(rect);
     const dx = center.x - currentCenter.x;
     const dy = center.y - currentCenter.y;
@@ -165,13 +222,14 @@ function preferredFocusTarget() {
     if (target) return target;
   }
 
-  return focusableElements()[0] ?? null;
+  return focusableElements()[0]?.element ?? null;
 }
 
 export function focusFirstInteractive(force = false) {
   const current = document.activeElement;
   if (!force && current instanceof HTMLElement && current !== document.body && isElementVisible(current)) return;
 
+  if (force) invalidateTVFocusMap();
   const target = preferredFocusTarget();
   if (!target) return;
   target.focus({ preventScroll: true });
@@ -179,10 +237,9 @@ export function focusFirstInteractive(force = false) {
 }
 
 function markFocusedElement(element: HTMLElement | null) {
-  document.querySelectorAll<HTMLElement>('[data-tv-focused="true"]').forEach((item) => {
-    if (item !== element) item.removeAttribute('data-tv-focused');
-  });
+  if (markedFocus && markedFocus !== element) markedFocus.removeAttribute('data-tv-focused');
   if (element) element.setAttribute('data-tv-focused', 'true');
+  markedFocus = element;
 }
 
 export function installTVRuntime() {
@@ -243,12 +300,22 @@ export function installTVRuntime() {
     if (!direction) {
       if ((event.key === 'Enter' || keyCode === 13) && document.activeElement instanceof HTMLElement) {
         const active = document.activeElement;
-        if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) {
+        const nativeInteractive = ['BUTTON', 'A', 'INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+        if (!nativeInteractive && active.getAttribute('role') === 'button') {
           event.preventDefault();
           active.click();
         }
       }
       return;
+    }
+
+    if (event.repeat) {
+      const now = performance.now();
+      if (now - lastRepeatMoveAt < 65) {
+        event.preventDefault();
+        return;
+      }
+      lastRepeatMoveAt = now;
     }
 
     const active = document.activeElement;
@@ -258,30 +325,41 @@ export function installTVRuntime() {
       return;
     }
 
-    const target = spatialCandidate(active, direction);
+    const explicitSelector = active.dataset[`tv${direction[0].toUpperCase()}${direction.slice(1)}` as keyof DOMStringMap];
+    const explicitTarget = explicitSelector
+      ? document.querySelector<HTMLElement>(explicitSelector)
+      : null;
+    const target = explicitTarget || scopedCandidate(active, direction) || spatialCandidate(active, direction);
     if (!target) return;
 
     event.preventDefault();
     target.focus({ preventScroll: true });
     target.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+    invalidateTVFocusMap();
   };
 
+  const onLayoutShift = () => invalidateTVFocusMap();
+
+  // O mapa fica sujo quando a tela muda, mas a leitura do DOM só ocorre na
+  // próxima tecla. A versão anterior media a tela inteira repetidamente.
   const observer = platform.isTV
-    ? new MutationObserver(() => {
-        window.setTimeout(() => {
-          const active = document.activeElement;
-          if (!(active instanceof HTMLElement) || !isElementVisible(active)) focusFirstInteractive(true);
-        }, 60);
-      })
+    ? new MutationObserver(invalidateTVFocusMap)
     : null;
 
-  window.addEventListener('keydown', onKeyDown, true);
+  // Componentes especializados (player, canais e grids) recebem a tecla
+  // primeiro. O motor global só completa a navegação quando ela não foi
+  // tratada localmente.
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('resize', onLayoutShift, { passive: true });
+  document.addEventListener('scroll', onLayoutShift, { capture: true, passive: true });
   document.addEventListener('focusin', onFocusIn, true);
-  observer?.observe(document.body, { childList: true, subtree: true });
+  observer?.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
   window.setTimeout(() => focusFirstInteractive(true), 350);
 
   return () => {
-    window.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('resize', onLayoutShift);
+    document.removeEventListener('scroll', onLayoutShift, true);
     document.removeEventListener('focusin', onFocusIn, true);
     observer?.disconnect();
   };

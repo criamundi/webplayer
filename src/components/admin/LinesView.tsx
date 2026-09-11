@@ -352,7 +352,8 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
       result.error &&
       /renewal_url/i.test(result.error.message || '')
     ) {
-      const { renewal_url: _ignored, ...legacyPayload } = payload;
+      const legacyPayload: Partial<typeof payload> = { ...payload };
+      delete legacyPayload.renewal_url;
       result = line
         ? await supabase.from('iptv_lines').update(legacyPayload).eq('id', line.id)
         : await supabase.from('iptv_lines').insert(legacyPayload);
