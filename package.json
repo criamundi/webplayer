@@ -1,7 +1,7 @@
 {
   "name": "top-tv-digital",
   "private": true,
-  "version": "0.7.28",
+  "version": "0.7.31",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "build:web": "vite build",
-    "build:tizen": "vite build --mode tizen",
+    "build:tizen": "node scripts/check-tizen-env.mjs && vite build --mode tizen && node scripts/prepare-tizen-build.mjs",
     "build:webos": "vite build --mode webos"
   },
   "dependencies": {
@@ -35,6 +35,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "@vitejs/plugin-legacy": "5.4.3"
   }
 }
