@@ -11,7 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { storage } from '@/lib/storage';
 
 import { loadLinePlaylistStreaming, validateLineAccess } from '@/lib/provider';
-import { enterAppFullscreen, exitAppFullscreen } from '@/lib/platform';
+import { enterAppFullscreen, exitAppFullscreen, focusFirstInteractive, platform } from '@/lib/platform';
+import { registerCurrentTvDevice } from '@/lib/tvDevice';
 
 import type {
   PlaylistCategory,
@@ -375,7 +376,37 @@ export default function App() {
   useEffect(() => {
     viewRef.current =
       view;
+
+    if (platform.isTV && phaseRef.current === 'ready') {
+      window.setTimeout(() => focusFirstInteractive(true), 120);
+    }
   }, [view]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | IDENTIFICAÇÃO AUTOMÁTICA DA TV
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (phase !== 'ready' || !platform.isTV) return;
+
+    let active = true;
+    const sync = () => {
+      void registerCurrentTvDevice().catch((error) => {
+        if (active) console.warn('Não foi possível registrar esta TV no admin:', error);
+      });
+    };
+
+    const firstSync = window.setTimeout(sync, 900);
+    const heartbeat = window.setInterval(sync, 10 * 60_000);
+
+    return () => {
+      active = false;
+      window.clearTimeout(firstSync);
+      window.clearInterval(heartbeat);
+    };
+  }, [phase]);
 
   /*
 |--------------------------------------------------------------------------

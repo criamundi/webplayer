@@ -25,11 +25,13 @@ interface Line {
 
 interface Provider { id: string; name: string; server_url: string | null; }
 interface DnsEntry { id: string; name: string; host: string; provider_id: string | null; }
+interface TvDevice { id: string; line_id: string; name: string; device_key: string; platform: string; model: string | null; model_code: string | null; app_version: string | null; status: string; last_seen_at: string | null; }
 
 export function LinesView() {
   const [lines, setLines] = useState<Line[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [dnsList, setDnsList] = useState<DnsEntry[]>([]);
+  const [tvDevices, setTvDevices] = useState<TvDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -63,19 +65,22 @@ export function LinesView() {
     setCurrentProviderId(ownProviderId);
     setIsSuperAdmin(superAdmin);
 
-    const [{ data: lineData, error: lineError }, { data: provData, error: providerError }, { data: dnsData, error: dnsError }] = await Promise.all([
+    const [{ data: lineData, error: lineError }, { data: provData, error: providerError }, { data: dnsData, error: dnsError }, { data: tvDeviceData, error: tvDeviceError }] = await Promise.all([
       supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, renewal_url, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
       supabase.from('iptv_providers').select('id, name, server_url').order('name'),
       supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
+      supabase.from('iptv_devices').select('id, line_id, name, device_key, platform, model, model_code, app_version, status, last_seen_at').order('last_seen_at', { ascending: false }),
     ]);
 
     if (lineError) console.error('Erro ao carregar dispositivos:', lineError);
     if (providerError) console.error('Erro ao carregar provedores:', providerError);
     if (dnsError) console.error('Erro ao carregar DNS:', dnsError);
+    if (tvDeviceError) console.warn('Registro de TVs ainda não disponível:', tvDeviceError.message);
 
     setLines((lineData || []) as unknown as Line[]);
     setProviders(provData || []);
     setDnsList((dnsData || []) as DnsEntry[]);
+    setTvDevices((tvDeviceData || []) as TvDevice[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -214,6 +219,28 @@ export function LinesView() {
                     <button onClick={() => copyToClipboard(m3uLink)} title="Copiar link" className="shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white">
                       <Copy className="h-3.5 w-3.5" />
                     </button>
+                  </div>
+                )}
+                {tvDevices.some((device) => device.line_id === line.id) && (
+                  <div className="mt-3 rounded-xl border border-emerald-300/10 bg-emerald-300/[.035] px-3 py-2.5">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-200/65">TVs com o app instalado</span>
+                      <span className="text-[10px] text-white/35">{tvDevices.filter((device) => device.line_id === line.id).length}</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {tvDevices.filter((device) => device.line_id === line.id).map((device) => (
+                        <div key={device.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-black/20 px-2.5 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[11px] font-semibold text-white/80">{device.name}</p>
+                            <p className="truncate font-mono text-[10px] text-white/38">DUID: {device.device_key}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-medium uppercase text-white/45">{device.platform}{device.app_version ? ` · v${device.app_version}` : ''}</p>
+                            <p className="text-[9px] text-white/30">{device.last_seen_at ? `Visto ${new Date(device.last_seen_at).toLocaleString('pt-BR')}` : 'Sem atividade'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {dnsList.length > 0 && (

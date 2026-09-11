@@ -1,0 +1,194 @@
+/* =====================================================================
+   TOP TV DIGITAL — SAMSUNG / TV UX FOUNDATION 0.7.34
+   A camada Web/Bolt permanece intacta. Tudo abaixo só atua em TV.
+   ===================================================================== */
+
+html.is-tv {
+  font-size: 18px;
+  background: #091018;
+}
+
+html.is-tv,
+html.is-tv body,
+html.is-tv #root {
+  width: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+html.is-tv body {
+  background: #091018;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* Tipografia para leitura a distância. */
+html.is-tv .app-font-scale {
+  --tv-font-boost: 1.18;
+}
+
+html.is-tv .app-font-scale .text-xs { font-size: calc(.75rem * var(--app-font-scale, 1) * var(--tv-font-boost)); }
+html.is-tv .app-font-scale .text-sm { font-size: calc(.875rem * var(--app-font-scale, 1) * var(--tv-font-boost)); }
+html.is-tv .app-font-scale .text-base { font-size: calc(1rem * var(--app-font-scale, 1) * var(--tv-font-boost)); }
+html.is-tv .app-font-scale .text-lg { font-size: calc(1.125rem * var(--app-font-scale, 1) * 1.12); }
+html.is-tv .app-font-scale .text-xl { font-size: calc(1.25rem * var(--app-font-scale, 1) * 1.10); }
+html.is-tv .app-font-scale .text-2xl { font-size: calc(1.5rem * var(--app-font-scale, 1) * 1.08); }
+html.is-tv .app-font-scale .text-3xl { font-size: calc(1.875rem * var(--app-font-scale, 1) * 1.06); }
+
+/* Foco tipo streaming/Netflix: inequívoco e independente de hover. */
+html.is-tv button,
+html.is-tv a,
+html.is-tv [tabindex]:not([tabindex="-1"]),
+html.is-tv [data-tv-focus="true"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.is-tv button:focus,
+html.is-tv a:focus,
+html.is-tv [tabindex]:focus,
+html.is-tv [data-tv-focused="true"] {
+  outline: 4px solid var(--brand-primary, #bef264) !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.86), 0 0 0 7px rgb(var(--brand-primary-rgb, 190 242 100) / .30), 0 12px 30px rgba(0,0,0,.48) !important;
+  transform: scale(1.065) !important;
+  transform-origin: center center;
+  z-index: 80 !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html.is-tv .media-poster-focus:focus,
+html.is-tv .poster-card:focus,
+html.is-tv .home-simple-feature-card:focus {
+  transform: scale(1.085) !important;
+}
+
+html.is-tv .media-poster-group:focus-within .media-poster-focus:not(:focus),
+html.is-tv .poster-track:focus-within .poster-card:not(:focus) {
+  opacity: .58;
+}
+
+/* A TV não depende de backdrop-filter nem de efeitos caros/inconsistentes. */
+html.is-tv .backdrop-blur-md,
+html.is-tv .backdrop-blur-sm,
+html.is-tv .backdrop-blur-xl,
+html.is-tv [class*="backdrop-blur"],
+html.is-tv .sidebar-shell,
+html.is-tv .home-shortcut,
+html.is-tv .subscription-card,
+html.is-tv .home-simple-clock {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.is-tv .app-main {
+  padding-left: 2.2rem !important;
+  padding-right: 2.2rem !important;
+}
+
+/* Menu lateral estilo TV: compacto, expande quando o foco entra. */
+@media (min-width: 900px) {
+  html.is-tv .sidebar-shell {
+    width: 5.5rem !important;
+    background: #071015 !important;
+    transition: width 120ms linear !important;
+  }
+
+  html.is-tv .sidebar-shell:hover { width: 5.5rem !important; }
+  html.is-tv .sidebar-shell:focus-within { width: 17rem !important; }
+  html.is-tv .sidebar-shell .sidebar-label { display: none !important; }
+  html.is-tv .sidebar-shell:focus-within .sidebar-label { display: block !important; }
+  html.is-tv .sidebar-shell .sidebar-item { justify-content: center; min-height: 3.65rem; gap: 0; padding: 0 .8rem; }
+  html.is-tv .sidebar-shell:focus-within .sidebar-item { justify-content: flex-start; gap: .9rem; padding: 0 .9rem; }
+  html.is-tv .sidebar-shell .sidebar-brand-logo { width: 3.25rem; height: 3.25rem; justify-content: center; }
+  html.is-tv .sidebar-shell:focus-within .sidebar-brand-logo { width: 11rem; justify-content: flex-start; }
+  html.is-tv .sidebar-item:focus { background: var(--brand-primary, #bef264) !important; color: #071017 !important; }
+}
+
+/* Home: hierarquia mais limpa para 10-foot UI. */
+html.is-tv .home-hero {
+  min-height: 32rem;
+  background: #091018 !important;
+}
+
+html.is-tv .home-hero-shade {
+  background: linear-gradient(90deg, #091018 0%, rgba(9,16,24,.91) 31%, rgba(9,16,24,.24) 66%, rgba(9,16,24,.40) 100%),
+              linear-gradient(0deg, #091018 0%, rgba(9,16,24,.82) 13%, transparent 46%) !important;
+}
+
+html.is-tv .home-hero p,
+html.is-tv .home-hero span {
+  line-height: 1.45;
+}
+
+html.is-tv .home-hero button {
+  min-height: 3.55rem;
+  padding-inline: 1.35rem;
+  font-size: 1rem !important;
+}
+
+html.is-tv .home-shortcut {
+  min-height: 7.4rem;
+  border-radius: 1rem;
+  background: #101b22 !important;
+  box-shadow: none;
+}
+
+html.is-tv .home-shortcut-title {
+  font-size: 1.35rem;
+}
+
+html.is-tv .poster-track,
+html.is-tv .media-arrow-track,
+html.is-tv .favorites-slider,
+html.is-tv .series-scroll {
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+  overflow-y: visible !important;
+  padding-top: .75rem;
+  padding-bottom: .9rem;
+}
+
+html.is-tv .poster-card,
+html.is-tv .media-poster-focus {
+  transition: transform 90ms linear, opacity 90ms linear !important;
+}
+
+/* Ao vivo: linhas e texto maiores para controle remoto. */
+html.is-tv .live-channel-main { min-height: 4.75rem; }
+html.is-tv .live-channel-main strong { font-size: 1rem; }
+html.is-tv .live-channel-main small { font-size: .78rem; }
+html.is-tv .live-channel-row { background: #0e1920; }
+html.is-tv .live-channel-main:focus { background: rgb(var(--brand-primary-rgb,190 242 100) / .13); }
+html.is-tv .live-video-frame { height: min(58vh, 36rem); }
+
+/* Widget esportivo: sem superfícies translúcidas que ficam brancas no Tizen. */
+html.is-tv .sports-featured-card,
+html.is-tv .sports-matches-list > div > section > div,
+html.is-tv .sports-matches-list [class*="bg-white"] {
+  background-color: #111c24 !important;
+}
+
+html.is-tv .sports-widget-scroll { background: #0a1218; }
+html.is-tv .sports-widget-scroll button { min-height: 3rem; }
+
+/* Evita scrollbar e animações custosas. */
+html.is-tv *,
+html.is-tv *::before,
+html.is-tv *::after {
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+html.is-tv .sports-rotation-progress {
+  animation-duration: 15000ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+html.is-tv ::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}

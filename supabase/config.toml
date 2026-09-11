@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.sports-feed]
 verify_jwt = false
+
+[functions.register-tv-device]
+verify_jwt = false

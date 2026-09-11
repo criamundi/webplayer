@@ -38,3 +38,21 @@ cd dist
 ```
 
 Se houver erro JavaScript em runtime, esta versão mostra uma mensagem legível na própria TV em vez de ficar apenas preta.
+
+## 0.7.34 — UX Samsung e identificação automática
+
+Depois de atualizar para 0.7.34:
+
+1. Aplique `supabase/migrations/20260910223000_tv_device_installations.sql`.
+2. Faça deploy da Edge Function `register-tv-device`.
+3. Rode `npm install` e `npm run build:tizen`.
+4. Empacote/instale o `.wgt` como nos testes anteriores.
+
+Ao abrir a lista com sucesso, a Samsung envia automaticamente ao Admin:
+- DUID oficial da TV;
+- modelo/model code;
+- firmware quando disponível;
+- versão do app;
+- último acesso.
+
+A versão Web/Bolt não usa APIs Samsung e mantém o visual normal.

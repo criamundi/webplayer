@@ -4,6 +4,7 @@ import { installTVRuntime } from './lib/platform';
 import { supabaseConfigError, supabaseConfigReady } from './lib/supabase';
 import './index.css';
 import './home.css';
+import './tv.css';
 
 installTVRuntime();
 

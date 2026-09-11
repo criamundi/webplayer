@@ -9,6 +9,12 @@ const configPath = resolve(distDir, 'config.xml');
 
 let html = await readFile(indexPath, 'utf8');
 
+// Samsung Product API: necessário para ler DUID/modelo da TV e registrar
+// automaticamente a instalação no painel administrativo.
+if (!html.includes('$WEBAPIS/webapis/webapis.js')) {
+  html = html.replace(/<head>/i, '<head>\n<script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>');
+}
+
 // Samsung Tizen 6.0 packaged apps run from file://. Keep only Vite's
 // SystemJS/legacy entry, because ES module scripts can be rejected by the TV
 // even when the JavaScript engine supports much of the modern syntax.
@@ -46,4 +52,4 @@ if (!/\.\/assets\//i.test(html)) throw new Error('Tizen preparation failed: rela
 await writeFile(indexPath, html, 'utf8');
 await copyFile(configTemplatePath, configPath);
 
-console.log('Tizen build prepared successfully: legacy-only HTML + classic worker + diagnostics + relative assets + config.xml.');
+console.log('Tizen build prepared successfully: legacy-only HTML + classic worker + Samsung ProductInfo + diagnostics + relative assets + config.xml.');
