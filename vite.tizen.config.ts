@@ -16,9 +16,16 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+    alias: [
+      {
+        find: '@/lib/m3uWorker',
+        replacement: fileURLToPath(new URL('./src/lib/m3uWorker.tizen.ts', import.meta.url)),
+      },
+      {
+        find: '@',
+        replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    ],
   },
   optimizeDeps: {
     exclude: ['lucide-react'],

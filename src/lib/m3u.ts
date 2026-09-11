@@ -1,4 +1,5 @@
 import type { Channel, ParsedPlaylist } from '@/types';
+import { createM3UWorker } from '@/lib/m3uWorker';
 
 export type PlaylistCategory = 'live' | 'movies' | 'series' | 'radio' | 'other';
 
@@ -51,9 +52,7 @@ export async function streamM3UResponse(
 
   if (signal?.aborted) throw abortError();
 
-  const worker = import.meta.env.VITE_APP_PLATFORM === 'tizen'
-    ? new Worker(new URL('./m3u.worker.ts', import.meta.url))
-    : new Worker(new URL('./m3u.worker.ts', import.meta.url), { type: 'module' });
+  const worker = createM3UWorker();
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
 
