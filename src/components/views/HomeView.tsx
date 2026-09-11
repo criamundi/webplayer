@@ -10,6 +10,7 @@ import { loadSportsWidgetSettings } from '@/lib/sportsSettings';
 import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
 import { mediaDuration, mediaImageValue, mediaText } from '@/components/media/mediaUtils';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
+import { platform } from '@/lib/platform';
 
 interface HomeViewProps {
   favorites: Set<string>;
@@ -19,7 +20,7 @@ interface HomeViewProps {
   onSelectSeries: (seriesId: string) => void;
   branding: { primaryColor: string; secondaryColor: string; homeLayout?: 'complete' | 'simple'; appName?: string; logoUrl?: string | null; backgroundUrl?: string | null };
 }
-interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; }
+interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; onPreview?: (channel: CatalogItem) => void; }
 
 function PosterImage({ channel, priority = false }: { channel: CatalogItem; priority?: boolean }) {
   const [source, setSource] = useState(channel.logo || '');
@@ -57,7 +58,7 @@ function PosterImage({ channel, priority = false }: { channel: CatalogItem; prio
   </>;
 }
 
-function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
+function PosterShelf({ title, items, onViewAll, onSelect, onPreview }: PosterShelfProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const scroll = (direction: -1 | 1) => {
     const track = trackRef.current;
@@ -78,9 +79,9 @@ function PosterShelf({ title, items, onViewAll, onSelect }: PosterShelfProps) {
         </div>
       </div>
       <div className="relative">
-        <div ref={trackRef} className="media-poster-group poster-track scrollbar-none">
+        <div ref={trackRef} data-tv-axis="horizontal" className="media-poster-group poster-track scrollbar-none">
           {items.map((channel, index) => (
-            <button key={channel.id} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group text-left">
+            <button key={channel.id} data-tv-focus="true" onFocus={() => onPreview?.(channel)} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group text-left">
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]">
                 <PosterImage channel={channel} priority={index < 5} />
                 {validRating(channel.rating) && <span className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
@@ -111,7 +112,7 @@ function HomeTVNavigation({
 
   if (!simple) {
     return (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div data-tv-grid-columns="3" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {mainItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -138,7 +139,7 @@ function HomeTVNavigation({
 
   return (
     <div className="home-simple-nav-shell">
-      <div className="home-simple-featured">
+      <div data-tv-grid-columns="3" className="home-simple-featured">
         {mainItems.map(({ id, label, icon: Icon }, index) => (
           <button
             key={id}
@@ -160,7 +161,7 @@ function HomeTVNavigation({
         ))}
       </div>
 
-      <div className="home-simple-secondary">
+      <div data-tv-axis="horizontal" className="home-simple-secondary">
         {secondaryItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -326,7 +327,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [heroPool, setHeroPool] = useState<CatalogItem[]>([]);
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
-  const [infoPanelOpen, setInfoPanelOpen] = useState(true);
+  const [infoPanelOpen, setInfoPanelOpen] = useState(() => !platform.isTV);
   const [sportsWidgetEnabled, setSportsWidgetEnabled] = useState(true);
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [renewalChecking, setRenewalChecking] = useState(false);
@@ -342,6 +343,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const heroLogoRetryRef = useRef(new Set<string>());
 
   const heroItem = heroPool[heroIndex] ?? null;
+
+  const previewHeroItem = useCallback((item: CatalogItem) => {
+    if (!platform.isTV) return;
+    const nextIndex = heroPool.findIndex((candidate) => candidate.id === item.id);
+    if (nextIndex < 0 || nextIndex === heroIndexRef.current) return;
+    heroIndexRef.current = nextIndex;
+    setHeroIndex(nextIndex);
+  }, [heroPool]);
 
   useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
   useEffect(() => { heroIndexRef.current = heroIndex; }, [heroIndex]);
@@ -629,15 +638,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
           <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
           {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? (heroItem?.contentType === 'series' ? 'Criação e direção:' : 'Direção:') : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
-          {heroItem && <div className="mt-6 flex flex-wrap gap-3"><button data-tv-autofocus="true" data-tv-priority="primary" onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
+          {heroItem && <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3"><button data-tv-autofocus="true" data-tv-priority="primary" onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
         </div>
         </div>
-        {sportsWidgetEnabled && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
+        {sportsWidgetEnabled && (!platform.isTV || infoPanelOpen) && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
           {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-b border-white/8 p-4"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
           <FootballWidget
             primaryColor={branding.primaryColor}
             onClose={() => setInfoPanelOpen(false)}
-            onSelectChannel={onSelectChannel}
           />
         </aside>}
       </section>
@@ -645,8 +653,8 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       <div className="home-complete-nav-band relative z-20 px-5 sm:px-8 lg:px-12">
         <HomeTVNavigation onNavigate={onNavigate} />
         <div className="space-y-12 pb-16 pt-10">
-          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} />
-          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} />
+          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} onPreview={previewHeroItem} />
+          <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} onPreview={previewHeroItem} />
         </div>
       </div>
       {trailerOpen && trailerSource && <TrailerPlayer source={trailerSource} title={heroInfo?.name || heroItem?.name || 'Trailer'} onClose={() => setTrailerOpen(false)} />}

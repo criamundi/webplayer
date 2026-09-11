@@ -14,6 +14,7 @@ import {
   MediaSynopsis,
 } from '@/components/media/MediaDetailsUI';
 import { formatMediaDate as formatDate, mediaCastList as castList, mediaImageValue as imageValue, mediaRating, mediaText as text } from '@/components/media/mediaUtils';
+import { platform } from '@/lib/platform';
 
 interface SeriesViewProps {
   channels: Channel[];
@@ -26,6 +27,7 @@ interface SeriesViewProps {
 }
 
 const LATEST = 'recent';
+const TV_PAGE_SIZE = 20;
 
 export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resumeSeriesId, onResumeHandled }: SeriesViewProps) {
   const [categories, setCategories] = useState<SeriesCategory[]>([]);
@@ -41,6 +43,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
   const [seasonThumbs, setSeasonThumbs] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(() => storage.getWatchProgress());
   const [visibleCount, setVisibleCount] = useState(40);
+  const [tvPage, setTvPage] = useState(0);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const detailRequestRef = useRef(0);
   const pageScrollRef = useRef<HTMLDivElement | null>(null);
@@ -70,14 +73,19 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     return value ? base.filter((show) => show.name.toLocaleLowerCase('pt-BR').includes(value)) : base;
   }, [activeCategory, query, shows]);
 
-  const visibleShows = categoryShows.slice(0, visibleCount);
+  const tvPageCount = Math.max(1, Math.ceil(categoryShows.length / TV_PAGE_SIZE));
+  const visibleShows = platform.isTV
+    ? categoryShows.slice(tvPage * TV_PAGE_SIZE, (tvPage + 1) * TV_PAGE_SIZE)
+    : categoryShows.slice(0, visibleCount);
 
   useEffect(() => {
     setVisibleCount(40);
+    setTvPage(0);
     pageScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeCategory, query]);
 
   useEffect(() => {
+    if (platform.isTV) return;
     if (selected || visibleCount >= categoryShows.length) return;
 
     const scroller = pageScrollRef.current;
@@ -161,7 +169,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
     <div className="grid min-h-screen lg:grid-cols-[17rem_1fr]">
       <aside className="border-b border-white/[0.035] bg-[#0b141b] p-4 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:border-b-0 lg:border-r lg:p-5">
         <div className="relative mb-3"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar" className="w-full rounded-xl bg-white/[0.055] py-3 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/30" /></div>
-        <div className="flex gap-2 overflow-x-auto scrollbar-none lg:max-h-[calc(100vh-7rem)] lg:flex-col lg:overflow-y-auto">
+        <div data-tv-axis="vertical" className="flex gap-2 overflow-x-auto scrollbar-none lg:max-h-[calc(100vh-7rem)] lg:flex-col lg:overflow-y-auto">
           <button onClick={() => setActiveCategory(LATEST)} className={`shrink-0 rounded-xl px-4 py-3 text-left text-sm transition ${activeCategory === LATEST ? 'bg-emerald-400 text-slate-950' : 'bg-white/[0.035] text-white/55 hover:bg-white/[0.07]'}`}>Últimos adicionados</button>
           {categories.map((category) => <button key={category.id} onClick={() => setActiveCategory(category.id)} className={`shrink-0 rounded-xl px-4 py-3 text-left text-sm transition ${activeCategory === category.id ? 'bg-emerald-400 text-slate-950' : 'bg-white/[0.035] text-white/55 hover:bg-white/[0.07]'}`}>{category.name}</button>)}
         </div>
@@ -170,8 +178,9 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         <div className="mb-6"><div><p className="text-[10px] uppercase tracking-[.05em] text-emerald-400">Séries</p><h1 className="mt-1 text-2xl font-semibold">{activeCategory === LATEST ? 'Últimos adicionados' : categories.find((item) => item.id === activeCategory)?.name}</h1></div></div>
         {loading
           ? <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
-          : <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show, index) => <button key={show.id} onClick={() => void selectShow(show)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} priority={index < 12} /><MediaRatingBadge value={show.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{show.name}</p></div></button>)}</div>}
-        {visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais séries</div>}
+          : <div data-tv-grid-columns="5" className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleShows.map((show, index) => <button key={show.id} data-tv-focus="true" onClick={() => void selectShow(show)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><SeriesCover logo={show.logo} name={show.name} priority={index < 12} /><MediaRatingBadge value={show.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{show.name}</p></div></button>)}</div>}
+        {platform.isTV && !loading && tvPageCount > 1 && <div data-tv-axis="horizontal" className="tv-catalog-pagination"><button type="button" disabled={tvPage === 0} onClick={() => { setTvPage((page) => Math.max(0, page - 1)); pageScrollRef.current?.scrollTo({ top: 0 }); }}>Anterior</button><span>{tvPage + 1} / {tvPageCount}</span><button type="button" disabled={tvPage + 1 >= tvPageCount} onClick={() => { setTvPage((page) => Math.min(tvPageCount - 1, page + 1)); pageScrollRef.current?.scrollTo({ top: 0 }); }}>Próxima</button></div>}
+        {!platform.isTV && visibleShows.length < categoryShows.length && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais séries</div>}
       </main>
     </div>
   </div>;
@@ -206,7 +215,7 @@ export function SeriesView({ favorites, onSelectChannel, onToggleFavorite, resum
         {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
         {creator && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Criação e direção:</span> {creator}</p>}
         {plot && <MediaSynopsis text={plot} />}
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3">
           {continueEpisode && <button onClick={() => playEpisode(continueEpisode)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />{progress[continueEpisode.id] ? 'Continuar' : 'Reproduzir'}</button>}
           {trailerKey && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
           <button onClick={() => onToggleFavorite(selected.id)} className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>

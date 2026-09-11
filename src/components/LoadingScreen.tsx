@@ -22,7 +22,7 @@ interface LoadingScreenProps {
   groupCount?: number;
 }
 
-export function LoadingScreen({ message, branding, onCancel, channelCount, groupCount }: LoadingScreenProps) {
+export function LoadingScreen({ message, branding, onCancel, channelCount = 0, groupCount = 0 }: LoadingScreenProps) {
   const visualBranding = branding || defaultBranding;
   const logo = visualBranding.logo_url ? (
     <img src={visualBranding.logo_url} alt={visualBranding.app_name} className="h-16 w-16 rounded-3xl object-contain" />
@@ -43,7 +43,7 @@ export function LoadingScreen({ message, branding, onCancel, channelCount, group
           {message}
         </div>
 
-        <p className="mt-3 text-center text-xs text-white/30">Sua lista está sendo preparada. Isso pode levar alguns instantes.</p>
+        <p className="mt-3 text-center text-xs text-white/30">{channelCount > 0 ? `${channelCount.toLocaleString('pt-BR')} canais${groupCount > 0 ? ` em ${groupCount.toLocaleString('pt-BR')} categorias` : ''} preparados` : 'Sua lista está sendo preparada. Isso pode levar alguns instantes.'}</p>
         {onCancel && (
           <button
             onClick={onCancel}

@@ -53,7 +53,7 @@ export function BrandingView() {
     event.preventDefault(); if (!branding || !target) return;
     if (!validHex(branding.primary_color)) { setError('Informe a cor principal no formato hexadecimal, por exemplo #BEF264.'); return; }
     setSaving(true); setError('');
-    const payload = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: branding.background_url, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter', home_layout: branding.home_layout === 'simple' ? 'simple' : 'complete' };
+    const payload: Omit<Branding, 'provider_id'> = { app_name: branding.app_name.trim() || 'Top TV Digital', logo_url: branding.logo_url, background_url: branding.background_url, login_background_url: branding.login_background_url, primary_color: branding.primary_color.toUpperCase(), secondary_color: branding.secondary_color.toUpperCase(), main_font_scale: [0.92, 1, 1.10].includes(Number(branding.main_font_scale)) ? Number(branding.main_font_scale) : 1, font_family: branding.font_family || 'Inter', home_layout: branding.home_layout === 'simple' ? 'simple' : 'complete' };
     const result = target === 'global'
       ? await supabase.from('app_branding').update(payload).eq('singleton', true)
       : await supabase.from('provider_branding').upsert({ provider_id: target, ...payload }, { onConflict: 'provider_id' });
