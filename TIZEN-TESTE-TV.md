@@ -1,4 +1,4 @@
-# Teste Samsung Tizen — Top TV Digital 0.7.31
+# Teste Samsung Tizen — Top TV Digital 0.7.32
 
 ## 1. Configure o backend antes do build
 Crie, na raiz do projeto, o arquivo `.env.tizen.local`:

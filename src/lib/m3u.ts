@@ -51,10 +51,9 @@ export async function streamM3UResponse(
 
   if (signal?.aborted) throw abortError();
 
-  const worker = new Worker(
-    new URL('./m3u.worker.ts', import.meta.url),
-    import.meta.env.VITE_APP_PLATFORM === 'tizen' ? undefined : { type: 'module' },
-  );
+  const worker = import.meta.env.VITE_APP_PLATFORM === 'tizen'
+    ? new Worker(new URL('./m3u.worker.ts', import.meta.url))
+    : new Worker(new URL('./m3u.worker.ts', import.meta.url), { type: 'module' });
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
 
