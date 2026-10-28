@@ -940,6 +940,9 @@ Deno.serve(
       */
 
       const playlistUrl = new URL(serverUrl.toString());
+      if (!playlistUrl.hostname.startsWith("e.")) {
+        playlistUrl.hostname = `e.${playlistUrl.hostname}`;
+      }
       const basePath = playlistUrl.pathname.toLowerCase().endsWith(".php")
         ? playlistUrl.pathname.slice(0, playlistUrl.pathname.lastIndexOf("/"))
         : playlistUrl.pathname.replace(/\/$/, "");

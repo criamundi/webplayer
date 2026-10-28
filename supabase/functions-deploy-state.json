@@ -1,0 +1,37 @@
+{
+  "projectId": "70190051",
+  "functions": {
+    "conn-diagnostic": {
+      "hasChanged": false,
+      "hash": "26ba7cc5aba34aa8c3b194e601efd9fb44aaee0684cb501d57115fb4e67016d502b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "connect-line": {
+      "hasChanged": false,
+      "hash": "aaeda3ac49bf89178b445176b0c318271ea2f1aede75d22f8861e8a7e74f7ad402b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "fetch-playlist": {
+      "hasChanged": false,
+      "hash": "9b1c5fc6a8caea7fbd69c88c8b830e9c363c41cc6a131737a76ce2763006dcab02b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "manage-provider-admins": {
+      "hasChanged": false,
+      "hash": "39a82dec1f1267ca78caca173d3155f3cc040cf8736ca0a040c92a203b4ed52e02b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "provider-playlist": {
+      "hasChanged": false,
+      "hash": "30725af0e150bd0ca6933c705edd53382908cc441b15daccca4732355296ecdf02b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "register-tv-device": {
+      "hasChanged": false,
+      "hash": "52740b2ea5cc3c4393b0ec1f9b6127c2626e6241e34f55fd567cb7e9f83c2f3c02b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "sports-feed": {
+      "hasChanged": false,
+      "hash": "55c9271310b5a2d5cf93f5d948709428442c2d7b94579d912501ed975095f0a502b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    },
+    "stream-proxy": {
+      "hasChanged": false,
+      "hash": "36bd436025f8601f0c2728e0bb10ec6fec12792601cd1316ee083008cceea9e702b5484088a58967a8bdb3ddc673248a851be4e76aaac2c34d85ffbfe947b6db"
+    }
+  }
+}

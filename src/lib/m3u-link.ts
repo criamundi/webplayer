@@ -5,8 +5,24 @@ export interface M3UParams {
   streamType?: 'm3u' | 'hls';
 }
 
+function withEPrefix(host: string): string {
+  const trimmed = host.trim().replace(/\/$/, '');
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname.startsWith('e.')) {
+      parsed.hostname = `e.${parsed.hostname}`;
+    }
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed.replace(/^(\w+:\/\/)(?!e\.)/, '$1e.');
+    }
+    return `e.${trimmed}`;
+  }
+}
+
 export function buildM3ULink({ host, username, password, streamType = 'm3u' }: M3UParams): string {
-  const base = host.trim().replace(/\/$/, '');
+  const base = withEPrefix(host);
   return `${base}/p/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamType}`;
 }
 
