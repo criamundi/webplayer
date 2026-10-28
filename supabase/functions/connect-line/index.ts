@@ -377,8 +377,10 @@ Deno.serve(
           ? body.provider.trim()
           : "";
 
+      const streamType = body.streamType === "hls" ? "hls" : "m3u";
+
       const action =
-        body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
+        body.action === "test-line" || body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
           ? body.action
           : "playlist";
 
@@ -836,6 +838,7 @@ Deno.serve(
       const synchronized = {
         password,
         dns_id: dns.id,
+        stream_type: streamType,
         status: "active",
         upstream_status:
           account.status,
@@ -918,6 +921,57 @@ Deno.serve(
           displayName: account.displayName ?? account.username ?? username,
           renewalUrl: line?.renewal_url ?? providerRow.renewal_url ?? null,
         });
+      }
+
+      if (action === "test-line") {
+        const testController = new AbortController();
+        const testTimeout = setTimeout(() => testController.abort(), 30000);
+        try {
+          const testUrl = new URL(playlistUrl.toString());
+          const testResponse = await fetchProvider(testUrl, {
+            method: "GET",
+            headers: { Accept: "application/x-mpegURL, text/plain, */*", "User-Agent": "Mozilla/5.0" },
+            redirect: "follow",
+            signal: testController.signal,
+          });
+
+          if (!testResponse.ok) {
+            const errMsg = `Provedor respondeu ${testResponse.status}.`;
+            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+            return json({ ok: false, error: errMsg }, 200);
+          }
+
+          const sample = await testResponse.text().catch(() => "");
+          if (!sample.trim()) {
+            const errMsg = "O provedor respondeu sem conteúdo.";
+            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+            return json({ ok: false, error: errMsg }, 200);
+          }
+
+          const hasM3U = sample.includes("#EXTM3U") || sample.includes("#EXTINF") || sample.includes("http") || sample.includes("/");
+          if (!hasM3U) {
+            const errMsg = "A resposta não parece ser uma lista M3U válida.";
+            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+            return json({ ok: false, error: errMsg }, 200);
+          }
+
+          const channelCount = (sample.match(/#EXTINF/g) || []).length;
+          await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "ok", test_error: null }).eq("id", line.id);
+          return json({ ok: true, channelCount, message: `Lista carregada com ${channelCount} canal(is).` }, 200);
+        } catch (testError) {
+          let errMsg: string;
+          if (testController.signal.aborted && !req.signal.aborted) {
+            errMsg = "O provedor demorou demais para responder.";
+          } else if (req.signal.aborted) {
+            errMsg = "Teste cancelado.";
+          } else {
+            errMsg = testError instanceof Error ? testError.message : String(testError);
+          }
+          await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+          return json({ ok: false, error: errMsg }, 200);
+        } finally {
+          clearTimeout(testTimeout);
+        }
       }
 
       if (action === "live-catalog") {
@@ -1531,51 +1585,36 @@ Deno.serve(
 
       /*
       |--------------------------------------------------------------------------
-      | MONTA get.php
+      | MONTA URL DA PLAYLIST
+      |--------------------------------------------------------------------------
+      |
+      | Formato tradicional (m3u):
+      |   http://host/get.php?username=…&password=…&type=m3u_plus&output=ts
+      |
+      | Formato curto (hls):
+      |   http://host/hls/usuario/senha
       |--------------------------------------------------------------------------
       */
 
-      const playlistUrl =
-        new URL(
-          serverUrl.toString(),
-        );
+      const playlistUrl = new URL(serverUrl.toString());
 
-      /*
-       * Se o DNS for:
-       *
-       * http://servidor.com
-       *
-       * vira:
-       *
-       * http://servidor.com/get.php
-       */
-      if (
-        !playlistUrl.pathname
-          .toLowerCase()
-          .endsWith(
-            "get.php",
-          )
-      ) {
-        playlistUrl.pathname =
-          `${playlistUrl.pathname.replace(
-            /\/$/,
-            "",
-          )}/get.php`;
+      if (streamType === "hls") {
+        const basePath = playlistUrl.pathname.toLowerCase().endsWith(".php")
+          ? playlistUrl.pathname.slice(0, playlistUrl.pathname.lastIndexOf("/"))
+          : playlistUrl.pathname.replace(/\/$/, "");
+        playlistUrl.pathname = `${basePath}/hls/${encodeURIComponent(username)}/${encodeURIComponent(password)}`;
+        playlistUrl.search = "";
+      } else {
+        if (!playlistUrl.pathname.toLowerCase().endsWith("get.php")) {
+          playlistUrl.pathname = `${playlistUrl.pathname.replace(/\/$/, "")}/get.php`;
+        }
+        playlistUrl.search = new URLSearchParams({
+          username,
+          password,
+          type: "m3u_plus",
+          output: "ts",
+        }).toString();
       }
-
-      playlistUrl.search =
-        new URLSearchParams(
-          {
-            username,
-            password,
-
-            type:
-              "m3u_plus",
-
-            output:
-              "ts",
-          },
-        ).toString();
 
       console.log(
         "CONNECT LINE:",
