@@ -7,14 +7,7 @@ export interface M3UParams {
 
 export function buildM3ULink({ host, username, password, streamType = 'm3u' }: M3UParams): string {
   const base = host.trim().replace(/\/$/, '');
-
-  if (streamType === 'hls') {
-    return `${base}/hls/${encodeURIComponent(username)}/${encodeURIComponent(password)}`;
-  }
-
-  const path = base.toLowerCase().endsWith('/get.php') ? '' : '/get.php';
-  const params = new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' });
-  return `${base}${path}?${params.toString()}`;
+  return `${base}/p/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamType}`;
 }
 
 export function copyToClipboard(text: string): Promise<void> {

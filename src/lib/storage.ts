@@ -65,8 +65,8 @@ export const storage = {
     write(WATCH_PROGRESS_KEY, Object.fromEntries(entries));
   },
 
-  getCredentials: (): { provider: string; username: string; password: string } | null => read<{ provider: string; username: string; password: string } | null>(CREDENTIALS_KEY, null),
-  saveCredentials: (creds: { provider: string; username: string; password: string }) => write(CREDENTIALS_KEY, creds),
+  getCredentials: (): { provider: string; username: string; password: string; streamType?: 'm3u' | 'hls' } | null => read<{ provider: string; username: string; password: string; streamType?: 'm3u' | 'hls' } | null>(CREDENTIALS_KEY, null),
+  saveCredentials: (creds: { provider: string; username: string; password: string; streamType?: 'm3u' | 'hls' }) => write(CREDENTIALS_KEY, creds),
   clearCredentials: () => write(CREDENTIALS_KEY, null),
 
   getCache: (): { channels: Channel[]; groups: string[]; savedAt: number } | null => {

@@ -80,7 +80,7 @@ function cacheKey(dataset: string) {
 }
 
 async function authenticatedAction(action: string, extra: Record<string, unknown> = {}) {
-  const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
+  const credentials = JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string; streamType?: 'm3u' | 'hls' } | null;
   if (!credentials?.provider || !credentials.username || !credentials.password) return null;
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
     method: 'POST',
@@ -96,12 +96,12 @@ export async function loadAccountStatus(): Promise<AccountStatus | null> {
 }
 
 export async function validateLineAccess(
-  credentials?: { provider: string; username: string; password: string },
+  credentials?: { provider: string; username: string; password: string; streamType?: 'm3u' | 'hls' },
   signal?: AbortSignal,
 ): Promise<AccountStatus> {
   const saved = credentials ?? (() => {
     try {
-      return JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string } | null;
+      return JSON.parse(localStorage.getItem('iptv:credentials') || 'null') as { provider?: string; username?: string; password?: string; streamType?: 'm3u' | 'hls' } | null;
     } catch {
       return null;
     }
@@ -123,6 +123,7 @@ export async function validateLineAccess(
         provider: saved.provider,
         username: saved.username,
         password: saved.password,
+        streamType: saved.streamType || 'm3u',
         action: 'account-status',
       }),
       signal,
@@ -502,6 +503,7 @@ async function connectLine(
   username: string,
   password: string,
   signal?: AbortSignal,
+  streamType?: 'm3u' | 'hls',
 ): Promise<{
   response: Response;
   requestSignal: AbortSignal;
@@ -535,6 +537,7 @@ async function connectLine(
             provider,
             username,
             password,
+            streamType: streamType || 'm3u',
           }),
 
           signal:
@@ -644,6 +647,7 @@ export async function loadLinePlaylist(
   username: string,
   password: string,
   signal?: AbortSignal,
+  streamType?: 'm3u' | 'hls',
 ): Promise<{
   channels: Channel[];
 }> {
@@ -657,6 +661,7 @@ export async function loadLinePlaylist(
       username,
       password,
       signal,
+      streamType,
     );
 
   const result: Channel[] =
@@ -718,6 +723,7 @@ export async function loadLinePlaylistStreaming(
     void |
     Promise<void>,
   signal?: AbortSignal,
+  streamType?: 'm3u' | 'hls',
 ): Promise<void> {
   const {
     response,
@@ -729,6 +735,7 @@ export async function loadLinePlaylistStreaming(
       username,
       password,
       signal,
+      streamType,
     );
 
   const streamBase = response.headers.get('X-Provider-Stream-Base')?.trim() || '';

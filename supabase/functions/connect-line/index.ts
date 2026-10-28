@@ -377,7 +377,7 @@ Deno.serve(
           ? body.provider.trim()
           : "";
 
-      const streamType = body.streamType === "hls" ? "hls" : "m3u";
+      let streamType = body.streamType === "hls" ? "hls" : "m3u";
 
       const action =
         body.action === "test-line" || body.action === "content-info" || body.action === "home-catalog" || body.action === "account-status" || body.action === "live-catalog" || body.action === "live-epg" || body.action === "movie-catalog" || body.action === "series-catalog" || body.action === "series-info" || body.action === "series-content-info" || body.action === "series-season-images"
@@ -502,7 +502,8 @@ Deno.serve(
             upstream_active_connections,
             upstream_max_connections,
             status,
-            renewal_url
+            renewal_url,
+            stream_type
           `)
           .eq(
             "username",
@@ -525,6 +526,10 @@ Deno.serve(
 
       if (existingLine && existingLine.local_enabled === false) {
         return json({ error: "Este dispositivo foi desativado pelo administrador." }, 403);
+      }
+
+      if (existingLine?.stream_type && !body.streamType) {
+        streamType = existingLine.stream_type as "m3u" | "hls";
       }
 
       /*
@@ -922,6 +927,24 @@ Deno.serve(
           renewalUrl: line?.renewal_url ?? providerRow.renewal_url ?? null,
         });
       }
+
+      /*
+      |--------------------------------------------------------------------------
+      | MONTA URL DA PLAYLIST
+      |--------------------------------------------------------------------------
+      |
+      | Formato curto:
+      |   http://host/p/usuario/senha/m3u
+      |   http://host/p/usuario/senha/hls
+      |--------------------------------------------------------------------------
+      */
+
+      const playlistUrl = new URL(serverUrl.toString());
+      const basePath = playlistUrl.pathname.toLowerCase().endsWith(".php")
+        ? playlistUrl.pathname.slice(0, playlistUrl.pathname.lastIndexOf("/"))
+        : playlistUrl.pathname.replace(/\/$/, "");
+      playlistUrl.pathname = `${basePath}/p/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${streamType}`;
+      playlistUrl.search = "";
 
       if (action === "test-line") {
         const testController = new AbortController();
@@ -1581,39 +1604,6 @@ Deno.serve(
         } finally {
           clearTimeout(infoTimeout);
         }
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | MONTA URL DA PLAYLIST
-      |--------------------------------------------------------------------------
-      |
-      | Formato tradicional (m3u):
-      |   http://host/get.php?username=…&password=…&type=m3u_plus&output=ts
-      |
-      | Formato curto (hls):
-      |   http://host/hls/usuario/senha
-      |--------------------------------------------------------------------------
-      */
-
-      const playlistUrl = new URL(serverUrl.toString());
-
-      if (streamType === "hls") {
-        const basePath = playlistUrl.pathname.toLowerCase().endsWith(".php")
-          ? playlistUrl.pathname.slice(0, playlistUrl.pathname.lastIndexOf("/"))
-          : playlistUrl.pathname.replace(/\/$/, "");
-        playlistUrl.pathname = `${basePath}/hls/${encodeURIComponent(username)}/${encodeURIComponent(password)}`;
-        playlistUrl.search = "";
-      } else {
-        if (!playlistUrl.pathname.toLowerCase().endsWith("get.php")) {
-          playlistUrl.pathname = `${playlistUrl.pathname.replace(/\/$/, "")}/get.php`;
-        }
-        playlistUrl.search = new URLSearchParams({
-          username,
-          password,
-          type: "m3u_plus",
-          output: "ts",
-        }).toString();
       }
 
       console.log(

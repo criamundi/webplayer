@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Pencil, Plus, Power, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Pencil, Plus, Power, Search, Trash2, X, Zap, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { buildM3ULink, copyToClipboard } from '@/lib/m3u-link';
 
@@ -18,6 +18,10 @@ interface Line {
   status: string;
   notes: string | null;
   renewal_url: string | null;
+  stream_type: 'm3u' | 'hls';
+  last_tested_at: string | null;
+  test_status: 'ok' | 'error' | null;
+  test_error: string | null;
   created_at: string;
   iptv_providers: { name: string; server_url: string | null } | null;
   iptv_dns: { name: string; host: string } | null;
@@ -43,6 +47,7 @@ export function LinesView() {
   const [migrateMsg, setMigrateMsg] = useState('');
   const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -65,8 +70,10 @@ export function LinesView() {
     setCurrentProviderId(ownProviderId);
     setIsSuperAdmin(superAdmin);
 
+    const lineSelect = 'id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, renewal_url, stream_type, last_tested_at, test_status, test_error, created_at, iptv_providers(name, server_url), iptv_dns(name, host)';
+
     const [{ data: lineData, error: lineError }, { data: provData, error: providerError }, { data: dnsData, error: dnsError }, { data: tvDeviceData, error: tvDeviceError }] = await Promise.all([
-      supabase.from('iptv_lines').select('id, username, password, provider_id, dns_id, expires_at, upstream_expires_at, upstream_status, last_synced_at, registration_source, local_enabled, status, notes, renewal_url, created_at, iptv_providers(name, server_url), iptv_dns(name, host)').order('created_at', { ascending: false }),
+      supabase.from('iptv_lines').select(lineSelect).order('created_at', { ascending: false }),
       supabase.from('iptv_providers').select('id, name, server_url').order('name'),
       supabase.from('iptv_dns').select('id, name, host, provider_id').order('name'),
       supabase.from('iptv_devices').select('id, line_id, name, device_key, platform, model, model_code, app_version, status, last_seen_at').order('last_seen_at', { ascending: false }),
@@ -86,7 +93,9 @@ export function LinesView() {
   useEffect(() => { load(); }, []);
 
   const filtered = lines.filter((l) => {
-    if (statusFilter !== 'all' && l.status !== statusFilter) return false;
+    if (statusFilter === 'error' && l.test_status !== 'error') return false;
+    if (statusFilter === 'tested-ok' && l.test_status !== 'ok') return false;
+    if (statusFilter !== 'all' && statusFilter !== 'error' && statusFilter !== 'tested-ok' && l.status !== statusFilter) return false;
     if (query && !l.username.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
   });
@@ -100,7 +109,7 @@ export function LinesView() {
   const getM3ULink = (line: Line): string => {
     const host = getM3UHost(line);
     if (!host) return '';
-    return buildM3ULink({ host, username: line.username, password: line.password });
+    return buildM3ULink({ host, username: line.username, password: line.password, streamType: line.stream_type || 'm3u' });
   };
 
   const handleToggleStatus = async (line: Line) => {
@@ -117,6 +126,40 @@ export function LinesView() {
   const handleMigrateOne = async (line: Line, newDnsId: string) => {
     await supabase.from('iptv_lines').update({ dns_id: newDnsId || null }).eq('id', line.id);
     load();
+  };
+
+  const handleStreamTypeToggle = async (line: Line) => {
+    const newType = line.stream_type === 'hls' ? 'm3u' : 'hls';
+    await supabase.from('iptv_lines').update({ stream_type: newType }).eq('id', line.id);
+    load();
+  };
+
+  const handleTestLine = async (line: Line) => {
+    setTestingId(line.id);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({
+          provider: line.iptv_providers?.name || '',
+          username: line.username,
+          password: line.password,
+          streamType: line.stream_type || 'm3u',
+          action: 'test-line',
+        }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string; channelCount?: number; message?: string };
+      if (result.ok) {
+        alert(result.message || 'Lista testada com sucesso.');
+      } else {
+        alert(result.error || 'Erro ao testar a lista.');
+      }
+    } catch {
+      alert('Não foi possível testar a lista agora.');
+    } finally {
+      setTestingId(null);
+      load();
+    }
   };
 
   const handleMigrateAll = async () => {
@@ -168,6 +211,8 @@ export function LinesView() {
           <option value="active" className="bg-slate-900">Ativos</option>
           <option value="disabled" className="bg-slate-900">Desativados</option>
           <option value="banned" className="bg-slate-900">Bloqueados</option>
+          <option value="error" className="bg-slate-900">Com erro na lista</option>
+          <option value="tested-ok" className="bg-slate-900">Testadas OK</option>
         </select>
       </div>
 
@@ -184,6 +229,8 @@ export function LinesView() {
             const expired = expiresAt ? new Date(expiresAt) <= new Date() : false;
             const isActive = line.local_enabled && line.status === 'active' && !expired;
             const m3uLink = getM3ULink(line);
+            const hasError = line.test_status === 'error';
+            const testedOk = line.test_status === 'ok';
             return (
               <div key={line.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex flex-wrap items-center gap-3">
@@ -201,6 +248,9 @@ export function LinesView() {
                     {expiresAt && <p className="flex items-center gap-1 text-[10px] text-white/30"><Calendar className="h-3 w-3" /> {new Date(expiresAt).toLocaleDateString('pt-BR')}</p>}
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <button onClick={() => handleTestLine(line)} disabled={testingId === line.id} title="Testar lista" className={`rounded-lg p-2 transition ${hasError ? 'text-red-300 hover:bg-red-500/10' : testedOk ? 'text-emerald-300 hover:bg-emerald-400/10' : 'text-white/50 hover:bg-white/10 hover:text-white'}`}>
+                      {testingId === line.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                    </button>
                     <button onClick={() => handleToggleStatus(line)} title={isActive ? 'Desativar' : 'Ativar'} className={`rounded-lg p-2 transition ${isActive ? 'text-amber-300 hover:bg-amber-400/10' : 'text-emerald-300 hover:bg-emerald-400/10'}`}>
                       <Power className="h-4 w-4" />
                     </button>
@@ -212,10 +262,32 @@ export function LinesView() {
                     </button>
                   </div>
                 </div>
+
+                {hasError && (
+                  <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-300/15 bg-red-300/[0.06] px-3 py-2">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-300" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-medium text-red-200">Erro na lista</p>
+                      <p className="truncate text-[10px] text-red-200/70">{line.test_error || 'Erro desconhecido'}</p>
+                    </div>
+                    {line.last_tested_at && <span className="shrink-0 text-[9px] text-red-200/40">{new Date(line.last_tested_at).toLocaleString('pt-BR')}</span>}
+                  </div>
+                )}
+                {testedOk && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-emerald-300/10 bg-emerald-300/[0.04] px-3 py-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                    <p className="text-[11px] text-emerald-200/80">Lista testada e funcionando</p>
+                    {line.last_tested_at && <span className="ml-auto shrink-0 text-[9px] text-emerald-200/40">{new Date(line.last_tested_at).toLocaleString('pt-BR')}</span>}
+                  </div>
+                )}
+
                 {m3uLink && (
                   <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 px-3 py-2">
                     <Globe className="h-3.5 w-3.5 shrink-0 text-white/30" />
                     <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-white/50">{m3uLink}</p>
+                    <button onClick={() => handleStreamTypeToggle(line)} title={`Tipo: ${line.stream_type === 'hls' ? 'HLS' : 'M3U'}`} className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide transition hover:bg-white/10">
+                      {line.stream_type === 'hls' ? 'HLS' : 'M3U'}
+                    </button>
                     <button onClick={() => copyToClipboard(m3uLink)} title="Copiar link" className="shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white">
                       <Copy className="h-3.5 w-3.5" />
                     </button>
@@ -303,6 +375,7 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
   const [password, setPassword] = useState(line?.password ?? '');
   const [providerId, setProviderId] = useState(line?.provider_id ?? currentProviderId ?? (providers.length === 1 ? providers[0].id : ''));
   const [dnsId, setDnsId] = useState(line?.dns_id ?? '');
+  const [streamType, setStreamType] = useState<'m3u' | 'hls'>(line?.stream_type ?? 'm3u');
   const [notes, setNotes] = useState(line?.notes ?? '');
   const [renewalUrl, setRenewalUrl] = useState(line?.renewal_url ?? '');
   const [saving, setSaving] = useState(false);
@@ -318,8 +391,8 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
     const dns = availableDns.find((d) => d.id === dnsId);
     const host = dns?.host || provider?.server_url || '';
     if (!host || !username || !password) return '';
-    return buildM3ULink({ host, username, password });
-  }, [providers, availableDns, providerId, dnsId, username, password]);
+    return buildM3ULink({ host, username, password, streamType });
+  }, [providers, availableDns, providerId, dnsId, username, password, streamType]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -339,6 +412,7 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
       password,
       provider_id: providerId || null,
       dns_id: dnsId || null,
+      stream_type: streamType,
       local_enabled: true,
       notes: notes.trim() || null,
       renewal_url: renewalUrl.trim() || null,
@@ -347,13 +421,13 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
       ? await supabase.from('iptv_lines').update(payload).eq('id', line.id)
       : await supabase.from('iptv_lines').insert(payload);
 
-    // Compatibilidade com bancos que ainda não receberam a migration de renewal_url.
     if (
       result.error &&
-      /renewal_url/i.test(result.error.message || '')
+      /renewal_url|stream_type|last_tested_at|test_status|test_error/i.test(result.error.message || '')
     ) {
       const legacyPayload: Partial<typeof payload> = { ...payload };
       delete legacyPayload.renewal_url;
+      delete legacyPayload.stream_type;
       result = line
         ? await supabase.from('iptv_lines').update(legacyPayload).eq('id', line.id)
         : await supabase.from('iptv_lines').insert(legacyPayload);
@@ -417,10 +491,19 @@ function LineForm({ line, providers, dnsList, currentProviderId, superAdmin, onC
               </select>
             </label>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-xs font-medium text-white/60">Tipo de lista</span>
+              <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
+                <button type="button" onClick={() => setStreamType('m3u')} className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition ${streamType === 'm3u' ? 'bg-lime-300 text-slate-950' : 'text-white/60 hover:bg-white/10'}`}>M3U</button>
+                <button type="button" onClick={() => setStreamType('hls')} className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition ${streamType === 'hls' ? 'bg-lime-300 text-slate-950' : 'text-white/60 hover:bg-white/10'}`}>HLS</button>
+              </div>
+            </label>
+          </div>
           <p className="rounded-xl border border-lime-300/15 bg-lime-300/[0.06] p-3 text-xs leading-5 text-white/50">Status e vencimento serão consultados automaticamente no provedor quando o cliente entrar. Não é necessário definir validade ou conexões aqui.</p>
           {previewLink && (
             <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-              <p className="mb-1.5 text-[10px] uppercase tracking-wide text-white/40">Link M3U (prévia)</p>
+              <p className="mb-1.5 text-[10px] uppercase tracking-wide text-white/40">Link da lista (prévia)</p>
               <div className="flex items-center gap-2">
                 <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-lime-300/80">{previewLink}</p>
                 <button type="button" onClick={() => copyToClipboard(previewLink)} className="shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"><Copy className="h-3.5 w-3.5" /></button>
@@ -474,7 +557,7 @@ function MigrateModal({ dnsList, count, migrating, msg, selectedDns, onSelect, o
         </div>
         <div className="space-y-4">
           <p className="text-sm text-white/50">
-            Todos os <span className="font-bold text-white/80">{count}</span> dispositivo(s) da listagem atual terão o DNS alterado de uma só vez. O link M3U de cada um passará a apontar para o novo servidor.
+            Todos os <span className="font-bold text-white/80">{count}</span> dispositivo(s) da listagem atual terão o DNS alterado de uma só vez. O link de cada um passará a apontar para o novo servidor.
           </p>
           <label className="block">
             <span className="mb-2 block text-xs font-medium text-white/60">DNS de destino</span>

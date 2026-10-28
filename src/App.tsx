@@ -693,6 +693,7 @@ export default function App() {
               provider: creds.provider,
               username: creds.username,
               password: creds.password,
+              streamType: creds.streamType,
             },
             controller.signal,
           );
@@ -1130,6 +1131,7 @@ export default function App() {
           },
 
           controller.signal,
+          creds.streamType,
         );
       } catch (error) {
         if (!mounted) {
