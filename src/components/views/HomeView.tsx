@@ -690,31 +690,29 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           )}
 
           {/* Mesmo alinhamento, hierarquia e espaçamento do Hero de Filmes. */}
-          <div className="relative z-10 flex h-full min-h-0 max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
+          <div className={`relative z-10 flex h-full min-h-0 flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12 ${!heroInfo?.titleLogo && heroItem ? 'max-w-5xl' : 'max-w-2xl'}`}>
             {heroItem && (
               <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">
                 {heroItem.contentType === 'series' ? 'Série' : 'Filme'}
               </span>
             )}
 
-            {!heroInfo?.titleLogo && heroItem && (
-              <div className="mb-5">
-                <div className="relative aspect-[2/3] w-[120px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
+            <div className={!heroInfo?.titleLogo && heroItem ? 'flex min-w-0 items-start gap-4 sm:gap-6 lg:gap-8' : ''}>
+              {!heroInfo?.titleLogo && heroItem && (
+                <div className="relative aspect-[2/3] w-[156px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[202px] lg:w-[246px]">
                   <MediaCover
                     logo={heroInfo?.cover || heroItem.logo}
                     fallbackLogo={heroItem.logo}
-                    name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Destaque'}
+                    name={cleanHeroTitle(heroInfo?.name || heroItem.name) || 'Destaque'}
                     priority
                   />
                 </div>
-              </div>
-            )}
-
-            <MediaHeroTitle
-              logo={heroInfo?.titleLogo}
-              name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'}
-            />
-
+              )}
+              <div className="min-w-0 flex-1">
+                <MediaHeroTitle
+                  logo={heroInfo?.titleLogo}
+                  name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'}
+                />
             <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
               {heroInfo?.contentRating && (
                 <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">
@@ -764,7 +762,8 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
                   <Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos
                 </button>
               </div>
-            )}
+            )}              </div>
+            </div>
           </div>
         </div>
 
