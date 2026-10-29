@@ -191,27 +191,37 @@ function cleanHeroTitle(value?: string) {
 
 function RatingStars({ value, compact = false }: { value?: string | number | null; compact?: boolean }) {
   const rating = mediaRating(value);
-  if (!rating) return null;
+  const numericRating = Number(String(rating || '').replace(',', '.'));
+  if (!Number.isFinite(numericRating) || numericRating <= 0) return null;
 
-  // A nota continua aparecendo em números, na escala original.
-  // A quantidade de estrelas é convertida de 0–10 para 1–5.
-  const starCount = Math.max(1, Math.min(5, Math.round(Number(rating) / 2)));
+  // Escala original de 0 a 10, exibida em 5 estrelas.
+  // Frações são arredondadas para cima até a próxima meia estrela.
+  const filledStars = Math.min(5, Math.ceil((Math.min(10, numericRating) / 2) * 2) / 2);
 
   return (
     <span
-      className={
-        compact
-          ? 'absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md'
-          : 'inline-flex items-center gap-1.5 text-amber-300'
-      }
-      aria-label={`Nota ${rating}, equivalente a ${starCount} de 5 estrelas`}
+      className={compact
+        ? 'absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md'
+        : 'inline-flex items-center gap-2 text-amber-300'}
+      aria-label={`Pontuação: ${rating}, ${filledStars} de 5 estrelas`}
     >
       <span className={`inline-flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`} aria-hidden="true">
-        {Array.from({ length: starCount }, (_, index) => (
-          <Star key={index} className={compact ? 'h-2.5 w-2.5 fill-current' : 'h-3.5 w-3.5 fill-current'} />
-        ))}
+        {Array.from({ length: 5 }, (_, index) => {
+          const fill = Math.max(0, Math.min(1, filledStars - index));
+          const starSize = compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5';
+          return (
+            <span key={index} className={`relative inline-flex shrink-0 ${starSize}`}>
+              <Star className={`absolute inset-0 h-full w-full text-amber-300/40`} />
+              {fill > 0 && (
+                <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                  <Star className={`${starSize} max-w-none fill-current text-amber-300`} />
+                </span>
+              )}
+            </span>
+          );
+        })}
       </span>
-      <span className="tabular-nums">{rating}</span>
+      <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>
     </span>
   );
 }
