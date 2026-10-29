@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Heart, Loader2, Play, Search, Star } from 'lucide-react';
 import type { Channel } from '@/types';
-import { loadContentInfo, loadMovieCatalog, type ContentInfo, type MovieCategory, type MovieShow } from '@/lib/provider';
+import { loadContentInfo, loadMovieCatalog, type CatalogItem, type ContentInfo, type MovieCategory, type MovieShow } from '@/lib/provider';
 import { getChannels } from '@/lib/playlistStore';
 import { storage } from '@/lib/storage';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
@@ -24,6 +24,7 @@ interface MoviesViewProps {
   onSelectChannel: (channel: Channel) => void;
   onToggleFavorite: (id: string, channel?: Channel) => void;
   resumeMovieId?: string | null;
+  resumeMovie?: CatalogItem | null;
   onResumeHandled?: () => void;
 }
 
@@ -37,6 +38,7 @@ export function MoviesView({
   onSelectChannel,
   onToggleFavorite,
   resumeMovieId,
+  resumeMovie,
   onResumeHandled,
 }: MoviesViewProps) {
   const [categories, setCategories] = useState<MovieCategory[]>([]);
@@ -178,11 +180,16 @@ export function MoviesView({
 
 
   useEffect(() => {
+    if (resumeMovie) {
+      void selectMovie(resumeMovie as MovieShow);
+      onResumeHandled?.();
+      return;
+    }
     if (!resumeMovieId || loading || !movies.length) return;
     const resume = movies.find((movie) => movie.id === resumeMovieId || movie.movieId === resumeMovieId);
     onResumeHandled?.();
     if (resume) void selectMovie(resume);
-  }, [loading, movies, onResumeHandled, resumeMovieId, selectMovie]);
+  }, [loading, movies, onResumeHandled, resumeMovieId, resumeMovie, selectMovie]);
 
   const closeDetails = () => {
     detailRequestRef.current += 1;

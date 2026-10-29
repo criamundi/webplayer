@@ -12,7 +12,7 @@ import type { Channel } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { storage } from '@/lib/storage';
 
-import { loadLinePlaylistStreaming, validateLineAccess } from '@/lib/provider';
+import { loadLinePlaylistStreaming, validateLineAccess, type CatalogItem } from '@/lib/provider';
 import { enterAppFullscreen, exitAppFullscreen, focusFirstInteractive, platform } from '@/lib/platform';
 import { registerCurrentTvDevice } from '@/lib/tvDevice';
 
@@ -200,6 +200,7 @@ export default function App() {
 
   const [seriesResumeId, setSeriesResumeId] = useState<string | null>(null);
   const [movieResumeId, setMovieResumeId] = useState<string | null>(null);
+  const [movieResumeItem, setMovieResumeItem] = useState<CatalogItem | null>(null);
 
   /*
    * Somente uma pequena janela fica no React.
@@ -2090,7 +2091,7 @@ export default function App() {
                 handleNavigate('series');
               }}
               onSelectMovie={(item) => {
-                setMovieResumeId(item.id);
+                setMovieResumeItem(item);
                 handleNavigate('movies');
               }}
               branding={{
@@ -2157,7 +2158,8 @@ export default function App() {
                 handleToggleFavorite
               }
               resumeMovieId={movieResumeId}
-              onResumeHandled={() => setMovieResumeId(null)}
+              resumeMovie={movieResumeItem}
+              onResumeHandled={() => { setMovieResumeId(null); setMovieResumeItem(null); }}
             />
           )}
 
