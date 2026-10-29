@@ -8,13 +8,11 @@ import { TrailerPlayer } from '@/components/TrailerPlayer';
 import {
   MediaArrowRow,
   MediaBackdrop,
-  MediaCastPortrait,
   MediaCover,
   MediaHeroTitle,
-  MediaRatingBadge,
   MediaSynopsis,
 } from '@/components/media/MediaDetailsUI';
-import { formatMediaDate, mediaCastList, mediaDuration, mediaRating } from '@/components/media/mediaUtils';
+import { formatMediaDate, mediaDuration, mediaRating } from '@/components/media/mediaUtils';
 import { platform } from '@/lib/platform';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
@@ -27,6 +25,43 @@ interface MoviesViewProps {
   resumeMovieId?: string | null;
   resumeMovie?: CatalogItem | null;
   onResumeHandled?: () => void;
+}
+
+function RatingStars({ value, compact = false }: { value?: string | number | null; compact?: boolean }) {
+  const rating = mediaRating(value);
+  const numericRating = Number(String(rating || '').replace(',', '.'));
+  if (!Number.isFinite(numericRating) || numericRating <= 0) return null;
+
+  // Escala original de 0 a 10, exibida em 5 estrelas.
+  // Frações são arredondadas para cima até a próxima meia estrela.
+  const filledStars = Math.min(5, Math.ceil((Math.min(10, numericRating) / 2) * 2) / 2);
+
+  return (
+    <span
+      className={compact
+        ? 'absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md'
+        : 'inline-flex items-center gap-2 text-amber-300'}
+      aria-label={`Pontuação: ${rating}, ${filledStars} de 5 estrelas`}
+    >
+      <span className={`inline-flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`} aria-hidden="true">
+        {Array.from({ length: 5 }, (_, index) => {
+          const fill = Math.max(0, Math.min(1, filledStars - index));
+          const starSize = compact ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5';
+          return (
+            <span key={index} className={`relative inline-flex shrink-0 ${starSize}`}>
+              <Star className={`absolute inset-0 h-full w-full text-amber-300/40`} />
+              {fill > 0 && (
+                <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                  <Star className={`${starSize} max-w-none fill-current text-amber-300`} />
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </span>
+      <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>
+    </span>
+  );
 }
 
 const LATEST = 'recent';
@@ -214,7 +249,7 @@ export function MoviesView({
         <div className="mb-6"><div><p className="text-[10px] uppercase tracking-[.05em] text-emerald-400">Filmes</p><h1 className="mt-1 text-2xl font-semibold">{activeCategory === LATEST ? 'Últimos adicionados' : categories.find((item) => item.id === activeCategory)?.name}</h1></div></div>
         {loading
           ? <div className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/[0.045]" />)}</div>
-          : <div data-tv-grid-columns="5" className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleMovies.map((movie, index) => <button key={movie.id} data-tv-focus="true" onClick={() => void selectMovie(movie)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} priority={index < 12} /><MediaRatingBadge value={movie.rating} /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{movie.name}</p></div></button>)}</div>}
+          : <div data-tv-grid-columns="5" className="media-poster-group grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{visibleMovies.map((movie, index) => <button key={movie.id} data-tv-focus="true" onClick={() => void selectMovie(movie)} className="media-poster-focus group text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} priority={index < 12} /><RatingStars value={movie.rating} compact /><div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" /><p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{movie.name}</p></div></button>)}</div>}
         {platform.isTV && !loading && tvPageCount > 1 && <div data-tv-axis="horizontal" className="tv-catalog-pagination"><button type="button" disabled={tvPage === 0} onClick={() => { setTvPage((page) => Math.max(0, page - 1)); pageScrollRef.current?.scrollTo({ top: 0 }); }}>Anterior</button><span>{tvPage + 1} / {tvPageCount}</span><button type="button" disabled={tvPage + 1 >= tvPageCount} onClick={() => { setTvPage((page) => Math.min(tvPageCount - 1, page + 1)); pageScrollRef.current?.scrollTo({ top: 0 }); }}>Próxima</button></div>}
         {!platform.isTV && (visibleMovies.length < categoryMovies.length || loadingMore) && <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/35"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando mais filmes</div>}
         {!loading && !categoryMovies.length && <div className="py-20 text-center text-sm text-white/35">Nenhum filme encontrado nesta categoria.</div>}
@@ -250,34 +285,32 @@ export function MoviesView({
   const contentRating = selectedInfo?.contentRating;
   const language = selectedInfo?.language?.toUpperCase();
   const trailerSource = selectedInfo?.trailerKey;
-  const castMembers = mediaCastList(selectedInfo?.castMembers, selectedInfo?.cast);
   const similarMovies = movies.filter((movie) => movie.id !== selected.id && movie.categoryId === selected.categoryId).slice(0, 10);
 
   return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
-      {/* Sem logo (ou quando a imagem da logo falha), o fundo fica desfocado. */}
-      <div className={`absolute inset-0 transition-[filter,transform] duration-500 ${showPosterFallback ? 'scale-110 blur-lg' : ''}`}>
+      {/* Mesmo fundo da Home: sem desfoque, mesmo degradê. */}
+      <div className="absolute inset-0">
         <MediaBackdrop sources={heroBackdrops} />
       </div>
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
       <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
-      <div className={`relative z-10 flex min-h-[72vh] flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12 ${showPosterFallback ? 'max-w-4xl' : 'max-w-2xl'}`}>
+      <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
         {showPosterFallback ? (
-          <div className="flex min-w-0 items-center gap-5 sm:gap-7">
-            {/* Capa vertical ao lado do título quando não existe logo do filme. */}
-            <div className="relative aspect-[2/3] w-[185px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[238px] lg:w-[290px]">
-              <MediaCover
-                logo={selectedInfo?.cover || selected.logo}
-                fallbackLogo={selected.logo}
-                name={titleName}
-                priority
-              />
+          <>
+            <div className="mb-5">
+              <div className="relative aspect-[2/3] w-[120px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
+                <MediaCover
+                  logo={selectedInfo?.cover || selected.logo}
+                  fallbackLogo={selected.logo}
+                  name={titleName}
+                  priority
+                />
+              </div>
             </div>
-            <div className="min-w-0 flex-1 [&_h1]:break-words [&_h1]:text-2xl [&_h1]:leading-tight sm:[&_h1]:text-4xl lg:[&_h1]:text-5xl">
-              <MediaHeroTitle name={titleName} />
-            </div>
-          </div>
+            <MediaHeroTitle name={titleName} />
+          </>
         ) : (
           <img
             src={displayedLogo}
@@ -294,7 +327,7 @@ export function MoviesView({
           {release && <span>{formatMediaDate(release)}</span>}
           {language && <span>({language})</span>}
           {duration && <span>{duration}</span>}
-          {rating && Number(rating) > 0 && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{rating}</span>}
+          <RatingStars value={rating} />
         </div>
         {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
         {director && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Direção:</span> {director}</p>}
@@ -313,16 +346,7 @@ export function MoviesView({
         : <>
           {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">
-              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><MediaRatingBadge value={movie.rating} /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
-            </MediaArrowRow>
-          </div>}
-          {castMembers.length > 0 && <div className="mt-10">
-            <MediaArrowRow title="Elenco">
-              {castMembers.map((member, index) => <div data-arrow-item key={`${member.name}:${index}`} className="w-36 shrink-0 snap-start text-center sm:w-40">
-                <MediaCastPortrait member={member} />
-                <p className="mt-2 truncate text-sm font-medium text-white/75">{member.name}</p>
-                {member.character && <p className="mt-0.5 truncate text-xs text-white/35">{member.character}</p>}
-              </div>)}
+              {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><RatingStars value={movie.rating} compact /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
             </MediaArrowRow>
           </div>}
         </>}
