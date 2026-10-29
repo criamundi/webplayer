@@ -201,7 +201,7 @@ function RatingStars({ value, compact = false }: { value?: string | number | nul
   return (
     <span
       className={compact
-        ? 'absolute bottom-10 left-3 z-10 inline-flex items-center gap-1 text-amber-300'
+        ? 'absolute bottom-10 left-3 z-10 inline-flex items-center gap-1 rounded-lg bg-black/65 px-2.5 py-1.5 text-amber-300 shadow-lg backdrop-blur-md'
         : 'inline-flex items-center gap-2 text-amber-300'}
       aria-label={`Pontuação: ${rating}, ${filledStars} de 5 estrelas`}
     >
