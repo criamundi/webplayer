@@ -85,7 +85,7 @@ function PosterShelf({ title, items, onViewAll, onSelect, onPreview }: PosterShe
             <button key={channel.id} data-tv-focus="true" onFocus={() => onPreview?.(channel)} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group text-left">
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]">
                 <PosterImage channel={channel} priority={index < 5} />
-                {validRating(channel.rating) && <span className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md"><Star className="h-3 w-3 fill-current" /> {channel.rating}</span>}
+                <RatingStars value={channel.rating} compact />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" />
                 <p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{channel.name}</p>
               </div>
@@ -189,9 +189,31 @@ function cleanHeroTitle(value?: string) {
     .trim();
 }
 
-function validRating(value?: string) {
-  if (!value || !/^\d+(?:[.,]\d+)?$/.test(value.trim())) return false;
-  return Number(value.replace(',', '.')) > 0;
+function RatingStars({ value, compact = false }: { value?: string | number | null; compact?: boolean }) {
+  const rating = mediaRating(value);
+  if (!rating) return null;
+
+  // A nota continua aparecendo em números, na escala original.
+  // A quantidade de estrelas é convertida de 0–10 para 1–5.
+  const starCount = Math.max(1, Math.min(5, Math.round(Number(rating) / 2)));
+
+  return (
+    <span
+      className={
+        compact
+          ? 'absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md'
+          : 'inline-flex items-center gap-1.5 text-amber-300'
+      }
+      aria-label={`Nota ${rating}, equivalente a ${starCount} de 5 estrelas`}
+    >
+      <span className={`inline-flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`} aria-hidden="true">
+        {Array.from({ length: starCount }, (_, index) => (
+          <Star key={index} className={compact ? 'h-2.5 w-2.5 fill-current' : 'h-3.5 w-3.5 fill-current'} />
+        ))}
+      </span>
+      <span className="tabular-nums">{rating}</span>
+    </span>
+  );
 }
 
 function shuffleFeaturedItems(items: CatalogItem[]) {
@@ -692,11 +714,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
               {heroRelease && <span>{formatMediaDate(heroRelease)}</span>}
               {heroLanguage && <span>({heroLanguage})</span>}
               {duration && <span>{duration}</span>}
-              {heroRating && (
-                <span className="flex items-center gap-1 text-amber-300">
-                  <Star className="h-3.5 w-3.5 fill-current" /> {heroRating}
-                </span>
-              )}
+              <RatingStars value={heroRating} />
             </div>
 
             {heroGenre && <p className="mt-3 text-sm text-white/65">{heroGenre}</p>}
