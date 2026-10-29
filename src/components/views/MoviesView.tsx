@@ -84,7 +84,6 @@ export function MoviesView({
   const [selectedInfo, setSelectedInfo] = useState<ContentInfo | null>(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [tvPage, setTvPage] = useState(0);
   const [localMode, setLocalMode] = useState(false);
@@ -94,6 +93,7 @@ export function MoviesView({
   const [trailerOpen, setTrailerOpen] = useState(false);
   // Controla a falha da logo por filme, sem interferir no destaque seguinte.
   const [titleLogoStatus, setTitleLogoStatus] = useState({ key: '', triedProxy: false, failed: false });
+  const fullCatalogRef = useRef<MovieShow[]>([]);
   const detailRequestRef = useRef(0);
   const pageScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -112,6 +112,7 @@ export function MoviesView({
       try {
         const catalog = await loadMovieCatalog();
         if (!active || !catalog?.movies.length) return;
+        fullCatalogRef.current = catalog.movies;
         setLocalMode(false);
         setActiveCategory(LATEST);
         setCategories(catalog.categories);
@@ -197,15 +198,11 @@ export function MoviesView({
     setSelected(movie);
     setSelectedInfo(null);
     setTrailerOpen(false);
-    setDetailLoading(true);
 
     try {
       const info = await loadContentInfo(movie);
       if (requestId === detailRequestRef.current) setSelectedInfo(info);
-    } catch { /* mantém o Hero com os dados do catálogo */
-    } finally {
-      if (requestId === detailRequestRef.current) setDetailLoading(false);
-    }
+    } catch { /* mantém o Hero com os dados do catálogo */ }
   }, []);
 
 
@@ -231,7 +228,6 @@ export function MoviesView({
 
   const closeDetails = () => {
     detailRequestRef.current += 1;
-    setDetailLoading(false);
     setTrailerOpen(false);
     setSelected(null);
   };
@@ -285,7 +281,21 @@ export function MoviesView({
   const contentRating = selectedInfo?.contentRating;
   const language = selectedInfo?.language?.toUpperCase();
   const trailerSource = selectedInfo?.trailerKey;
-  const similarMovies = movies.filter((movie) => movie.id !== selected.id && movie.categoryId === selected.categoryId).slice(0, 10);
+  // Mantém a seção mesmo quando não há outros títulos na categoria atual.
+  // O catálogo completo é preferido quando disponível; depois complementa com a lista carregada.
+  const relatedPool = [...fullCatalogRef.current, ...movies];
+  const uniqueRelated = Array.from(new Map(
+    relatedPool.filter((movie) => movie.id !== selected.id).map((movie) => [movie.id, movie])
+  ).values());
+  const selectedGenres = (selectedInfo?.genre || selected.genre || '').toLowerCase().split(/[,/|]/).map((g) => g.trim()).filter(Boolean);
+  const similarMovies = uniqueRelated.sort((a, b) => {
+    const score = (movie: MovieShow) => {
+      const sameCategory = Boolean(selected.categoryId && movie.categoryId === selected.categoryId);
+      const sameGenre = selectedGenres.some((genre) => (movie.genre || '').toLowerCase().includes(genre));
+      return (sameCategory ? 2 : 0) + (sameGenre ? 1 : 0);
+    };
+    return score(b) - score(a);
+  }).slice(0, 10);
 
   return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
@@ -295,9 +305,9 @@ export function MoviesView({
       </div>
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
       <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
-      <div className="relative z-10 flex min-h-[72vh] max-w-5xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
-        <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
-        <div className={showPosterFallback ? 'flex min-w-0 items-start gap-4 sm:gap-6 lg:gap-8' : ''}>
+      <div className="relative z-10 flex min-h-[72vh] max-w-6xl flex-col justify-end px-5 pb-10 pt-24 sm:px-8 sm:pb-14 lg:px-12">
+        <span className="mb-3 text-xs font-semibold uppercase tracking-[.05em] text-emerald-400 sm:text-sm">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
+        <div className={showPosterFallback ? 'flex min-w-0 flex-col items-start gap-5 sm:flex-row sm:gap-7 lg:gap-9' : ''}>
           {showPosterFallback && (
             <div className="relative aspect-[2/3] w-[156px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[202px] lg:w-[246px]">
               <MediaCover
@@ -308,7 +318,7 @@ export function MoviesView({
               />
             </div>
           )}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 [&_h1]:text-[clamp(2rem,4vw,4.5rem)] [&_h1]:leading-[1.08]">
             {showPosterFallback ? (
               <MediaHeroTitle name={titleName} />
             ) : (
@@ -319,23 +329,23 @@ export function MoviesView({
                 fetchPriority="high"
                 referrerPolicy="no-referrer"
                 onError={handleTitleLogoError}
-                className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left"
+                className="max-h-[clamp(7rem,18vh,15rem)] max-w-[min(85vw,35rem)] object-contain object-left"
               />
             )}
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/65 sm:text-base lg:text-lg">
           {contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{contentRating}</span>}
           {release && <span>{formatMediaDate(release)}</span>}
           {language && <span>({language})</span>}
           {duration && <span>{duration}</span>}
           <RatingStars value={rating} />
         </div>
-        {genre && <p className="mt-3 text-sm text-white/65">{genre}</p>}
-        {director && <p className="mt-3 text-xs text-white/45"><span className="font-medium text-white/65">Direção:</span> {director}</p>}
-        {plot && <MediaSynopsis text={plot} />}
+        {genre && <p className="mt-3 text-sm text-white/65 sm:text-base lg:text-lg">{genre}</p>}
+        {director && <p className="mt-3 text-sm text-white/50 sm:text-base"><span className="font-medium text-white/65">Direção:</span> {director}</p>}
+        {plot && <div className="text-sm sm:text-base lg:text-lg [&_p]:text-inherit"><MediaSynopsis text={plot} /></div>}
         <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3">
-          <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>
-          {trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
-          <button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
+          <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 sm:px-6 sm:py-3.5 sm:text-base"><Play className="h-4 w-4 fill-current" />Reproduzir</button>
+          {trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur sm:px-6 sm:py-3.5 sm:text-base"><Play className="h-4 w-4" />Trailer</button>}
+          <button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none sm:px-6 sm:py-3.5 sm:text-base"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
         </div>
           </div>
         </div>
@@ -343,15 +353,11 @@ export function MoviesView({
     </section>
 
     <section className="px-5 pb-16 pt-6 sm:px-8 lg:px-12">
-      {detailLoading
-        ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} /></div>
-        : <>
-          {similarMovies.length > 0 && <div className="mt-4">
+      {similarMovies.length > 0 && <div className="mt-4">
             <MediaArrowRow title="Filmes semelhantes">
               {similarMovies.map((movie) => <button data-arrow-item key={movie.id} onClick={() => void selectMovie(movie)} className="media-poster-focus group w-40 shrink-0 snap-start text-left"><div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]"><MediaCover logo={movie.logo} name={movie.name} /><RatingStars value={movie.rating} compact /></div><p className="mt-2 truncate text-sm text-white/65">{movie.name}</p></button>)}
             </MediaArrowRow>
           </div>}
-        </>}
     </section>
     {trailerOpen && trailerSource && <TrailerPlayer source={trailerSource} title={selected.name} onClose={() => setTrailerOpen(false)} />}
   </div>;
