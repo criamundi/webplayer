@@ -59,7 +59,7 @@ function RatingStars({ value, compact = false }: { value?: string | number | nul
           );
         })}
       </span>
-      <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>
+      {!compact && <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>}
     </span>
   );
 }
