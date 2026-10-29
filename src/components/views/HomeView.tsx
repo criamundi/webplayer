@@ -667,7 +667,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
             {!heroInfo?.titleLogo && heroItem && (
               <div className="mb-5">
-                <div className="relative aspect-[2/3] w-[185px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[238px] lg:w-[290px]">
+                <div className="relative aspect-[2/3] w-[120px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
                   <MediaCover
                     logo={heroInfo?.cover || heroItem.logo}
                     fallbackLogo={heroItem.logo}
