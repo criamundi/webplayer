@@ -16,6 +16,7 @@ import {
 } from '@/components/media/MediaDetailsUI';
 import { formatMediaDate, mediaCastList, mediaDuration, mediaRating } from '@/components/media/mediaUtils';
 import { platform } from '@/lib/platform';
+import { getPlayableStreamUrl } from '@/lib/streamProxy';
 
 interface MoviesViewProps {
   channels: Channel[];
@@ -56,6 +57,8 @@ export function MoviesView({
   const [localHasMore, setLocalHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
+  // Controla a falha da logo por filme, sem interferir no destaque seguinte.
+  const [titleLogoStatus, setTitleLogoStatus] = useState({ key: '', triedProxy: false, failed: false });
   const detailRequestRef = useRef(0);
   const pageScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -220,7 +223,24 @@ export function MoviesView({
   </div>;
 
   const heroBackdrops = [selectedInfo?.backdrop || '', selected.backdrop || '', selectedInfo?.cover || '', selected.logo || ''];
-  const titleLogo = selectedInfo?.titleLogo;
+  const titleLogo = selectedInfo?.titleLogo?.trim() || '';
+  const titleName = selectedInfo?.name || selected.name;
+  const logoKey = `${selected.id}:${titleLogo}`;
+  const logoState = titleLogoStatus.key === logoKey ? titleLogoStatus : null;
+  const showPosterFallback = !titleLogo || Boolean(logoState?.failed);
+  const logoProxy = titleLogo && !titleLogo.includes('/functions/v1/stream-proxy')
+    ? getPlayableStreamUrl(titleLogo)
+    : '';
+  const displayedLogo = logoState?.triedProxy && logoProxy ? logoProxy : titleLogo;
+  const handleTitleLogoError = () => {
+    setTitleLogoStatus((previous) => {
+      const alreadyTriedProxy = previous.key === logoKey && previous.triedProxy;
+      if (!alreadyTriedProxy && logoProxy && logoProxy !== titleLogo) {
+        return { key: logoKey, triedProxy: true, failed: false };
+      }
+      return { key: logoKey, triedProxy: true, failed: true };
+    });
+  };
   const plot = selectedInfo?.plot || selected.plot;
   const genre = selectedInfo?.genre || selected.genre;
   const release = selectedInfo?.releaseDate || selected.releaseDate;
@@ -235,12 +255,40 @@ export function MoviesView({
 
   return <div ref={pageScrollRef} className="view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
     <section className="relative min-h-[72vh] overflow-hidden bg-[#0a1117]">
-      <MediaBackdrop sources={heroBackdrops} />
+      {/* Sem logo (ou quando a imagem da logo falha), o fundo fica desfocado. */}
+      <div className={`absolute inset-0 transition-[filter,transform] duration-500 ${showPosterFallback ? 'scale-110 blur-lg' : ''}`}>
+        <MediaBackdrop sources={heroBackdrops} />
+      </div>
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
       <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
       <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
-        <MediaHeroTitle logo={titleLogo} name={selectedInfo?.name || selected.name} />
+        {showPosterFallback ? (
+          <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+            {/* Capa vertical ao lado do título quando não existe logo do filme. */}
+            <div className="relative aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-32 lg:w-36">
+              <MediaCover
+                logo={selectedInfo?.cover || selected.logo}
+                fallbackLogo={selected.logo}
+                name={titleName}
+                priority
+              />
+            </div>
+            <div className="min-w-0 flex-1 [&_h1]:break-words [&_h1]:text-2xl [&_h1]:leading-tight sm:[&_h1]:text-4xl lg:[&_h1]:text-5xl">
+              <MediaHeroTitle name={titleName} />
+            </div>
+          </div>
+        ) : (
+          <img
+            src={displayedLogo}
+            alt={titleName}
+            decoding="async"
+            fetchPriority="high"
+            referrerPolicy="no-referrer"
+            onError={handleTitleLogoError}
+            className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left"
+          />
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
           {contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{contentRating}</span>}
           {release && <span>{formatMediaDate(release)}</span>}
