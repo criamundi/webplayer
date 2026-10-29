@@ -85,8 +85,8 @@ function PosterShelf({ title, items, onViewAll, onSelect, onPreview }: PosterShe
             <button key={channel.id} data-tv-focus="true" onFocus={() => onPreview?.(channel)} onClick={() => onSelect(channel)} className="media-poster-focus poster-card group text-left">
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-white/[0.04]">
                 <PosterImage channel={channel} priority={index < 5} />
-                <RatingStars value={channel.rating} compact />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black via-black/75 to-transparent" />
+                <RatingStars value={channel.rating} compact />
                 <p className="absolute inset-x-0 bottom-0 z-10 truncate px-3 pb-3 text-sm font-semibold text-white">{channel.name}</p>
               </div>
             </button>
@@ -201,7 +201,7 @@ function RatingStars({ value, compact = false }: { value?: string | number | nul
   return (
     <span
       className={compact
-        ? 'absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-amber-300 backdrop-blur-md'
+        ? 'absolute bottom-10 left-3 z-10 inline-flex items-center gap-1 text-amber-300'
         : 'inline-flex items-center gap-2 text-amber-300'}
       aria-label={`Pontuação: ${rating}, ${filledStars} de 5 estrelas`}
     >
@@ -221,7 +221,7 @@ function RatingStars({ value, compact = false }: { value?: string | number | nul
           );
         })}
       </span>
-      <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>
+      {!compact && <span className="whitespace-nowrap tabular-nums">Pontuação: {rating}</span>}
     </span>
   );
 }
