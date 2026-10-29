@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { getCachedSportsSettings, loadTodayMatches, type TodayMatch } from '@/lib/sports';
@@ -21,7 +22,6 @@ function TeamLogo({ source, name, compact = false }: { source?: string; name: st
   }
   return <span className={`flex ${size} items-center justify-center rounded-full bg-white/[.07] font-bold text-white/45`}>{teamInitials(name)}</span>;
 }
-
 
 function groupMatchesByCompetition(matches: TodayMatch[]) {
   const groups = new Map<string, TodayMatch[]>();
@@ -56,6 +56,7 @@ function groupMatchesByCompetition(matches: TodayMatch[]) {
 
 export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
   const [matches, setMatches] = useState<TodayMatch[]>([]);
+  const [activeTab, setActiveTab] = useState<'tv' | 'games'>('tv');
   const [activeIndex, setActiveIndex] = useState(0);
   const [rotationKey, setRotationKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,7 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     void load();
 
@@ -105,6 +107,7 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
       document.removeEventListener('visibilitychange', refresh);
     };
   }, [load]);
+
   useEffect(() => {
     if (matches.length < 2) return;
 
@@ -122,6 +125,7 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
   }, [matches.length, activeIndex, rotationKey]);
 
   const activeMatch = matches[activeIndex];
+
   const currentDate = useMemo(() => {
     const now = new Date();
     const weekday = new Intl.DateTimeFormat('pt-BR', {
@@ -166,6 +170,26 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
       </span>
     </header>
 
+    <div className="flex gap-2 border-y border-white/[.06] px-4 py-3" role="tablist" aria-label="Visões dos jogos">
+      <button type="button" role="tab" aria-selected={activeTab === 'tv'} onClick={() => setActiveTab('tv')} className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeTab === 'tv' ? 'bg-white/[.12] text-white' : 'text-white/50 hover:bg-white/[.07]'}`}>Onde assistir</button>
+      <button type="button" role="tab" aria-selected={activeTab === 'games'} onClick={() => setActiveTab('games')} className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeTab === 'games' ? 'bg-white/[.12] text-white' : 'text-white/50 hover:bg-white/[.07]'}`}>Detalhes dos jogos</button>
+    </div>
+
+    {activeTab === 'tv' ? (
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#0b1319] px-2 pb-3 pt-2" role="tabpanel" aria-label="Programação de transmissões">
+        <iframe
+          id="ftv_iframe"
+          name="ftv_iframe"
+          title="Futebol ao vivo na TV — jogos e canais de transmissão"
+          src="https://widgets.futbolenlatv.com/?color=000&culture=pt-BR"
+          loading="lazy"
+          scrolling="auto"
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="h-full min-h-[520px] w-full rounded-xl border-0 bg-black"
+          style={{ colorScheme: 'dark' }}
+        />
+      </div>
+    ) : <>
     <div className="sports-rotation-track" aria-hidden="true"><span key={rotationKey} className="sports-rotation-progress" style={{ backgroundColor: primaryColor, animationDuration: `${ROTATION_MS}ms` }} /></div>
 
     <div className="sports-widget-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3 scrollbar-none">
@@ -255,5 +279,6 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
         </section>
       </>}
     </div>
+    </>}
   </div>;
 }
