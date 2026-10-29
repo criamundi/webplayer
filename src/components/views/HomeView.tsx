@@ -18,6 +18,7 @@ interface HomeViewProps {
   onToggleFavorite: (id: string, channel?: Channel) => void;
   onNavigate: (view: View) => void;
   onSelectSeries: (seriesId: string) => void;
+  onSelectMovie: (item: CatalogItem) => void;
   branding: { primaryColor: string; secondaryColor: string; homeLayout?: 'complete' | 'simple'; appName?: string; logoUrl?: string | null; backgroundUrl?: string | null };
 }
 interface PosterShelfProps { title: string; items: CatalogItem[]; onViewAll: () => void; onSelect: (channel: CatalogItem) => void; onPreview?: (channel: CatalogItem) => void; }
@@ -317,7 +318,7 @@ function HomeHeroArtwork({ item, info, onReady }: { item: CatalogItem | null; in
   />;
 }
 
-export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, branding }: HomeViewProps) {
+export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavigate, onSelectSeries, onSelectMovie, branding }: HomeViewProps) {
   const isSimple = branding.homeLayout === 'simple';
   const favoritesRef = useRef(favorites);
   const [heroInfo, setHeroInfo] = useState<ContentInfo | null>(null);
@@ -653,7 +654,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       <div className="home-complete-nav-band relative z-20 px-5 sm:px-8 lg:px-12">
         <HomeTVNavigation onNavigate={onNavigate} />
         <div className="space-y-12 pb-16 pt-10">
-          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectChannel(item)} onPreview={previewHeroItem} />
+          <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectMovie(item)} onPreview={previewHeroItem} />
           <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} onPreview={previewHeroItem} />
         </div>
       </div>

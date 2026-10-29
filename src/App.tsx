@@ -2089,6 +2089,10 @@ export default function App() {
                 setSeriesResumeId(seriesId);
                 handleNavigate('series');
               }}
+              onSelectMovie={(item) => {
+                setMovieResumeId(item.id);
+                handleNavigate('movies');
+              }}
               branding={{
                 primaryColor: branding.primary_color,
                 secondaryColor: branding.secondary_color,
