@@ -264,9 +264,9 @@ export function MoviesView({
       <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
         {showPosterFallback ? (
-          <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+          <div className="flex min-w-0 items-center gap-5 sm:gap-7">
             {/* Capa vertical ao lado do título quando não existe logo do filme. */}
-            <div className="relative aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-32 lg:w-36">
+            <div className="relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-36 lg:w-44">
               <MediaCover
                 logo={selectedInfo?.cover || selected.logo}
                 fallbackLogo={selected.logo}
