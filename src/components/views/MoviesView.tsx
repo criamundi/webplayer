@@ -295,33 +295,33 @@ export function MoviesView({
       </div>
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
       <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
-      <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
+      <div className="relative z-10 flex min-h-[72vh] max-w-5xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
-        {showPosterFallback ? (
-          <>
-            <div className="mb-5">
-              <div className="relative aspect-[2/3] w-[120px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
-                <MediaCover
-                  logo={selectedInfo?.cover || selected.logo}
-                  fallbackLogo={selected.logo}
-                  name={titleName}
-                  priority
-                />
-              </div>
+        <div className={showPosterFallback ? 'flex min-w-0 items-start gap-4 sm:gap-6 lg:gap-8' : ''}>
+          {showPosterFallback && (
+            <div className="relative aspect-[2/3] w-[120px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
+              <MediaCover
+                logo={selectedInfo?.cover || selected.logo}
+                fallbackLogo={selected.logo}
+                name={titleName}
+                priority
+              />
             </div>
-            <MediaHeroTitle name={titleName} />
-          </>
-        ) : (
-          <img
-            src={displayedLogo}
-            alt={titleName}
-            decoding="async"
-            fetchPriority="high"
-            referrerPolicy="no-referrer"
-            onError={handleTitleLogoError}
-            className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left"
-          />
-        )}
+          )}
+          <div className="min-w-0 flex-1">
+            {showPosterFallback ? (
+              <MediaHeroTitle name={titleName} />
+            ) : (
+              <img
+                src={displayedLogo}
+                alt={titleName}
+                decoding="async"
+                fetchPriority="high"
+                referrerPolicy="no-referrer"
+                onError={handleTitleLogoError}
+                className="max-h-28 max-w-[min(78vw,24rem)] object-contain object-left"
+              />
+            )}
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
           {contentRating && <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">{contentRating}</span>}
           {release && <span>{formatMediaDate(release)}</span>}
@@ -336,6 +336,8 @@ export function MoviesView({
           <button onClick={() => onSelectChannel(selected)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"><Play className="h-4 w-4 fill-current" />Reproduzir</button>
           {trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"><Play className="h-4 w-4" />Trailer</button>}
           <button onClick={() => onToggleFavorite(selected.id, selected)} className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"><Heart className={`h-4 w-4 ${favorites.has(selected.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos</button>
+        </div>
+          </div>
         </div>
       </div>
     </section>
