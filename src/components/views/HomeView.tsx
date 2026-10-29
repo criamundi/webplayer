@@ -360,7 +360,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
   const [heroPool, setHeroPool] = useState<CatalogItem[]>([]);
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroImageLoading, setHeroImageLoading] = useState(true);
-  const [infoPanelOpen, setInfoPanelOpen] = useState(() => !platform.isTV);
+  const [infoPanelOpen, setInfoPanelOpen] = useState(true);
   const [sportsWidgetEnabled, setSportsWidgetEnabled] = useState(true);
   const [renewalOpen, setRenewalOpen] = useState(false);
   const [renewalChecking, setRenewalChecking] = useState(false);
@@ -649,6 +649,9 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
 
   return (
     <div className="home-page view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
+      <nav className="relative z-30 px-5 pb-3 pt-3 sm:hidden" aria-label="Menu principal">
+        <HomeTVNavigation onNavigate={onNavigate} />
+      </nav>
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
           {heroImageLoading && !heroInfo && (
@@ -690,14 +693,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
           )}
 
           {/* Mesmo alinhamento, hierarquia e espaçamento do Hero de Filmes. */}
-          <div className={`relative z-10 flex h-full min-h-0 flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12 ${!heroInfo?.titleLogo && heroItem ? 'max-w-5xl' : 'max-w-2xl'}`}>
+          <div className={`relative z-10 flex h-full min-h-0 flex-col justify-end px-5 pb-10 pt-24 sm:px-8 sm:pb-14 lg:px-12 ${!heroInfo?.titleLogo && heroItem ? 'max-w-6xl' : 'max-w-4xl'}`}>
             {heroItem && (
-              <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">
+              <span className="mb-3 text-xs font-semibold uppercase tracking-[.05em] text-emerald-400 sm:text-sm">
                 {heroItem.contentType === 'series' ? 'Série' : 'Filme'}
               </span>
             )}
 
-            <div className={!heroInfo?.titleLogo && heroItem ? 'flex min-w-0 items-start gap-4 sm:gap-6 lg:gap-8' : ''}>
+            <div className={!heroInfo?.titleLogo && heroItem ? 'flex min-w-0 flex-col items-start gap-5 sm:flex-row sm:gap-7 lg:gap-9' : ''}>
               {!heroInfo?.titleLogo && heroItem && (
                 <div className="relative aspect-[2/3] w-[156px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[202px] lg:w-[246px]">
                   <MediaCover
@@ -708,12 +711,12 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
                   />
                 </div>
               )}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 [&_h1]:text-[clamp(2rem,4vw,4.5rem)] [&_h1]:leading-[1.08] [&_img]:max-h-[clamp(7rem,18vh,15rem)] [&_img]:max-w-full">
                 <MediaHeroTitle
                   logo={heroInfo?.titleLogo}
                   name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'}
                 />
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/65 sm:text-base lg:text-lg">
               {heroInfo?.contentRating && (
                 <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">
                   {heroInfo.contentRating}
@@ -725,16 +728,16 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
               <RatingStars value={heroRating} />
             </div>
 
-            {heroGenre && <p className="mt-3 text-sm text-white/65">{heroGenre}</p>}
+            {heroGenre && <p className="mt-3 text-sm text-white/65 sm:text-base lg:text-lg">{heroGenre}</p>}
             {(heroDirector || heroInfo?.cast) && (
-              <p className="mt-3 line-clamp-1 text-xs text-white/45">
+              <p className="mt-3 line-clamp-1 text-sm text-white/50 sm:text-base">
                 <span className="font-medium text-white/65">
                   {heroDirector ? (heroItem?.contentType === 'series' ? 'Criação e direção:' : 'Direção:') : 'Elenco:'}
                 </span>{' '}
                 {heroDirector || heroInfo?.cast}
               </p>
             )}
-            <MediaSynopsis text={heroPlot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
+            <div className="text-sm sm:text-base lg:text-lg [&_p]:text-inherit"><MediaSynopsis text={heroPlot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} /></div>
 
             {heroItem && (
               <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3">
@@ -742,7 +745,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
                   data-tv-autofocus="true"
                   data-tv-priority="primary"
                   onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 sm:px-6 sm:py-3.5 sm:text-base"
                 >
                   <Play className="h-4 w-4 fill-current" />Reproduzir
                 </button>
@@ -750,14 +753,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
                   <button
                     type="button"
                     onClick={() => setTrailerOpen(true)}
-                    className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"
+                    className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur sm:px-6 sm:py-3.5 sm:text-base"
                   >
                     <Play className="h-4 w-4" />Trailer
                   </button>
                 )}
                 <button
                   onClick={() => onToggleFavorite(heroItem.id, heroItem)}
-                  className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"
+                  className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none sm:px-6 sm:py-3.5 sm:text-base"
                 >
                   <Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos
                 </button>
@@ -787,7 +790,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="home-complete-nav-band relative z-20 px-5 sm:px-8 lg:px-12">
-        <HomeTVNavigation onNavigate={onNavigate} />
+        <div className="hidden sm:block"><HomeTVNavigation onNavigate={onNavigate} /></div>
         <div className="space-y-12 pb-16 pt-10">
           <PosterShelf title="Filmes recentemente adicionados" items={movies} onViewAll={() => onNavigate('movies')} onSelect={(item) => onSelectMovie(item)} onPreview={previewHeroItem} />
           <PosterShelf title="Séries recentemente adicionadas" items={series} onViewAll={() => onNavigate('series')} onSelect={(item) => onSelectSeries(item.id)} onPreview={previewHeroItem} />
