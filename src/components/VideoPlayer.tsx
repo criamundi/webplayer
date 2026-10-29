@@ -31,6 +31,7 @@ import { storage } from '@/lib/storage';
 import { isAppFullscreen, platform, toggleAppFullscreen } from '@/lib/platform';
 import { hasSamsungAVPlay } from '@/lib/samsungAvplay';
 import { SamsungAVPlayer } from '@/components/SamsungAVPlayer';
+import { ChromecastButton } from '@/components/ChromecastButton';
 
 export interface VideoPlayerProps {
   channel: Channel | null;
@@ -97,6 +98,8 @@ function BrowserVideoPlayer({
 
   const [status, setStatus] =
     useState<PlayerStatus>('idle');
+
+  const [castUrl, setCastUrl] = useState('');
 
   const [errorMsg, setErrorMsg] =
     useState('');
@@ -748,6 +751,7 @@ function BrowserVideoPlayer({
       generationRef.current;
 
     setStatus('loading');
+    setCastUrl('');
     setErrorMsg('');
     setCurrentTime(0);
     setDuration(0);
@@ -766,6 +770,7 @@ function BrowserVideoPlayer({
       .then((playableUrl) => {
         if (generation !== generationRef.current) return;
 
+        setCastUrl(playableUrl);
         console.log('PLAYER STREAM:', {
           channel: channel.name,
           originalUrl,
@@ -1337,6 +1342,8 @@ function BrowserVideoPlayer({
                   {canSeek ? <span className="tabular-nums">{formatPlayerTime(currentTime)} <span className="text-white/30">/</span> {formatPlayerTime(duration)}</span> : <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />Ao vivo</span>}
                 </div>
               </div>
+
+              {!platform.isTV && <ChromecastButton key={channel.id} url={castUrl} name={channel.name} isLive={!canSeek} position={currentTime} onStart={() => { videoRef.current?.pause(); }} />}
 
               <div className="relative">
                 <button type="button" onClick={() => setSettingsOpen((value) => !value)} className={`player-control-button ${settingsOpen ? 'bg-white/15 text-emerald-300' : ''}`} aria-label="Configurações do player"><Settings2 className="h-5 w-5" /></button>
