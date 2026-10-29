@@ -122,7 +122,6 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
   }, [matches.length, activeIndex, rotationKey]);
 
   const activeMatch = matches[activeIndex];
-  const probabilities = activeMatch?.probabilities || { home: 40, draw: 30, away: 30 };
   const currentDate = useMemo(() => {
     const now = new Date();
     const weekday = new Intl.DateTimeFormat('pt-BR', {
@@ -183,27 +182,17 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
             <div className="flex w-[7.5rem] min-w-0 flex-col items-center text-center"><TeamLogo source={activeMatch.awayLogo} name={activeMatch.away} /><strong className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white">{activeMatch.away}</strong></div>
           </div>
 
-          <div className="mt-5">
-            <div className="mb-2 text-[10px] text-white/45"><span>Probabilidade estimada</span></div>
-            <div className="flex h-2.5 overflow-hidden rounded-full bg-white/[.06] shadow-inner shadow-black/30">
-              <span className="bg-slate-300/75" style={{ width: `${probabilities.home}%` }} />
-              <span className="bg-slate-500/65" style={{ width: `${probabilities.draw}%` }} />
-              <span className="bg-slate-700/80" style={{ width: `${probabilities.away}%` }} />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <div className="min-w-0 text-left">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-white">{probabilities.home}%</strong>
-                <span className="mt-1 block truncate text-[10px] font-medium text-white/40">{activeMatch.home}</span>
+          <div className="mt-5 rounded-xl bg-black/20 px-3.5 py-3">
+            <span className="block text-[10px] font-semibold uppercase tracking-[.05em] text-white/45">Onde assistir</span>
+            {activeMatch.channels.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {activeMatch.channels.map((channel) => (
+                  <span key={channel} className="rounded-lg bg-white/[.09] px-2.5 py-1.5 text-xs font-semibold text-white/85">{channel}</span>
+                ))}
               </div>
-              <div className="min-w-0 text-center">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-white/72">{probabilities.draw}%</strong>
-                <span className="mt-1 block text-[10px] font-medium text-white/35">Empate</span>
-              </div>
-              <div className="min-w-0 text-right">
-                <strong className="block text-[15px] font-extrabold tabular-nums text-white/55">{probabilities.away}%</strong>
-                <span className="mt-1 block truncate text-[10px] font-medium text-white/35">{activeMatch.away}</span>
-              </div>
-            </div>
+            ) : (
+              <p className="mt-2 text-xs text-white/40">Transmissão não informada</p>
+            )}
           </div>
         </section>
 
@@ -250,6 +239,12 @@ export function FootballWidget({ primaryColor, onClose }: FootballWidgetProps) {
                             <TeamLogo compact source={match.awayLogo} name={match.away} />
                           </span>
                         </button>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-1 text-[10px] text-white/45">
+                          <span>Transmissão:</span>
+                          {match.channels.length ? match.channels.map((channel) => (
+                            <span key={channel} className="rounded-md bg-black/25 px-1.5 py-0.5 text-white/70">{channel}</span>
+                          )) : <span>não informada</span>}
+                        </div>
                       </div>
                     );
                   })}
