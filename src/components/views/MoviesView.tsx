@@ -299,7 +299,7 @@ export function MoviesView({
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
         <div className={showPosterFallback ? 'flex min-w-0 items-start gap-4 sm:gap-6 lg:gap-8' : ''}>
           {showPosterFallback && (
-            <div className="relative aspect-[2/3] w-[120px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[155px] lg:w-[189px]">
+            <div className="relative aspect-[2/3] w-[156px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[202px] lg:w-[246px]">
               <MediaCover
                 logo={selectedInfo?.cover || selected.logo}
                 fallbackLogo={selected.logo}
