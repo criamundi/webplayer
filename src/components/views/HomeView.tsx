@@ -7,7 +7,7 @@ import { storage } from '@/lib/storage';
 import { TrailerPlayer } from '@/components/TrailerPlayer';
 import { FootballWidget } from '@/components/home/FootballWidget';
 import { loadSportsWidgetSettings } from '@/lib/sportsSettings';
-import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
+import { MediaCover, MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
 import { formatMediaDate, mediaDuration, mediaImageValue, mediaRating, mediaText } from '@/components/media/mediaUtils';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 import { platform } from '@/lib/platform';
@@ -663,6 +663,19 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
               <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">
                 {heroItem.contentType === 'series' ? 'Série' : 'Filme'}
               </span>
+            )}
+
+            {!heroInfo?.titleLogo && heroItem && (
+              <div className="mb-5">
+                <div className="relative aspect-[2/3] w-[185px] overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[238px] lg:w-[290px]">
+                  <MediaCover
+                    logo={heroInfo?.cover || heroItem.logo}
+                    fallbackLogo={heroItem.logo}
+                    name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Destaque'}
+                    priority
+                  />
+                </div>
+              </div>
             )}
 
             <MediaHeroTitle
