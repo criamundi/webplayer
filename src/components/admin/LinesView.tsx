@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Pencil, Plus, Power, Search, Trash2, X, Zap, CheckCircle2, XCircle } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowRightLeft, Calendar, Check, Copy, Globe, Loader2, Pencil, Plus, Power, Search, Trash2, X, Zap, CheckCircle2, XCircle, Play, Pause, ListChecks } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { buildM3ULink, copyToClipboard } from '@/lib/m3u-link';
 
@@ -48,6 +48,7 @@ export function LinesView() {
   const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [showTestAll, setShowTestAll] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -195,6 +196,9 @@ export function LinesView() {
               <ArrowRightLeft className="h-4 w-4" /> Migrar DNS em massa
             </button>
           )}
+          <button onClick={() => setShowTestAll(true)} className="flex items-center gap-2 rounded-xl border border-lime-300/20 bg-lime-300/10 px-4 py-2.5 text-sm font-semibold text-lime-300 transition hover:bg-lime-300/20">
+            <ListChecks className="h-4 w-4" /> Testar todas as listas
+          </button>
           <button onClick={() => { setEditing(null); setShowForm(true); }} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
             <Plus className="h-4 w-4" /> Novo dispositivo
           </button>
@@ -343,6 +347,14 @@ export function LinesView() {
           superAdmin={isSuperAdmin}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); load(); }}
+        />
+      )}
+
+      {showTestAll && (
+        <TestAllModal
+          lines={filtered}
+          onClose={() => setShowTestAll(false)}
+          onCompleted={load}
         />
       )}
 
@@ -571,6 +583,200 @@ function MigrateModal({ dnsList, count, migrating, msg, selectedDns, onSelect, o
             {migrating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />} Migrar {count} dispositivo(s)
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface TestAllResult {
+  lineId: string;
+  username: string;
+  providerName: string;
+  ok: boolean;
+  message: string;
+}
+
+function TestAllModal({ lines, onClose, onCompleted }: {
+  lines: Line[];
+  onClose: () => void;
+  onCompleted: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [results, setResults] = useState<TestAllResult[]>([]);
+  const [finished, setFinished] = useState(false);
+  const pausedRef = useRef(false);
+  const cancelledRef = useRef(false);
+
+  const total = lines.length;
+  const okCount = results.filter((r) => r.ok).length;
+  const errorCount = results.filter((r) => !r.ok).length;
+
+  const runTests = async () => {
+    setRunning(true);
+    setPaused(false);
+    setFinished(false);
+    cancelledRef.current = false;
+    pausedRef.current = false;
+
+    for (let i = currentIndex; i < total; i++) {
+      if (cancelledRef.current) break;
+
+      while (pausedRef.current && !cancelledRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      if (cancelledRef.current) break;
+
+      const line = lines[i];
+      setCurrentIndex(i);
+
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connect-line`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({
+            provider: line.iptv_providers?.name || '',
+            username: line.username,
+            password: line.password,
+            streamType: line.stream_type || 'm3u',
+            action: 'test-line',
+          }),
+        });
+        const result = await response.json() as { ok?: boolean; error?: string; message?: string };
+        const res: TestAllResult = {
+          lineId: line.id,
+          username: line.username,
+          providerName: line.iptv_providers?.name || 'Sem provedor',
+          ok: Boolean(result.ok),
+          message: result.ok ? (result.message || 'OK') : (result.error || 'Erro'),
+        };
+        setResults((prev) => [...prev, res]);
+      } catch {
+        setResults((prev) => [...prev, {
+          lineId: line.id,
+          username: line.username,
+          providerName: line.iptv_providers?.name || 'Sem provedor',
+          ok: false,
+          message: 'Falha de conexão',
+        }]);
+      }
+    }
+
+    setRunning(false);
+    if (!cancelledRef.current) setFinished(true);
+  };
+
+  const handlePause = () => {
+    pausedRef.current = true;
+    setPaused(true);
+  };
+
+  const handleResume = () => {
+    pausedRef.current = false;
+    setPaused(false);
+  };
+
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    pausedRef.current = false;
+    setPaused(false);
+    setRunning(false);
+  };
+
+  const handleClose = () => {
+    cancelledRef.current = true;
+    onCompleted();
+    onClose();
+  };
+
+  const progress = total > 0 ? Math.round(((currentIndex) / total) * 100) : 0;
+  const remaining = total - currentIndex;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-white/10 bg-[#101b25] p-6 shadow-2xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Testar todas as listas</h3>
+            <p className="mt-1 text-xs text-white/40">{total} dispositivo(s) serão testados sequencialmente</p>
+          </div>
+          <button onClick={handleClose} className="rounded-xl p-2 text-white/40 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
+        </div>
+
+        {!running && !finished && results.length === 0 && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/60">Total de listas</span>
+                <span className="font-bold text-white/90">{total}</span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-white/40">Cada lista será testada individualmente, uma por vez. Você pode pausar para continuar mais tarde ou cancelar a qualquer momento.</p>
+            </div>
+            <button onClick={runTests} disabled={total === 0} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200 disabled:opacity-50">
+              <Play className="h-4 w-4 fill-current" /> Iniciar testes
+            </button>
+          </div>
+        )}
+
+        {(running || finished || results.length > 0) && (
+          <>
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/50">{finished ? 'Concluído' : paused ? 'Pausado' : running ? 'Testando...' : 'Pronto'}</span>
+                <span className="font-semibold text-white/70">{currentIndex}/{total}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-lime-300 transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="flex items-center gap-1 text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" /> {okCount} OK</span>
+                <span className="flex items-center gap-1 text-red-300"><XCircle className="h-3.5 w-3.5" /> {errorCount} erro(s)</span>
+                {running && remaining > 0 && <span className="text-white/40">{remaining} restante(s)</span>}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: '300px' }}>
+              {results.map((r, idx) => (
+                <div key={idx} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${r.ok ? 'border-emerald-300/10 bg-emerald-300/[0.04]' : 'border-red-300/15 bg-red-300/[0.06]'}`}>
+                  {r.ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" /> : <XCircle className="h-3.5 w-3.5 shrink-0 text-red-300" />}
+                  <span className="min-w-0 flex-1 truncate font-medium text-white/80">{r.username}</span>
+                  <span className="shrink-0 text-white/35">{r.providerName}</span>
+                  <span className={`shrink-0 max-w-[180px] truncate ${r.ok ? 'text-emerald-200/70' : 'text-red-200/70'}`}>{r.message}</span>
+                </div>
+              ))}
+              {running && !paused && currentIndex < total && (
+                <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
+                  <span className="text-white/40">Testando {lines[currentIndex]?.username}...</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              {running && !paused && (
+                <button onClick={handlePause} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-white/10">
+                  <Pause className="h-4 w-4" /> Pausar
+                </button>
+              )}
+              {running && paused && (
+                <button onClick={handleResume} className="flex items-center gap-2 rounded-xl bg-lime-300 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
+                  <Play className="h-4 w-4 fill-current" /> Continuar
+                </button>
+              )}
+              {running && (
+                <button onClick={handleCancel} className="flex items-center gap-2 rounded-xl border border-red-300/20 bg-red-300/10 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-300/20">
+                  <X className="h-4 w-4" /> Cancelar
+                </button>
+              )}
+              {(finished || (cancelledRef.current && !running)) && (
+                <button onClick={handleClose} className="flex w-full items-center justify-center gap-2 rounded-xl bg-lime-300 py-3 text-sm font-bold text-slate-950 transition hover:bg-lime-200">
+                  <Check className="h-4 w-4" /> Concluir e atualizar
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

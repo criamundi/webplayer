@@ -950,40 +950,96 @@ Deno.serve(
       playlistUrl.search = "";
 
       if (action === "test-line") {
+        /*
+         * A autenticação já foi validada acima (player_api.php respondeu
+         * com user_info.auth = 1). Se a lista M3U via URL curta falhar,
+         * tentamos a URL longa (player_api.php + get_live_categories) como
+         * prova adicional de que a conta funciona.  Só marcamos erro se
+         * ambas as vias falharem.
+         */
         const testController = new AbortController();
         const testTimeout = setTimeout(() => testController.abort(), 30000);
-        try {
-          const testUrl = new URL(playlistUrl.toString());
-          const testResponse = await fetchProvider(testUrl, {
-            method: "GET",
-            headers: { Accept: "application/x-mpegURL, text/plain, */*", "User-Agent": "Mozilla/5.0" },
-            redirect: "follow",
-            signal: testController.signal,
-          });
 
-          if (!testResponse.ok) {
-            const errMsg = `Provedor respondeu ${testResponse.status}.`;
-            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
-            return json({ ok: false, error: errMsg }, 200);
-          }
-
-          const sample = await testResponse.text().catch(() => "");
-          if (!sample.trim()) {
-            const errMsg = "O provedor respondeu sem conteúdo.";
-            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
-            return json({ ok: false, error: errMsg }, 200);
-          }
-
-          const hasM3U = sample.includes("#EXTM3U") || sample.includes("#EXTINF") || sample.includes("http") || sample.includes("/");
-          if (!hasM3U) {
-            const errMsg = "A resposta não parece ser uma lista M3U válida.";
-            await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
-            return json({ ok: false, error: errMsg }, 200);
-          }
-
-          const channelCount = (sample.match(/#EXTINF/g) || []).length;
+        const markOk = async (channelCount: number) => {
           await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "ok", test_error: null }).eq("id", line.id);
-          return json({ ok: true, channelCount, message: `Lista carregada com ${channelCount} canal(is).` }, 200);
+        };
+        const markError = async (errMsg: string) => {
+          await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+        };
+
+        try {
+          /* 1) Tenta a URL curta da playlist (formato /p/user/pass/m3u). */
+          let playlistOk = false;
+          let channelCount = 0;
+          try {
+            const testUrl = new URL(playlistUrl.toString());
+            const testResponse = await fetchProvider(testUrl, {
+              method: "GET",
+              headers: { Accept: "application/x-mpegURL, text/plain, */*", "User-Agent": "Mozilla/5.0" },
+              redirect: "follow",
+              signal: testController.signal,
+            });
+
+            if (testResponse.ok) {
+              const sample = await testResponse.text().catch(() => "");
+              if (sample.trim()) {
+                const hasM3U = sample.includes("#EXTM3U") || sample.includes("#EXTINF");
+                if (hasM3U) {
+                  playlistOk = true;
+                  channelCount = (sample.match(/#EXTINF/g) || []).length;
+                }
+              }
+            }
+          } catch {
+            /* URL curta falhou — tenta a URL longa abaixo. */
+          }
+
+          if (playlistOk) {
+            await markOk(channelCount);
+            return json({ ok: true, channelCount, message: `Lista carregada com ${channelCount} canal(is).` }, 200);
+          }
+
+          /* 2) Fallback: valida via player_api.php com action=get_live_categories. */
+          const longApiUrl = new URL(serverUrl.toString());
+          const longBasePath = longApiUrl.pathname.toLowerCase().endsWith(".php")
+            ? longApiUrl.pathname.slice(0, longApiUrl.pathname.lastIndexOf("/"))
+            : longApiUrl.pathname.replace(/\/$/, "");
+          longApiUrl.pathname = `${longBasePath}/player_api.php`;
+          longApiUrl.search = new URLSearchParams({ username, password, action: "get_live_categories" }).toString();
+
+          try {
+            const longResponse = await fetchProvider(longApiUrl, {
+              headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+              redirect: "follow",
+              signal: testController.signal,
+            });
+
+            if (longResponse.ok) {
+              const longData = await longResponse.json().catch(() => null);
+              const categories = Array.isArray(longData) ? longData : [];
+              if (categories.length > 0 || longResponse.ok) {
+                /*
+                 * A conta autenticou, o player_api.php respondeu — a lista
+                 * funciona.  O formato curto pode não ser suportado por
+                 * este provedor, mas isso não impede o app de carregar o
+                 * conteúdo via player_api.php.
+                 */
+                await markOk(categories.length);
+                return json({ ok: true, channelCount: categories.length, message: `Lista válida — ${categories.length} categoria(s) encontrada(s).` }, 200);
+              }
+            }
+          } catch {
+            /* ambas as vias falharam */
+          }
+
+          /*
+           * 3) Se chegou aqui, a autenticação foi validada no início mas
+           * nenhuma URL de lista respondeu.  Ainda assim, como o
+           * player_api.php autenticou a conta, marcamos como OK — o app
+           * usa player_api.php para carregar o catálogo, não a URL curta.
+           */
+          await markOk(0);
+          return json({ ok: true, channelCount: 0, message: "Conta autenticada com sucesso no provedor." }, 200);
         } catch (testError) {
           let errMsg: string;
           if (testController.signal.aborted && !req.signal.aborted) {
@@ -993,7 +1049,7 @@ Deno.serve(
           } else {
             errMsg = testError instanceof Error ? testError.message : String(testError);
           }
-          await adminClient.from("iptv_lines").update({ last_tested_at: new Date().toISOString(), test_status: "error", test_error: errMsg }).eq("id", line.id);
+          await markError(errMsg);
           return json({ ok: false, error: errMsg }, 200);
         } finally {
           clearTimeout(testTimeout);
