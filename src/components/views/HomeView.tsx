@@ -8,7 +8,7 @@ import { TrailerPlayer } from '@/components/TrailerPlayer';
 import { FootballWidget } from '@/components/home/FootballWidget';
 import { loadSportsWidgetSettings } from '@/lib/sportsSettings';
 import { MediaHeroTitle, MediaSynopsis } from '@/components/media/MediaDetailsUI';
-import { mediaDuration, mediaImageValue, mediaText } from '@/components/media/mediaUtils';
+import { formatMediaDate, mediaDuration, mediaImageValue, mediaRating, mediaText } from '@/components/media/mediaUtils';
 import { getPlayableStreamUrl } from '@/lib/streamProxy';
 import { platform } from '@/lib/platform';
 
@@ -558,12 +558,14 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     };
   }, [heroPool, trailerOpen, loadCompleteHeroInfo]);
 
-  const releaseYear = heroInfo?.releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
-  const rawHeroRating = heroInfo?.rating || heroItem?.rating;
-  const heroRating = validRating(rawHeroRating) ? rawHeroRating : undefined;
+  // Metadados no mesmo padrão visual e na mesma ordem de MoviesView.
+  const heroRelease = heroInfo?.releaseDate;
+  const heroRating = mediaRating(heroInfo?.rating || heroItem?.rating);
   const duration = heroItem?.contentType === 'series' ? '' : mediaDuration(heroInfo?.duration);
   const heroLanguage = heroInfo?.language?.trim().toUpperCase();
-  const metadata = [heroInfo?.contentRating, heroRating, releaseYear, heroLanguage, duration, heroInfo?.genre].filter(Boolean);
+  const heroGenre = heroInfo?.genre || heroItem?.genre;
+  const heroDirector = heroInfo?.director;
+  const heroPlot = heroInfo?.plot || heroItem?.plot;
   const rawRenewalUrl = accountStatus?.renewalUrl || import.meta.env.VITE_RENEWAL_URL as string | undefined;
   const renewalUrl = (() => { try { const url = new URL(rawRenewalUrl || ''); return /^https?:$/.test(url.protocol) ? url.toString() : undefined; } catch { return undefined; } })();
   const remainingMs = accountStatus?.expiresAt ? new Date(accountStatus.expiresAt).getTime() - now.getTime() : null;
@@ -617,38 +619,131 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
     <div className="home-page view-scroll-shell -mx-5 sm:-mx-8 lg:-mx-10">
       <section className="home-hero">
         <div className={`hero-visual ${infoPanelOpen ? 'hero-visual-panel-open' : ''}`}>
-        {heroImageLoading && !heroInfo && <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]"><div className="flex flex-col items-center gap-3 text-xs text-white/35"><LoaderCircle className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />Carregando destaque</div></div>}
-        <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
-        <div className="home-hero-shade" />
-        <div className="absolute left-5 top-6 z-20 flex items-center gap-3.5 rounded-xl bg-[#091018]/68 px-4 py-3 text-white backdrop-blur-xl sm:left-8 lg:left-12">
-          <Clock3 className="h-5 w-5" style={{ color: branding.primaryColor }} />
-          <div className="leading-none">
-            <strong className="block text-lg font-bold tabular-nums">{now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong>
-            <span className="mt-1.5 block text-[11px] font-medium uppercase tracking-[.05em] text-white/55">{now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')}</span>
+          {heroImageLoading && !heroInfo && (
+            <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[#091018]">
+              <div className="flex flex-col items-center gap-3 text-xs text-white/35">
+                <LoaderCircle className="h-8 w-8 animate-spin" style={{ color: 'var(--brand-primary, #bef264)' }} />
+                Carregando destaque
+              </div>
+            </div>
+          )}
+          <HomeHeroArtwork item={heroItem} info={heroInfo} onReady={() => setHeroImageLoading(false)} />
+
+          {/* O mesmo degradê cinematográfico usado no detalhe de MoviesView. */}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
+
+          {/* Relógio e acesso aos jogos são recursos exclusivos da Home. */}
+          <div className="absolute left-5 top-6 z-20 flex items-center gap-3.5 rounded-xl bg-[#091018]/68 px-4 py-3 text-white backdrop-blur-xl sm:left-8 lg:left-12">
+            <Clock3 className="h-5 w-5" style={{ color: branding.primaryColor }} />
+            <div className="leading-none">
+              <strong className="block text-lg font-bold tabular-nums">
+                {now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </strong>
+              <span className="mt-1.5 block text-[11px] font-medium uppercase tracking-[.05em] text-white/55">
+                {now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')}
+              </span>
+            </div>
+          </div>
+
+          {sportsWidgetEnabled && !infoPanelOpen && (
+            <button
+              type="button"
+              onClick={() => setInfoPanelOpen(true)}
+              className="absolute right-5 top-6 z-20 flex min-h-12 items-center gap-3 rounded-xl bg-[#091018]/90 px-4 py-3 text-xs font-semibold uppercase tracking-[.05em] text-white/75 shadow-lg shadow-black/20 transition hover:bg-[#101a21] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#091018] sm:right-8 lg:right-12"
+              aria-label="Abrir Jogos do Dia"
+              title="Abrir Jogos do Dia"
+            >
+              <PanelRightOpen className="h-4 w-4" /> Jogos do Dia
+            </button>
+          )}
+
+          {/* Mesmo alinhamento, hierarquia e espaçamento do Hero de Filmes. */}
+          <div className="relative z-10 flex h-full min-h-0 max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
+            {heroItem && (
+              <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">
+                {heroItem.contentType === 'series' ? 'Série' : 'Filme'}
+              </span>
+            )}
+
+            <MediaHeroTitle
+              logo={heroInfo?.titleLogo}
+              name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'}
+            />
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/55">
+              {heroInfo?.contentRating && (
+                <span className="rounded border border-white/45 px-1.5 py-0.5 font-semibold text-white/75">
+                  {heroInfo.contentRating}
+                </span>
+              )}
+              {heroRelease && <span>{formatMediaDate(heroRelease)}</span>}
+              {heroLanguage && <span>({heroLanguage})</span>}
+              {duration && <span>{duration}</span>}
+              {heroRating && (
+                <span className="flex items-center gap-1 text-amber-300">
+                  <Star className="h-3.5 w-3.5 fill-current" /> {heroRating}
+                </span>
+              )}
+            </div>
+
+            {heroGenre && <p className="mt-3 text-sm text-white/65">{heroGenre}</p>}
+            {(heroDirector || heroInfo?.cast) && (
+              <p className="mt-3 line-clamp-1 text-xs text-white/45">
+                <span className="font-medium text-white/65">
+                  {heroDirector ? (heroItem?.contentType === 'series' ? 'Criação e direção:' : 'Direção:') : 'Elenco:'}
+                </span>{' '}
+                {heroDirector || heroInfo?.cast}
+              </p>
+            )}
+            <MediaSynopsis text={heroPlot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
+
+            {heroItem && (
+              <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3">
+                <button
+                  data-tv-autofocus="true"
+                  data-tv-priority="primary"
+                  onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950"
+                >
+                  <Play className="h-4 w-4 fill-current" />Reproduzir
+                </button>
+                {trailerSource && (
+                  <button
+                    type="button"
+                    onClick={() => setTrailerOpen(true)}
+                    className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm text-white backdrop-blur"
+                  >
+                    <Play className="h-4 w-4" />Trailer
+                  </button>
+                )}
+                <button
+                  onClick={() => onToggleFavorite(heroItem.id, heroItem)}
+                  className="flex items-center gap-2 rounded-xl border-0 bg-white/10 px-5 py-3 text-sm backdrop-blur outline-none"
+                >
+                  <Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} />Favoritos
+                </button>
+              </div>
+            )}
           </div>
         </div>
-        {sportsWidgetEnabled && !infoPanelOpen && <button
-          type="button"
-          onClick={() => setInfoPanelOpen(true)}
-          className="absolute right-5 top-6 z-20 flex min-h-12 items-center gap-3 rounded-xl bg-[#091018]/90 px-4 py-3 text-xs font-semibold uppercase tracking-[.05em] text-white/75 shadow-lg shadow-black/20 transition hover:bg-[#101a21] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#091018] sm:right-8 lg:right-12"
-          aria-label="Abrir Jogos do Dia"
-          title="Abrir Jogos do Dia"
-        ><PanelRightOpen className="h-4 w-4" /> Jogos do Dia</button>}
-        <div className="relative z-10 flex h-full min-h-0 max-w-3xl flex-col justify-end px-5 pb-20 pt-28 sm:px-8 lg:px-12 lg:pb-24">
-          <MediaHeroTitle logo={heroInfo?.titleLogo} name={cleanHeroTitle(heroInfo?.name || heroItem?.name) || 'Seu entretenimento em um só lugar'} />
-          {metadata.length > 0 && <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-medium text-white/70">{heroInfo?.contentRating && <span className="rounded px-1.5 py-0.5 font-semibold text-white/75">{heroInfo.contentRating}</span>}{heroRating && <span className="flex items-center gap-1 text-amber-300"><Star className="h-3.5 w-3.5 fill-current" />{heroRating}</span>}{releaseYear && <span>{releaseYear}</span>}{heroLanguage && <span>({heroLanguage})</span>}{duration && <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{duration}</span>}{heroInfo?.genre && <span>{heroInfo.genre}</span>}</div>}
-          <MediaSynopsis text={heroInfo?.plot || 'Filmes, séries e canais ao vivo reunidos em uma experiência simples, rápida e cinematográfica.'} />
-          {(heroInfo?.director || heroInfo?.cast) && <p className="mt-3 line-clamp-1 text-xs text-white/38"><span className="text-white/65">{heroInfo.director ? (heroItem?.contentType === 'series' ? 'Criação e direção:' : 'Direção:') : 'Elenco:'}</span> {heroInfo.director || heroInfo.cast}</p>}
-          {heroItem && <div data-tv-axis="horizontal" className="mt-6 flex flex-wrap gap-3"><button data-tv-autofocus="true" data-tv-priority="primary" onClick={() => heroItem.contentType === 'series' ? onSelectSeries(heroItem.id) : onSelectChannel(heroItem)} className="flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"><Play className="h-4 w-4 fill-current" /> Reproduzir</button>{trailerSource && <button type="button" onClick={() => setTrailerOpen(true)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Play className="h-4 w-4 fill-current" /> Trailer</button>}<button onClick={() => onToggleFavorite(heroItem.id, heroItem)} className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/15"><Heart className={`h-4 w-4 ${favorites.has(heroItem.id) ? 'fill-emerald-400 text-emerald-400' : ''}`} /> {favorites.has(heroItem.id) ? 'Favoritado' : 'Favoritos'}</button></div>}
-        </div>
-        </div>
-        {sportsWidgetEnabled && (!platform.isTV || infoPanelOpen) && <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
-          {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && <div className="border-b border-white/8 p-4"><div className="subscription-card"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span><strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong></span><button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button></div></div>}
-          <FootballWidget
-            primaryColor={branding.primaryColor}
-            onClose={() => setInfoPanelOpen(false)}
-          />
-        </aside>}
+
+        {sportsWidgetEnabled && (!platform.isTV || infoPanelOpen) && (
+          <aside className={`hero-info-panel ${infoPanelOpen ? 'hero-info-panel-open' : ''}`} aria-hidden={!infoPanelOpen}>
+            {accountStatus?.daysRemaining != null && accountStatus.daysRemaining <= 10 && (
+              <div className="border-b border-white/8 p-4">
+                <div className="subscription-card">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300"><CalendarClock className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] uppercase tracking-[.05em] text-white/35">Sua assinatura</span>
+                    <strong className="block text-sm font-semibold text-white">{renewalTimeLabel}</strong>
+                  </span>
+                  <button disabled={!renewalUrl} onClick={openRenewal} className="rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-45" title={!renewalUrl ? 'Link de pagamento não cadastrado' : undefined}>Renovar</button>
+                </div>
+              </div>
+            )}
+            <FootballWidget primaryColor={branding.primaryColor} onClose={() => setInfoPanelOpen(false)} />
+          </aside>
+        )}
       </section>
       {renewalOpen && renewalUrl && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-md" onClick={() => setRenewalOpen(false)}><div className="w-full max-w-sm rounded-3xl bg-[#101a21] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex items-center justify-between text-left"><div><p className="text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">Renovação</p><h2 className="mt-1 text-xl font-semibold text-white">Renove pelo celular</h2></div><button onClick={() => setRenewalOpen(false)} className="rounded-xl p-2 text-white/35 transition hover:bg-white/8 hover:text-white"><X className="h-5 w-5" /></button></div>{renewalCompleted ? <div className="py-8"><CheckCircle2 className="mx-auto h-16 w-16 text-emerald-400" /><h3 className="mt-4 text-lg font-semibold text-white">Renovação concluída</h3><p className="mt-2 text-sm text-white/45">A nova validade foi confirmada pelo provedor.</p><button onClick={() => setRenewalOpen(false)} className="mt-6 w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950">Concluir</button></div> : <><div className="mx-auto w-fit rounded-2xl bg-white p-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&format=png&data=${encodeURIComponent(renewalUrl)}`} width="190" height="190" alt="QR Code para renovação" className="block h-[190px] w-[190px]" /></div><p className="mt-4 text-xs leading-5 text-white/45">Aponte a câmera do celular para o QR Code e conclua o pagamento na página do provedor.</p><a href={renewalUrl} target="_blank" rel="noreferrer" className="mt-4 block w-full rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Abrir página de pagamento</a><button onClick={() => void verifyRenewal()} disabled={renewalChecking} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-medium text-white/65 transition hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${renewalChecking ? 'animate-spin' : ''}`} />{renewalChecking ? 'Verificando...' : 'Já paguei, verificar renovação'}</button></>}</div></div>}
       <div className="home-complete-nav-band relative z-20 px-5 sm:px-8 lg:px-12">
