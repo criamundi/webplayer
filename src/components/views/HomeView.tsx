@@ -784,7 +784,7 @@ export function HomeView({ favorites, onSelectChannel, onToggleFavorite, onNavig
                 </div>
               </div>
             )}
-            <FootballWidget primaryColor={branding.primaryColor} onClose={() => setInfoPanelOpen(false)} />
+            <FootballWidget primaryColor={branding.primaryColor} onClose={() => setInfoPanelOpen(false)} onSelectChannel={onSelectChannel} />
           </aside>
         )}
       </section>
