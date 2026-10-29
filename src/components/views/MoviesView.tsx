@@ -261,12 +261,12 @@ export function MoviesView({
       </div>
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#091018_0%,rgba(9,16,24,.82)_48%,rgba(9,16,24,.14)_100%),linear-gradient(0deg,#091018_0%,transparent_65%)]" />
       <button onClick={closeDetails} className="absolute left-5 top-6 z-20 flex items-center gap-2 rounded-xl bg-black/35 px-3 py-2 text-xs text-white/70 backdrop-blur-lg sm:left-8 lg:left-12"><ArrowLeft className="h-4 w-4" />Voltar para capas</button>
-      <div className="relative z-10 flex min-h-[72vh] max-w-2xl flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12">
+      <div className={`relative z-10 flex min-h-[72vh] flex-col justify-end px-5 pb-14 pt-24 sm:px-8 lg:px-12 ${showPosterFallback ? 'max-w-4xl' : 'max-w-2xl'}`}>
         <span className="mb-3 text-[10px] font-semibold uppercase tracking-[.05em] text-emerald-400">{categories.find((item) => item.id === selected.categoryId)?.name || 'Filme'}</span>
         {showPosterFallback ? (
           <div className="flex min-w-0 items-center gap-5 sm:gap-7">
             {/* Capa vertical ao lado do título quando não existe logo do filme. */}
-            <div className="relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-36 lg:w-44">
+            <div className="relative aspect-[2/3] w-[185px] shrink-0 overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] shadow-2xl sm:w-[238px] lg:w-[290px]">
               <MediaCover
                 logo={selectedInfo?.cover || selected.logo}
                 fallbackLogo={selected.logo}
